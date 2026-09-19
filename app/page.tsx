@@ -59,8 +59,11 @@ export default function Home(){
    m.on('zoomend',()=>{el.current?.classList.toggle('crisp',m.getZoom()>=0);el.current?.classList.toggle('far',m.getZoom()<-1)});
    // Ficha de un marcador: un popup junto al pin; React pinta su contenido.
    const box=document.createElement('div');L.DomEvent.disableClickPropagation(box);
-   popup.current=L.popup({closeButton:false,className:'marker-pop',offset:[0,-6],autoPanPaddingTopLeft:[20,130],autoPanPaddingBottomRight:[20,20],maxWidth:300}).setContent(box);
-   m.on('popupclose',()=>{setSelected(null);setStack(null)});setPopupBox(box);
+   popup.current=L.popup({closeButton:false,closeOnClick:false,autoClose:false,className:'marker-pop',offset:[0,-6],autoPanPaddingTopLeft:[20,130],autoPanPaddingBottomRight:[20,20],maxWidth:300}).setContent(box);
+   // Leaflet cierra los popups en el 'preclick' de cualquier clic, tambien sobre
+   // un pin: al volver a pulsar el mismo pin se cerraba y no se reabria. Se
+   // cierra solo con un clic en el mapa (fuera de los pines) o con Escape.
+   m.on('click',()=>{setSelected(null);setStack(null)});setPopupBox(box);
    layer.current=L.layerGroup().addTo(m);map.current=m;setMapReady(true);
   }).catch(e=>console.error('No se pudo cargar Leaflet',e));
   return()=>{disposed=true;map.current?.remove();map.current=null};
