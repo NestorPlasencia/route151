@@ -14,14 +14,15 @@ const pad=(n:number)=>String(n).padStart(3,'0');
 function Progress({done,total}:{done:number;total:number}){const pct=total?Math.round(done/total*100):0;return <span className={`progress ${done===total&&total?'full':''}`}><i><em style={{width:`${pct}%`}}/></i><b>{done}/{total}</b></span>}
 
 export function ChecklistView({markers,checklist,done,toggleDone,onShow,detail,tr}:{markers:Marker[];checklist:Checklist;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;detail:(m:Marker)=>string|null;tr:T}){
- const {t,category}=tr;
+ const {t,category,place,name}=tr;
  const [query,setQuery]=useState(''),[hideDone,setHideDone]=useState(false),[off,setOff]=useState<string[]>([]),[open,setOpen]=useState<string[]>([]);
  const isDone=(m:Marker)=>done.includes(m.uid);
  const categories=useMemo(()=>{const c=new Map<string,number>();markers.forEach(m=>c.set(m.category,(c.get(m.category)??0)+1));return [...c]},[markers]);
  // Zona -> (lista suelta de Kanto, pisos en orden de visita).
  const byZone=useMemo(()=>{const out=new Map<string,Map<string,Marker[]>>();for(const m of markers){const z=checklist.markers[m.id];if(!z)continue;const floors=out.get(z.zone)??out.set(z.zone,new Map()).get(z.zone)!;const k=z.floor??'';(floors.get(k)??floors.set(k,[]).get(k)!).push(m)}return out},[markers,checklist]);
  const q=query.trim().toLowerCase();
- const keep=(m:Marker)=>!off.includes(m.category)&&(!hideDone||!isDone(m))&&(!q||`${m.name} ${m.location}`.toLowerCase().includes(q));
+ // Se busca por el nombre que se ve y por el original en ingles.
+ const keep=(m:Marker)=>!off.includes(m.category)&&(!hideDone||!isDone(m))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
  const total=markers.length,completed=markers.filter(isDone).length;
  const toggle=(z:string)=>setOpen(o=>o.includes(z)?o.filter(x=>x!==z):[...o,z]);
  return <div className="listview">
@@ -39,21 +40,21 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,detail,t
     const all=zones.flatMap(z=>[...byZone.get(z.name)!.values()].flat());
     if(!all.some(keep))return null;
     return <section key={part.n} className="part">
-     <h3><span className="part-n">{t('part',{n:part.n})}</span>{part.title}<Progress done={all.filter(isDone).length} total={all.length}/></h3>
+     <h3><span className="part-n">{t('part',{n:part.n})}</span>{part.title.split('→').map(x=>place(x.trim())).join(' → ')}<Progress done={all.filter(isDone).length} total={all.length}/></h3>
      {zones.map(z=>{
       const floors=byZone.get(z.name)!,items=[...floors.values()].flat();
       if(!items.some(keep))return null;
       const expanded=!!q||open.includes(z.name);
       const order=['',...z.floors].filter(f=>floors.has(f));
       return <div key={z.name} className={`zone ${expanded?'open':''}`}>
-       <button className="zone-head" onClick={()=>toggle(z.name)} aria-expanded={expanded}><b>{z.name}</b><Progress done={items.filter(isDone).length} total={items.length}/></button>
+       <button className="zone-head" onClick={()=>toggle(z.name)} aria-expanded={expanded}><b>{place(z.name)}</b><Progress done={items.filter(isDone).length} total={items.length}/></button>
        {expanded&&order.map(f=>{const rows=floors.get(f)!.filter(keep);if(!rows.length)return null;return <div key={f||'_'} className="floor">
-        {f&&<h4>{f.startsWith(z.name+' ')?f.slice(z.name.length+1):f}</h4>}
+        {f&&<h4>{place(f.startsWith(z.name+' ')?f.slice(z.name.length+1):f)}</h4>}
         {rows.map(m=>{const d=detail(m);return <div key={m.id} className={`row ${isDone(m)?'done':''}`}>
          <button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{isDone(m)&&<Check/>}</button>
          <Figure m={m}/>
-         <span className="row-text"><b>{m.name}</b><small>{d??category(m.category)}</small></span>
-         <button className="show" onClick={()=>onShow(m)} aria-label={t('showOnMap',{name:m.name})}><MapPin/></button>
+         <span className="row-text"><b>{name(m.name)}</b><small>{d??category(m.category)}</small></span>
+         <button className="show" onClick={()=>onShow(m)} aria-label={t('showOnMap',{name:name(m.name)})}><MapPin/></button>
         </div>})}
        </div>})}
       </div>})}
@@ -68,7 +69,7 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,detail,t
 const uidsOf=(byId:Map<string,Marker>,s:Species)=>[...new Set(s.found.flatMap(f=>f.ids.flatMap(id=>{const m=byId.get(id);return m?[m.uid]:[]})))];
 
 export function PokedexView({dex,byId,done,setMany,onShow,game,storageKey,tr}:{dex:Dex;byId:Map<string,Marker>;done:number[];setMany:(uids:number[],on:boolean)=>void;onShow:(m:Marker)=>void;game:string;storageKey:string;tr:T}){
- const {t,how,type,note,evo}=tr;
+ const {t,how,type,note,evo,place}=tr;
  // Sincronizada con la checklist: una especie con entradas alli esta registrada
  // si alguna esta completa, y marcarla aqui marca (o desmarca) todas. Las que no
  // tienen entradas (solo se consiguen evolucionando) se registran a mano.
@@ -96,7 +97,7 @@ export function PokedexView({dex,byId,done,setMany,onShow,game,storageKey,tr}:{d
   </div>
   <div className="list-body dex">
    {shown.map(s=>{const c=caught(s),isOpen=openN===s.n;
-    const where=s.get==='found'?s.found.slice(0,2).map(f=>`${f.zone} · ${how(f.how)}`).join(' / ')+(s.found.length>2?t('andMore',{n:s.found.length-2}):'')
+    const where=s.get==='found'?s.found.slice(0,2).map(f=>`${place(f.zone)} · ${how(f.how)}`).join(' / ')+(s.found.length>2?t('andMore',{n:s.found.length-2}):'')
      :s.get==='evo'&&s.from?t(s.from.method?'evolvesFromHow':'evolvesFrom',{name:names.get(s.from.n)??'',how:evo(s.from.method??'')})
      :t('notAvailable',{game});
     return <div key={s.n} className={`dex-row ${c?'done':''} ${s.get==='none'?'unavailable':''}`}>
@@ -109,7 +110,7 @@ export function PokedexView({dex,byId,done,setMany,onShow,game,storageKey,tr}:{d
      </button>
      {isOpen&&<div className="dex-more">
       {s.note&&<p>{note(s.note)}</p>}
-      {s.found.map(f=>{const m=f.ids.map(id=>byId.get(id)).find(Boolean);return <div key={f.zone+f.how}><span>{f.zone}<small>{how(f.how)}</small></span>{m&&<button className="show" onClick={()=>onShow(m)} aria-label={t('showOnMap',{name:f.zone})}><MapPin/></button>}</div>})}
+      {s.found.map(f=>{const m=f.ids.map(id=>byId.get(id)).find(Boolean);return <div key={f.zone+f.how}><span>{place(f.zone)}<small>{how(f.how)}</small></span>{m&&<button className="show" onClick={()=>onShow(m)} aria-label={t('showOnMap',{name:place(f.zone)})}><MapPin/></button>}</div>})}
       {s.get==='evo'&&s.from&&<p>{t(s.from.method?'getAndEvolveHow':'getAndEvolve',{name:names.get(s.from.n)??'',how:evo(s.from.method??'')})}</p>}
       {s.get==='none'&&!s.note&&<p>{t('tradeOver',{game})}</p>}
      </div>}

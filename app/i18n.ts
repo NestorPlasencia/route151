@@ -49,6 +49,7 @@ const TEXT = {
  encountersPokeapi: ['PokéAPI encounters', 'Encuentros de PokéAPI'],
  encountersWild: ['Wild encounters', 'Pokémon salvajes'],
  // Listas
+ sells: ['Sells {list}', 'Vende {list}'],
  searchChecklist: ['Search the checklist…', 'Buscar en la lista…'],
  hideCompleted: ['Hide completed', 'Ocultar completados'],
  part: ['Part {n}', 'Parte {n}'],
@@ -155,11 +156,56 @@ const NOTES: Record<string, [string, string]> = {
    'Tu Pikachu se niega a evolucionar en Amarillo y no hay otro: solo por intercambio.'],
 };
 
+// Lugares de Kanto con su nombre oficial en espanol (PokeAPI no los trae). Los de
+// las Islas Sete se quedan en ingles salvo el numero de la isla.
+const PLACES: Record<string, string> = {
+ 'Pallet Town': 'Pueblo Paleta', 'Viridian City': 'Ciudad Verde', 'Pewter City': 'Ciudad Plateada',
+ 'Cerulean City': 'Ciudad Celeste', 'Vermilion City': 'Ciudad Carmín', 'Lavender Town': 'Pueblo Lavanda',
+ 'Celadon City': 'Ciudad Azulona', 'Saffron City': 'Ciudad Azafrán', 'Fuchsia City': 'Ciudad Fucsia',
+ 'Cinnabar Island': 'Isla Canela', 'Indigo Plateau': 'Meseta Añil', 'Viridian Forest': 'Bosque Verde',
+ "Diglett's Cave": 'Cueva Diglett', 'Mt. Moon': 'Monte Moon', 'Cerulean Cave': 'Cueva Celeste',
+ 'Rock Tunnel': 'Túnel Roca', 'Power Plant': 'Central Eléctrica', 'Pokémon Tower': 'Torre Pokémon',
+ 'Pokémon Mansion': 'Mansión Pokémon', 'Pokémon League': 'Liga Pokémon', 'Safari Zone': 'Zona Safari',
+ 'Seafoam Islands': 'Islas Espuma', 'Victory Road': 'Calle Victoria', 'Silph Co.': 'Silph S.A.',
+ 'Rocket Hideout': 'Guarida Rocket', 'Team Rocket Hideout': 'Guarida Rocket',
+ 'Rocket Warehouse': 'Almacén Rocket', 'Underground Path': 'Túnel Subterráneo',
+ 'Sevii Islands': 'Islas Sete', 'One Island': 'Isla Uno', 'Two Island': 'Isla Dos',
+ 'Three Island': 'Isla Tres', 'Four Island': 'Isla Cuatro', 'Five Island': 'Isla Cinco',
+ 'Six Island': 'Isla Seis', 'Seven Island': 'Isla Siete', 'Kanto': 'Kanto',
+};
+// Partes del nombre de un interior ("Celadon City Department Store 2F").
+const PARTS: [string, string][] = [
+ ['Department Store', 'Centro Comercial'], ['Pokémon Center', 'Centro Pokémon'], ['Game Corner', 'Casino'],
+ ['Prize Room', 'Sala de Premios'], ['Fan Club', 'Club de Fans'], ['Day Care', 'Guardería'],
+ ['Fishing House', 'Casa de Pesca'], ['Sea Cottage', 'Cabaña'], ['Secret House', 'Casa Secreta'],
+ ['Rest House', 'Casa de Descanso'], ['Bike Shop', 'Tienda de Bicis'], ['Champions Room', 'Sala del Campeón'],
+ ['Hall of Fame', 'Sala de la Fama'], ['Trainer Tower', 'Torre de Entrenadores'],
+ ["Professor Oak's Lab", 'Laboratorio del Profesor Oak'], ["Player's House", 'Casa del Jugador'],
+ ["Rival's House", 'Casa del Rival'], ['Volunteer Pokémon House', 'Casa de Voluntarios'],
+ ['Elite Four', 'Alto Mando'], ['Underground Path', 'Túnel Subterráneo'],
+ ['Corridor', 'Pasillo'], ['Entrance', 'Entrada'], ['Condominiums', 'Condominios'],
+ ['Restaurant', 'Restaurante'], ['Museum', 'Museo'], ['Office', 'Oficina'], ['Lobby', 'Vestíbulo'],
+ ['Kitchen', 'Cocina'], ['Harbor', 'Puerto'], ['School', 'Escuela'], ['Lounge', 'Sala de Estar'],
+ ['Research', 'Investigación'], ['Experiment', 'Experimentos'], ['Elevator', 'Ascensor'],
+ ['Basement', 'Sótano'], ['Building', 'Edificio'], ['Stairs', 'Escaleras'], ['Chamber', 'Cámara'],
+ ['Ruins', 'Ruinas'], ['Tunnel', 'Túnel'], ['Forest', 'Bosque'], ['Cave', 'Cueva'], ['Zone', 'Zona'],
+ ['Rooms', 'Salas'], ['Room', 'Sala'], ['House', 'Casa'], ['Gym', 'Gimnasio'], ['Mart', 'Tienda'],
+ ['Store', 'Tienda'], ['Shop', 'Tienda'], ['Roof', 'Azotea'], ['Deck', 'Cubierta'], ['Stern', 'Popa'],
+ ['Center', 'Centro'], ['Summit', 'Cima'], ['Path', 'Camino'], ['Road', 'Carretera'], ['Lab', 'Laboratorio'],
+ ['North', 'Norte'], ['South', 'Sur'], ['East', 'Este'], ['West', 'Oeste'], ['Back', 'Fondo'],
+ ['Post-game', 'Post-juego'], ['Other areas', 'Otras zonas'], ['Events', 'Eventos'],
+];
+
+// Traduce las partes conocidas del nombre de un interior y deja el resto igual.
+const parts = (rest: string) => PARTS.reduce((out, [en, es]) => out.split(en).join(es), rest);
+
 const pick = (table: Record<string, [string, string]>, key: string, lang: Lang) => table[key]?.[lang === 'es' ? 1 : 0] ?? key;
 
 export type T = ReturnType<typeof translator>;
 
-export function translator(lang: Lang) {
+export type Names = {items: Record<string, string>} | null;
+
+export function translator(lang: Lang, names: Names = null) {
  const fill = (text: string, vars?: Record<string, string | number>) =>
   vars ? text.replace(/\{(\w+)\}/g, (all, k) => String(vars[k] ?? all)) : text;
  return {
@@ -171,6 +217,25 @@ export function translator(lang: Lang) {
   method: (m: string) => pick(METHODS, m, lang),
   type: (t: string) => pick(TYPES, t, lang),
   note: (n: string) => pick(NOTES, n, lang),
+  // Nombre de un objeto ('Coins ×10' -> 'Monedas ×10'); lo demas (Pokemon,
+  // entrenadores) se queda igual.
+  name: (n: string) => {
+   if (lang !== 'es' || !names) return n;
+   const [, base, tail] = n.match(/^(.*?)( ×\d+)?$/) ?? [];
+   return (names.items[base] ?? base) + (tail ?? '');
+  },
+  // Lugar: el nombre oficial si se conoce, y si no, su zona traducida y el
+  // resto por partes ('Celadon City Department Store 2F').
+  // Detalle que viene de los datos: el equipo de un entrenador o el nivel.
+  detail: (d: string) => lang === 'es' ? d.replace(/\bLv\.? ?(\d)/g, 'Nv. $1') : d,
+  place: (p: string) => {
+   if (lang !== 'es' || !p) return p;
+   if (PLACES[p]) return PLACES[p];
+   const route = p.match(/^Route (\d+)(.*)$/);
+   if (route) return `Ruta ${route[1]}${parts(route[2])}`;
+   const zone = Object.keys(PLACES).filter(k => p.startsWith(k + ' ')).sort((a, b) => b.length - a.length)[0];
+   return zone ? PLACES[zone] + parts(p.slice(zone.length)) : parts(' ' + p).trimStart();
+  },
   evo: (m: string) => lang === 'es' ? m.replace(/^level (\d+)$/, 'nivel $1').replace(/^[\w\s]+$/, w => pick(EVO, w, lang)) : m,
  };
 }
