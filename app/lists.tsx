@@ -63,14 +63,25 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,detail}:
 
 const TYPES:Record<string,string>={normal:'Normal',fire:'Fire',water:'Water',grass:'Grass',electric:'Electric',ice:'Ice',fighting:'Fighting',poison:'Poison',ground:'Ground',flying:'Flying',psychic:'Psychic',bug:'Bug',rock:'Rock',ghost:'Ghost',dragon:'Dragon',steel:'Steel',fairy:'Fairy',dark:'Dark'};
 
-export function PokedexView({dex,byId,done,onShow,game,storageKey}:{dex:Dex;byId:Map<string,Marker>;done:number[];onShow:(m:Marker)=>void;game:string;storageKey:string}){
- // Registro manual (las especies sin marcador solo se pueden marcar aqui); una
- // especie tambien cuenta como registrada si alguno de sus objetos esta completo.
+// uid de las entradas de la checklist de una especie (salvaje, regalo, intercambio).
+const uidsOf=(byId:Map<string,Marker>,s:Species)=>[...new Set(s.found.flatMap(f=>f.ids.flatMap(id=>{const m=byId.get(id);return m?[m.uid]:[]})))];
+
+export function PokedexView({dex,byId,done,setMany,onShow,game,storageKey}:{dex:Dex;byId:Map<string,Marker>;done:number[];setMany:(uids:number[],on:boolean)=>void;onShow:(m:Marker)=>void;game:string;storageKey:string}){
+ // Sincronizada con la checklist: una especie con entradas alli esta registrada
+ // si alguna esta completa, y marcarla aqui marca (o desmarca) todas. Las que no
+ // tienen entradas (solo se consiguen evolucionando) se registran a mano.
  const [manual,setManual]=useState<number[]>([]),[query,setQuery]=useState(''),[filter,setFilter]=useState<'all'|'missing'|'caught'>('all'),[openN,setOpenN]=useState<number|null>(null);
- useEffect(()=>{try{setManual(JSON.parse(localStorage.getItem(storageKey)||'[]'))}catch{setManual([])}},[storageKey]);
- const toggle=(n:number)=>setManual(old=>{const next=old.includes(n)?old.filter(x=>x!==n):[...old,n];try{localStorage.setItem(storageKey,JSON.stringify(next))}catch{}return next});
- const viaList=(s:Species)=>s.found.some(f=>f.ids.some(id=>{const m=byId.get(id);return m&&done.includes(m.uid)}));
- const caught=(s:Species)=>manual.includes(s.n)||viaList(s);
+ const saveManual=(next:number[])=>{setManual(next);try{localStorage.setItem(storageKey,JSON.stringify(next))}catch{}};
+ useEffect(()=>{
+  let list:number[]=[];try{list=JSON.parse(localStorage.getItem(storageKey)||'[]')}catch{}
+  // Registros manuales de antes de sincronizar: si la especie tiene entradas, pasan a la checklist.
+  const linked=dex.species.filter(s=>list.includes(s.n)&&uidsOf(byId,s).length);
+  if(linked.length){setMany(linked.flatMap(s=>uidsOf(byId,s)),true);list=list.filter(n=>!linked.some(s=>s.n===n));try{localStorage.setItem(storageKey,JSON.stringify(list))}catch{}}
+  setManual(list);
+ },[storageKey,dex,byId,setMany]);
+ const viaList=(s:Species)=>uidsOf(byId,s).some(uid=>done.includes(uid));
+ const caught=(s:Species)=>uidsOf(byId,s).length?viaList(s):manual.includes(s.n);
+ const toggle=(s:Species)=>{const uids=uidsOf(byId,s);if(uids.length)setMany(uids,!caught(s));else saveManual(manual.includes(s.n)?manual.filter(x=>x!==s.n):[...manual,s.n])};
  const names=useMemo(()=>new Map(dex.species.map(s=>[s.n,s.name])),[dex]);
  const q=query.trim().toLowerCase();
  const shown=dex.species.filter(s=>(filter==='all'||(filter==='caught')===caught(s))&&(!q||s.name.toLowerCase().includes(q)||pad(s.n).includes(q)));
@@ -85,7 +96,7 @@ export function PokedexView({dex,byId,done,onShow,game,storageKey}:{dex:Dex;byId
    {shown.map(s=>{const c=caught(s),isOpen=openN===s.n;
     const where=s.get==='found'?s.found.slice(0,2).map(f=>`${f.zone} · ${f.how}`).join(' / ')+(s.found.length>2?` and ${s.found.length-2} more`:''):s.get==='evo'&&s.from?`Evolves from ${names.get(s.from.n)}${s.from.method?` (${s.from.method})`:''}`:`Not available in ${game}`;
     return <div key={s.n} className={`dex-row ${c?'done':''} ${s.get==='none'?'unavailable':''}`}>
-     <button className={`tick ${c?'on':''}`} aria-label="Registered" onClick={()=>toggle(s.n)} title={viaList(s)&&!manual.includes(s.n)?'Registered from the checklist':undefined}>{c&&<Check/>}</button>
+     <button className={`tick ${c?'on':''}`} aria-label="Registered" onClick={()=>toggle(s)} title={uidsOf(byId,s).length?'Synced with the checklist':undefined}>{c&&<Check/>}</button>
      <Figure m={{icon:s.icon,category:'Pokémon'}}/>
      <button className="dex-text" onClick={()=>setOpenN(isOpen?null:s.n)} aria-expanded={isOpen}>
       <b><em>#{pad(s.n)}</em>{s.name}</b>

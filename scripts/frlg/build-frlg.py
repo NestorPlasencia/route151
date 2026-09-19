@@ -356,7 +356,7 @@ def classify(o, body, trades):
                 for sp, lv in gifts(body)]
     if static:
         lv = int(static.group(2))
-        return [('Pokémon', mon(static.group(1)), {'key': 'static', 'icon': mon_icon(numbers[static.group(1)]),
+        return [('Pokémon', mon(static.group(1)), {'key': 'static', 'catch': static.group(1), 'icon': mon_icon(numbers[static.group(1)]),
                  'encounter': {'zone': None, 'min': lv, 'max': lv, 'chance': 100, 'methods': ['Static encounter'],
                                'sprite': SPRITE.format(numbers[static.group(1)])}})]
     if item and item.group(2) in items:
@@ -439,12 +439,14 @@ def main():
         if mid not in where or mid in COPIES:
             continue
 
-        def add(category, name, x, y, key=None, icon=None, detail=None, encounter=None, version=None):
+        # `catch`: especie de un Pokemon salvaje o fijo. Como en Yellow, todos los
+        # de una especie comparten uid: atraparlo en un sitio lo completa en todos.
+        def add(category, name, x, y, key=None, icon=None, detail=None, encounter=None, version=None, catch=None):
             area, px = at(mid, x, y)
             if encounter:
                 encounter = {**encounter, 'zone': encounter['zone'] or location(mid)}
             mid_key = f'{mid}:{key or category}:{x},{y}' + (f':{version}' if version else '')
-            mk = {'id': mid_key, 'uid': uid_of(mid_key), 'category': category, 'name': name, 'location': location(mid),
+            mk = {'id': mid_key, 'uid': uid_of(f'catch:{catch}' if catch else mid_key), 'category': category, 'name': name, 'location': location(mid),
                   'area': area, 'at': px, 'map': mid, 'zone': zone_of[mid], 'icon': icon}
             if mid in floor_of:
                 mk['floor'] = floor_of[mid]
@@ -506,7 +508,7 @@ def main():
                         continue
                     first = e.pop('first')
                     x, y = where_method[first]
-                    add('Pokémon', species(sp.removeprefix('SPECIES_')), x, y, key=f'wild:{sp}', icon=mon_icon(numbers[sp]),
+                    add('Pokémon', species(sp.removeprefix('SPECIES_')), x, y, key=f'wild:{sp}', catch=sp, icon=mon_icon(numbers[sp]),
                         encounter={**e, 'sprite': SPRITE.format(numbers[sp])}, version=None if both else v)
                     if both:
                         break
@@ -544,7 +546,10 @@ def main():
 
     ids = [mk['id'] for mk in markers]
     assert len(set(ids)) == len(ids), 'ids de marcador repetidos'
-    assert len({mk['uid'] for mk in markers}) == len(markers), 'colision de uid: cambia uid_of'
+    owner = {}
+    for mk in markers:
+        key = f"catch:{mk['name']}" if mk['category'] == 'Pokémon' else mk['id']
+        assert owner.setdefault(mk['uid'], key) == key, 'colision de uid: cambia uid_of'
 
     dump = lambda name, value: json.dump(value, open(f'{OUT_DATA}/{name}', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
     dump('areas.json', {'areas': areas, 'warps': merged, 'places': places})

@@ -160,7 +160,11 @@ export default function Home(){
  },[stacks,done,mapReady,world,area,areaById,arrival,isRegion,placeAt]);
 
  const toggleGroup=(name:string)=>setActive(a=>a.includes(name)?a.filter(x=>x!==name):[...a,name]);
- const toggleDone=(uid:number)=>setDone(old=>{const n=old.includes(uid)?old.filter(x=>x!==uid):[...old,uid];try{localStorage.setItem(game.storage.done,JSON.stringify(n))}catch{}return n});
+ const saveDone=(update:(old:number[])=>number[])=>setDone(old=>{const n=update(old);try{localStorage.setItem(game.storage.done,JSON.stringify(n))}catch{}return n});
+ const toggleDone=(uid:number)=>saveDone(old=>old.includes(uid)?old.filter(x=>x!==uid):[...old,uid]);
+ // La Pokedex marca o desmarca de una vez todas las entradas de una especie.
+ const doneKey=game.storage.done;
+ const setMany=useCallback((uids:number[],on:boolean)=>setDone(old=>{const n=on?[...new Set([...old,...uids])]:old.filter(x=>!uids.includes(x));try{localStorage.setItem(doneKey,JSON.stringify(n))}catch{}return n}),[doneKey]);
  const tracked=useMemo(()=>new Set((world?.markers??[]).filter(m=>!game.untracked.includes(m.category)).map(m=>m.uid)),[world,game]);
  const completed=done.filter(uid=>tracked.has(uid)).length;
  const pct=tracked.size?Math.round(completed/tracked.size*100):0;
@@ -192,7 +196,7 @@ export default function Home(){
  {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={encounterZone.name}><button className="close" onClick={()=>setEncounterZone(null)} aria-label="Close"><X/></button><small>{game.encounterSource.toUpperCase()}</small><h2>{encounterZone.name}</h2><p>{encounterZone.pokemon.length} Pokémon available in this area.</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>Lv. {min}{max!==min&&`–${max}`} · up to {chance}%</span><em>{[...new Set(variants.map(v=>METHODS[v.method]??v.method))].join(' · ')}</em></div></article>})}</div></dialog></div>}
  </div>
  {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} detail={detail}/>:<div className="listview loading-list">Loading checklist…</div>)}
- {tab==='pokedex'&&(world?<PokedexView dex={world.dex} byId={byId} done={done} onShow={showOnMap} game={game.short} storageKey={game.storage.dex}/>:<div className="listview loading-list">Loading Pokédex…</div>)}
+ {tab==='pokedex'&&(world?<PokedexView dex={world.dex} byId={byId} done={done} setMany={setMany} onShow={showOnMap} game={game.short} storageKey={game.storage.dex}/>:<div className="listview loading-list">Loading Pokédex…</div>)}
  {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label="Credits"><button className="close" onClick={()=>setAbout(false)} aria-label="Close"><X/></button><small>About</small><h2>Credits</h2><Credits game={game.id}/></dialog></div>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>
  </main>
