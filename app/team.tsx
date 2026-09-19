@@ -4,7 +4,7 @@
 // haces mas dano a un Pokemon concreto. Las cuentas son las del juego (tercera
 // generacion), suponiendo IVs de 15 y sin EVs, que es lo normal en una partida.
 import {useEffect,useMemo,useState} from 'react';
-import {Plus,Search,Swords,X} from 'lucide-react';
+import {ArrowDown,ArrowUp,Plus,Search,Swords,X} from 'lucide-react';
 import {Figure} from './shared';
 import type {T} from './i18n';
 import type {Dex} from './lists';
@@ -15,7 +15,8 @@ export type Battle={
  moves:Record<string,Move>;abilities:Record<string,string>;natures:Record<string,[string|null,string|null]>;
  chart:Record<string,Record<string,number>>;
 };
-export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[]};
+// `bench`: suplente. El equipo lleva como mucho seis; los demas esperan abajo.
+export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[];bench?:boolean};
 
 const STATS=['hp','atk','def','spa','spd','spe'] as const;
 const IV=15;
@@ -64,12 +65,13 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
 
  if(!battle)return <div className="listview loading-list">{t('loadingTeam')}</div>;
  const add=(n:number)=>{
-  const s=battle.species[n];if(!s||team.length>=6)return;
+  const s=battle.species[n];if(!s)return;
   const level=5,learn=s.learn.filter(([lvl])=>lvl<=level).map(([,m])=>m);
-  save([...team,{id:`${n}-${Date.now()}`,n,level,nature:'Hardy',ability:s.abilities[0]??'',moves:[...learn.slice(-4),null,null,null,null].slice(0,4)}]);
+  save([...team,{id:`${n}-${Date.now()}`,n,level,nature:'Hardy',ability:s.abilities[0]??'',moves:[...learn.slice(-4),null,null,null,null].slice(0,4),bench:party.length>=6}]);
   setQuery('');
  };
  const update=(id:string,change:Partial<TeamMon>)=>save(team.map(m=>m.id===id?{...m,...change}:m));
+ const party=team.filter(m=>!m.bench),bench=team.filter(m=>m.bench);
  const foe=target?battle.species[target]:null;
  // Mejor ataque de cada miembro contra el Pokemon elegido, de mas a menos dano.
  const advice=!foe||!target?[]:team.flatMap(mon=>{
@@ -80,38 +82,46 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
  }).sort((a,b)=>b.max-a.max);
 
  const moveLabel=(key:string)=>{const m=battle.moves[key];return `${moveName(m.name)} · ${typeName(m.type)}${m.power?` · ${m.power}`:''}`};
+ const card=(mon:TeamMon)=>{
+  const s=battle.species[mon.n],info=species.get(mon.n),pool=movePool(battle,mon);
+  const stats=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null]);
+  return <article key={mon.id} className="team-mon">
+   <header>
+    <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
+    <b>{info?.name??mon.n}</b>
+    <span className="types">{s.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span>
+    <button className="team-move" title={mon.bench?t('toParty'):t('toBench')} aria-label={mon.bench?t('toParty'):t('toBench')}
+     disabled={!!mon.bench&&party.length>=6} onClick={()=>update(mon.id,{bench:!mon.bench})}>{mon.bench?<ArrowUp/>:<ArrowDown/>}</button>
+    <button className="team-remove" aria-label={t('remove')} onClick={()=>save(team.filter(x=>x.id!==mon.id))}><X/></button>
+   </header>
+   <div className="team-fields">
+    <label>{t('level')}<input type="number" min={1} max={100} value={mon.level} onChange={e=>update(mon.id,{level:Math.max(1,Math.min(100,+e.target.value||1))})}/></label>
+    <label>{t('nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${t(('stat_'+up) as never)} −${t(('stat_'+down) as never)})`:''}</option>)}</select></label>
+    <label>{t('ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{s.abilities.map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>
+   </div>
+   <dl className="team-stats">{STATS.map((stat,i)=><div key={stat}><dt>{t(('stat_'+stat) as never)}</dt><dd>{stats[i]}</dd></div>)}</dl>
+   <div className="team-moves">{[0,1,2,3].map(i=>
+    <select key={i} value={mon.moves[i]??''} onChange={e=>update(mon.id,{moves:mon.moves.map((m,j)=>j===i?(e.target.value||null):m)})}>
+     <option value="">{t('noMove')}</option>
+     {pool.map(key=><option key={key} value={key}>{moveLabel(key)}</option>)}
+    </select>)}
+   </div>
+  </article>;
+ };
  return <div className="listview">
   <div className="list-head">
-   <div className="list-title"><h2>{t('tabTeam')}</h2><span className="progress"><b>{team.length}/6</b></span></div>
-   {team.length<6&&<label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('addPokemon')}/></label>}
+   <div className="list-title"><h2>{t('tabTeam')}</h2><span className="progress"><b>{party.length}/6</b>{bench.length>0&&<small> +{bench.length}</small>}</span></div>
+   <label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('addPokemon')}/></label>
    {results.length>0&&<div className="team-results">{results.map(s=><button key={s.n} onClick={()=>add(s.n)}><Figure m={{icon:s.icon,category:'Pokémon'}}/><b>{s.name}</b><Plus/></button>)}</div>}
+   {party.length>=6&&query&&<p className="team-note">{t('partyFull')}</p>}
   </div>
   <div className="list-body team">
-   {team.map(mon=>{
-    const s=battle.species[mon.n],info=species.get(mon.n),pool=movePool(battle,mon);
-    const stats=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null]);
-    return <article key={mon.id} className="team-mon">
-     <header>
-      <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
-      <b>{info?.name??mon.n}</b>
-      <span className="types">{s.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span>
-      <button className="team-remove" aria-label={t('remove')} onClick={()=>save(team.filter(x=>x.id!==mon.id))}><X/></button>
-     </header>
-     <div className="team-fields">
-      <label>{t('level')}<input type="number" min={1} max={100} value={mon.level} onChange={e=>update(mon.id,{level:Math.max(1,Math.min(100,+e.target.value||1))})}/></label>
-      <label>{t('nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${t(('stat_'+up) as never)} −${t(('stat_'+down) as never)})`:''}</option>)}</select></label>
-      <label>{t('ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{s.abilities.map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>
-     </div>
-     <dl className="team-stats">{STATS.map((stat,i)=><div key={stat}><dt>{t(('stat_'+stat) as never)}</dt><dd>{stats[i]}</dd></div>)}</dl>
-     <div className="team-moves">{[0,1,2,3].map(i=>
-      <select key={i} value={mon.moves[i]??''} onChange={e=>update(mon.id,{moves:mon.moves.map((m,j)=>j===i?(e.target.value||null):m)})}>
-       <option value="">{t('noMove')}</option>
-       {pool.map(key=><option key={key} value={key}>{moveLabel(key)}</option>)}
-      </select>)}
-     </div>
-    </article>;
-   })}
-   {!team.length&&<p className="list-empty">{t('teamEmpty')}</p>}
+   {party.map(card)}
+   {!party.length&&<p className="list-empty">{t('teamEmpty')}</p>}
+
+   <h3 className="team-section">{t('bench')}{bench.length>0&&<b>{bench.length}</b>}</h3>
+   {bench.map(card)}
+   {!bench.length&&<p className="list-empty">{t('benchEmpty')}</p>}
 
    <section className="team-vs">
     <h3><Swords/>{t('bestAgainst')}</h3>
@@ -125,9 +135,10 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
     {foe&&<p className="team-foe"><span className="types">{foe.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span></p>}
     {advice.length>0&&<div className="team-advice">{advice.map(({mon,move,eff,min,max})=>{
      const info=species.get(mon.n);
+     const label=info?.name+(mon.bench?` · ${t('bench')}`:'');
      return <div key={mon.id} className={`advice-row ${eff===0?'none':eff>1?'good':eff<1?'bad':''}`}>
       <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
-      <span><b>{moveName(move.name)}</b><small>{info?.name} · {typeName(move.type)}{eff!==1&&` · ×${eff}`}</small></span>
+      <span><b>{moveName(move.name)}</b><small>{label} · {typeName(move.type)}{eff!==1&&` · ×${eff}`}</small></span>
       <em>{eff===0?t('noEffect'):`${min}–${max}%`}</em>
      </div>})}</div>}
     {foe&&!advice.length&&<p className="list-empty">{t('noDamage')}</p>}
