@@ -2,7 +2,7 @@
 import {Fragment,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import type {Map as LeafletMap,LayerGroup,ImageOverlay} from 'leaflet';
 import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Map as MapIcon,MapPin,Search,Sparkles,X} from 'lucide-react';
-import {Credits,Figure,colorOf,groupsOf,type Encounter,type Marker} from './shared';
+import {Credits,Figure,LAYER_NAMES,colorOf,groupsOf,type Encounter,type Marker} from './shared';
 import {ChecklistView,PokedexView} from './lists';
 import {GAMES,METHODS,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
 
@@ -175,14 +175,17 @@ export default function Home(){
  const listed=useMemo(()=>world?world.markers.filter(m=>world.checklist.markers[m.id]):[],[world]);
  const tabs=([['mapa','Map',MapIcon],['checklist','Checklist',ListChecks],['pokedex','Pokédex',BookOpen]] as const);
  const areaName=(id?:string)=>id?areaById.get(id)?.label??'—':'—';
+ // Donde esta un resultado de busqueda: su lugar exacto (FRLG), el texto de Yellow
+ // si nombra un solo sitio ("Pewter Museum of Science"), o el lugar mas cercano.
+ const resultPlace=(m:Marker)=>game.exactLocations||(m.location&&m.location.length<=40&&!/[,;(]/.test(m.location))?m.location:m.area&&m.at&&isRegion(m.area)?placeAt(m.area,m.at)??areaName(m.area):areaName(m.area);
  const exitRegion=here?exitOf(here).region:null;
  const floors=here?zoneFloors.get(here.zone??here.label)??[here]:[];
  return <main><header><div className="brand"><i><MapIcon/></i><b>ROUTE 151<small>{game.title} Companion</small></b></div>
  <label className="game-select"><span className="sr-only">Game</span><select value={game.id} onChange={e=>pickGame(e.target.value)} aria-label="Game">{GAMES.map(g=><option key={g.id} value={g.id}>{g.short}</option>)}</select><ChevronDown/></label>
  <nav>{tabs.map(([k,t])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}>{t}</button>)}</nav><div className="counter"><span>{completed} completed</span><i><em style={{width:`${pct}%`}}/></i><b>{pct}%</b></div><button className="about-button" onClick={()=>setAbout(true)} aria-label="Credits"><Info/></button></header>
  <section className="toolbar" hidden={tab!=='mapa'}><button className="location-button" onClick={()=>setLocations(!locations)}>{here?<DoorOpen/>:<MapPin/>}<span>{here?here.label:area?`${area.label} — all areas`:'Loading…'}</span><ChevronDown/></button><label><Search/><input value={query} onFocus={()=>setSearching(true)} onBlur={()=>setTimeout(()=>setSearching(false),150)} onChange={e=>{setQuery(e.target.value);setSearching(true)}} placeholder="Search Pokémon, items or places…"/></label><button className={`layers-button ${active.length<groups.length?'filtered':''}`} onClick={()=>setLayersOpen(v=>!v)} aria-pressed={layersOpen} aria-label="Map layers"><Layers/></button><span>{shown.length} markers here</span>
- {searching&&results.length>0&&<div className="search-results">{results.map(m=><button key={m.id} onMouseDown={e=>e.preventDefault()} onClick={()=>reveal(m)}><Figure m={m}/><span><b>{m.name}</b><small>{game.exactLocations?m.location:m.area&&m.at&&isRegion(m.area)?placeAt(m.area,m.at)??areaName(m.area):areaName(m.area)}</small></span></button>)}</div>}</section>
- <div className={`app ${layersOpen?'layers-open':''}`} hidden={tab!=='mapa'}><aside><h3>MAP LAYERS</h3>{groups.map(([name,Icon,color])=><button key={name} onClick={()=>toggleGroup(name)} className={active.includes(name)?'enabled':''}><i style={{'--color':color} as React.CSSProperties}>{active.includes(name)&&<Check/>}</i><Icon/><span>{name}</span><b>{counts[name]??0}</b></button>)}<div className="source"><Sparkles/><p><b>Separate maps</b>{regions.map(r=>r.label).join(' and ')} and every dungeon have their own map. Enter through the yellow doors.</p></div></aside>
+ {searching&&results.length>0&&<div className="search-results">{results.map(m=><button key={m.id} onMouseDown={e=>e.preventDefault()} onClick={()=>reveal(m)}><Figure m={m}/><span><b>{m.name}</b><small>{resultPlace(m)}</small></span></button>)}</div>}</section>
+ <div className={`app ${layersOpen?'layers-open':''}`} hidden={tab!=='mapa'}><aside><h3>MAP LAYERS</h3>{groups.map(([name,Icon,color])=><button key={name} onClick={()=>toggleGroup(name)} className={active.includes(name)?'enabled':''}><i style={{'--color':color} as React.CSSProperties}>{active.includes(name)&&<Check/>}</i><Icon/><span>{LAYER_NAMES[name]??name}</span><b>{counts[name]??0}</b></button>)}<div className="source"><Sparkles/><p><b>Separate maps</b>{regions.map(r=>r.label).join(' and ')} and every dungeon have their own map. Enter through the yellow doors.</p></div></aside>
  <div className="map-stage"><div ref={el} className="leaflet-map"/>
  {here&&<div className="floorbar"><button onClick={leave}><ArrowLeft/>{areaById.get(exitRegion??'')?.label??'Back'}</button>{floors.length>1&&floors.map(f=><button key={f.id} className={f.id===here.id?'on':''} onClick={()=>switchFloor(f.id)}>{short.get(f.id)||f.label}</button>)}</div>}
  {!here&&regions.length>1&&<div className="floorbar">{regions.map(r=><button key={r.id} className={r.id===area?.id?'on':''} onClick={()=>showRegion(r.id)}><MapIcon/>{r.label}</button>)}</div>}
