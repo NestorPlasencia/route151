@@ -1,5 +1,5 @@
 'use client';
-import {Fragment,useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
 import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Map as MapIcon,MapPin,Sparkles,X} from 'lucide-react';
@@ -59,7 +59,7 @@ export default function Home(){
    m.on('zoomend',()=>{el.current?.classList.toggle('crisp',m.getZoom()>=0);el.current?.classList.toggle('far',m.getZoom()<-1)});
    // Ficha de un marcador: un popup junto al pin; React pinta su contenido.
    const box=document.createElement('div');L.DomEvent.disableClickPropagation(box);
-   popup.current=L.popup({closeButton:false,closeOnClick:false,autoClose:false,className:'marker-pop',offset:[0,-6],autoPanPaddingTopLeft:[20,130],autoPanPaddingBottomRight:[20,20],maxWidth:300}).setContent(box);
+   popup.current=L.popup({closeButton:false,closeOnClick:false,autoClose:false,className:'marker-pop',offset:[0,-6],autoPan:false,maxWidth:300}).setContent(box);
    // Leaflet cierra los popups en el 'preclick' de cualquier clic, tambien sobre
    // un pin: al volver a pulsar el mismo pin se cerraba y no se reabria. Se
    // cierra solo con un clic en el mapa (fuera de los pines) o con Escape.
@@ -170,14 +170,29 @@ export default function Home(){
   if(arrival&&arrival.area===area.id)L.marker(ll(arrival.at),{icon:L.divIcon({className:'arrive',html:'<span></span><i></i>',iconSize:[0,0]}),title:arrival.label,interactive:false,zIndexOffset:1000}).addTo(g);
  },[stacks,done,mapReady,world,area,areaById,arrival,isRegion,placeAt]);
 
- useEffect(()=>{
+ useLayoutEffect(()=>{
   const m=map.current,p=popup.current;if(!m||!p)return;
   const at=(selected??stack?.[0])?.at,where=(selected??stack?.[0])?.area;
   if(at&&where===area?.id){if(!m.hasLayer(p))p.setLatLng(ll(at)).openOn(m);else p.setLatLng(ll(at))}
   else if(m.hasLayer(p))m.closePopup(p);
  },[selected,stack,area,mapReady]);
  // Leaflet no se entera de que React cambio el contenido: se recoloca a mano.
- useEffect(()=>{popup.current?.update()},[selected,stack,done]);
+ // El popup se coloca a mano, sin mover el mapa: encima del pin si cabe; si no
+ // (pin pegado arriba, bajo la cabecera o la barra de pisos, donde una mazmorra
+ // no puede desplazarse) debajo. Si se sale por un lado o por abajo, el mapa se
+ // corre lo justo. Al marcar una casilla solo se recoloca: nada salta.
+ useLayoutEffect(()=>{
+  const m=map.current,p=popup.current,L=leaflet.current;if(!m||!p||!L||!m.hasLayer(p))return;
+  const box=p.getElement();if(!box)return;
+  box.classList.remove('pop-below');p.options.offset=L.point(0,-6);p.update();
+  const stage=m.getContainer().getBoundingClientRect(),bar=document.querySelector('.floorbar')?.getBoundingClientRect();
+  const top=Math.max(stage.top,bar?bar.bottom:stage.top)+8;
+  let r=box.getBoundingClientRect();
+  if(r.top<top){box.classList.add('pop-below');p.options.offset=L.point(0,r.height+42);p.update();r=box.getBoundingClientRect()}
+  const dx=r.left<stage.left+10?r.left-stage.left-10:r.right>stage.right-10?r.right-stage.right+10:0;
+  const dy=r.bottom>stage.bottom-10?r.bottom-stage.bottom+10:0;
+  if(dx||dy)m.panBy([dx,dy],{animate:true});
+ },[selected,stack,done,area]);
  const toggleGroup=(name:string)=>setActive(a=>a.includes(name)?a.filter(x=>x!==name):[...a,name]);
  const saveDone=(update:(old:number[])=>number[])=>setDone(old=>{const n=update(old);try{localStorage.setItem(game.storage.done,JSON.stringify(n))}catch{}return n});
  const toggleDone=(uid:number)=>saveDone(old=>old.includes(uid)?old.filter(x=>x!==uid):[...old,uid]);
