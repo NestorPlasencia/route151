@@ -1,4 +1,5 @@
-// vinext lee este archivo como el next.config de Next.js; no hace falta configuracion.
-const nextConfig = {};
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {};
 
 export default nextConfig;
