@@ -205,3 +205,33 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .pop-list .pop-item{padding:7px 0;border-top:1px solid var(--line)}
 .pop-list .pop-item:first-of-type{border-top:0}
 .pop-list{min-width:250px}.pop-list .pop-head b{font-size:12px}.pop-list .pop p{margin-top:3px}.pop-list .pop-item p{margin:3px 0 0 30px}
+/* Sin buscador: en movil y tablet el menu de lugar ocupa la barra, con su nombre. */
+@media (max-width:1024px),(pointer:coarse) and (max-width:1366px){
+.location-button{flex:1;width:auto;min-width:0;justify-content:flex-start;padding:0 12px;font-size:13px}
+.location-button>span{display:block}
+.location-button>svg:last-child{display:block;margin-left:auto}
+}
+/* Barra unica: el menu de lugar y el de capas van en la cabecera, junto al juego. */
+.map-controls{display:flex;align-items:center;gap:8px;flex:0 1 320px;min-width:0;margin-left:-30px}
+header .location-button{flex:1;min-width:0;height:34px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid #2f3a52;border-radius:9px;background:#1d2740;color:#fff;font:inherit;font-size:12px;cursor:pointer}
+header .location-button>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header .location-button svg{width:15px;flex:none;color:#ffd936}
+header .location-button svg:last-child{margin-left:auto;color:#95a2b9}
+header .layers-button{background:#1d2740;border-color:#2f3a52;color:#fff}
+header .layers-button[aria-pressed=true]{background:#2d6df6;border-color:#2d6df6;color:#fff}
+header .layers-button.filtered::after{background:#ffd936}
+@media (max-width:1024px),(pointer:coarse) and (max-width:1366px){
+.map-controls{flex:1;margin-left:0}
+header .location-button{height:36px;font-size:13px}
+header .layers-button{width:36px;height:36px}
+.about-button{margin-left:0}
+}
+/* Telefonos: se quitan el nombre y la barra de progreso para dejar sitio al lugar. */
+@media (max-width:600px){
+.brand b,.counter{display:none}
+.game-select select{padding:0 26px 0 10px}
+}
+header .location-button small{font-size:inherit;color:#95a2b9}
+@media (min-width:1025px){header{gap:28px}.brand small,.counter span{white-space:nowrap}}
+@media (max-width:600px){header .location-button small{display:none}}
+@media (min-width:1025px){header{gap:16px}.game-select,.map-controls{margin-left:0}.game-select{margin-left:12px}header>nav{margin-left:20px}}

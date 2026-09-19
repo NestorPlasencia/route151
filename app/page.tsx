@@ -2,7 +2,7 @@
 import {Fragment,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
-import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Map as MapIcon,MapPin,Search,Sparkles,X} from 'lucide-react';
+import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Map as MapIcon,MapPin,Sparkles,X} from 'lucide-react';
 import {Credits,Figure,LAYER_NAMES,colorOf,groupsOf,type Encounter,type Marker} from './shared';
 import {ChecklistView,PokedexView} from './lists';
 import {GAMES,METHODS,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
@@ -22,14 +22,14 @@ export default function Home(){
  const [gameId,setGameId]=useState(GAMES[0].id),[world,setWorld]=useState<World|null>(null);
  const game=GAMES.find(g=>g.id===gameId)??GAMES[0],groups=groupsOf(game.id);
  const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'>('mapa'),[view,setView]=useState<View>({area:''});
- const [active,setActive]=useState<string[]>(groups.map(g=>g[0])),[selected,setSelected]=useState<Marker|null>(null),[stack,setStack]=useState<Marker[]|null>(null),[done,setDone]=useState<number[]>([]),[query,setQuery]=useState(''),[searching,setSearching]=useState(false),[locations,setLocations]=useState(false),[about,setAbout]=useState(false),[layersOpen,setLayersOpen]=useState(false);
+ const [active,setActive]=useState<string[]>(groups.map(g=>g[0])),[selected,setSelected]=useState<Marker|null>(null),[stack,setStack]=useState<Marker[]|null>(null),[done,setDone]=useState<number[]>([]),[locations,setLocations]=useState(false),[about,setAbout]=useState(false),[layersOpen,setLayersOpen]=useState(false);
  const [encounterZone,setEncounterZone]=useState<EncounterZone|null>(null);
 
  // El juego elegido se recuerda; ?game=firered en la URL manda.
  useEffect(()=>{let saved:string|null=null;try{saved=localStorage.getItem(GAME_KEY)}catch{}const id=[new URLSearchParams(location.search).get('game'),saved].find(x=>GAMES.some(g=>g.id===x));if(id)setGameId(id)},[]);
  // Cada juego carga sus datos y su progreso, y empieza en su primera region.
  useEffect(()=>{
-  let live=true;setWorld(null);setSelected(null);setStack(null);setEncounterZone(null);setLocations(false);setQuery('');saved.current=null;setArrival(null);
+  let live=true;setWorld(null);setSelected(null);setStack(null);setEncounterZone(null);setLocations(false);saved.current=null;setArrival(null);
   setActive(groupsOf(game.id).map(g=>g[0]).filter(n=>!game.hidden.includes(n)));
   try{setDone(JSON.parse(localStorage.getItem(game.storage.done)||'[]'))}catch{setDone([])}
   game.load().then(w=>{if(!live)return;setWorld(w);setView({area:w.areas.find(a=>a.kind==='region')?.id??w.areas[0].id})}).catch(e=>console.error('No se pudo cargar',game.id,e));
@@ -85,15 +85,13 @@ export default function Home(){
   else m.fitBounds(b,{animate:!changed});
  },[view,area,mapReady]);
 
- const q=query.trim().toLowerCase();
- const shown=useMemo(()=>(area?inArea.get(area.id)??[]:[]).filter(m=>active.includes(m.category)&&`${m.name} ${m.location}`.toLowerCase().includes(q)),[area,inArea,active,q]);
+ const shown=useMemo(()=>(area?inArea.get(area.id)??[]:[]).filter(m=>active.includes(m.category)),[area,inArea,active]);
  // Muchos objetos comparten punto exacto (hasta 14): se pintan como un solo pin
  // con su recuento, o el de arriba taparia a los demas.
  const stacks=useMemo(()=>{const g=new Map<string,{at:Pt;items:Marker[]}>();for(const m of shown){const k=m.at!.join(','),s=g.get(k);if(s)s.items.push(m);else g.set(k,{at:m.at!,items:[m]})}return [...g.values()]},[shown]);
  useEffect(()=>setStack(null),[view.area]);
  useEffect(()=>{if(!about)return;const close=(e:KeyboardEvent)=>e.key==='Escape'&&setAbout(false);addEventListener('keydown',close);return()=>removeEventListener('keydown',close)},[about]);
  useEffect(()=>{if(!stack&&!selected&&!encounterZone)return;const close=(e:KeyboardEvent)=>{if(e.key!=='Escape')return;if(selected)setSelected(null);else if(stack)setStack(null);else setEncounterZone(null)};addEventListener('keydown',close);return()=>removeEventListener('keydown',close)},[stack,selected,encounterZone]);
- const results=useMemo(()=>q.length<2?[]:(world?.markers??[]).filter(m=>active.includes(m.category)&&`${m.name} ${m.location}`.toLowerCase().includes(q)).slice(0,8),[world,active,q]);
  const counts=useMemo(()=>{const c:Record<string,number>={};(area?inArea.get(area.id)??[]:[]).forEach(m=>c[m.category]=(c[m.category]??0)+1);return c},[area,inArea]);
 
  // Al salir de una region se guarda la vista para volver exactamente alli.
@@ -136,9 +134,9 @@ export default function Home(){
  };
  const showRegion=(id:string)=>{setLocations(false);setSelected(null);setEncounterZone(null);setArrival(null);saved.current=null;setView({area:id});if(id!==area?.id)setToast(`Now in ${areaById.get(id)?.label}`)};
  const switchFloor=(id:string)=>{setSelected(null);setView({area:id});setArrival(null);setToast(`Now in ${areaById.get(id)?.label??'another floor'}`)};
- // El buscador abre la ficha; desde las listas solo se senala el objeto en el
- // mapa, con el mismo anillo parpadeante que marca por donde se entra.
- const reveal=(m:Marker,open=true)=>{setStack(null);setArrival(null);setSelected(null);if(!m.area||!m.at)return;if(m.area!==area?.id)saveRegion();setView({area:m.area,focus:m.at,zoom:.5});if(open)setSelected(m);else setArrival({area:m.area,at:m.at,label:m.name});setQuery('');setSearching(false)};
+ // Desde las listas solo se senala el objeto en el mapa, con el mismo anillo
+ // parpadeante que marca por donde se entra; `open` abre ademas su ficha.
+ const reveal=(m:Marker,open=true)=>{setStack(null);setArrival(null);setSelected(null);if(!m.area||!m.at)return;if(m.area!==area?.id)saveRegion();setView({area:m.area,focus:m.at,zoom:.5});if(open)setSelected(m);else setArrival({area:m.area,at:m.at,label:m.name})};
  const go=(loc:Place)=>{
   setLocations(false);setSelected(null);setEncounterZone(world?.zones.find(z=>z.name===loc.name)??null);
   if(!isRegion(loc.area)){saveRegion();setView({area:loc.area});setArrival(null);setToast(`Entered ${areaById.get(loc.area)?.label}`);return}
@@ -200,16 +198,12 @@ export default function Home(){
  // En un grupo el lugar va una vez en el titulo; cada fila, sin subtitulo.
  const popRow=(m:Marker,compact=false)=><div className="pop-item"><div className="pop-head">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label="Mark as completed" onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<Figure m={m}/><div><b>{m.name}</b>{!compact&&<small>{m.encounter?`${m.category} · ${m.encounter.zone}`:shortPlace(m)?`${m.category} · ${m.location}`:m.category}</small>}</div></div>{popLine(m)&&<p>{popLine(m)}</p>}</div>;
  const popLine=(m:Marker)=>{const e=m.encounter;return e?`${levels(e)} · up to ${e.chance}% · ${e.methods.join(' · ')}`:m.detail??(shortPlace(m)?null:m.location||null)};
- // Donde esta un resultado de busqueda: su lugar exacto (FRLG), el texto de Yellow
- // si nombra un solo sitio ("Pewter Museum of Science"), o el lugar mas cercano.
- const resultPlace=(m:Marker)=>game.exactLocations||(m.location&&m.location.length<=40&&!/[,;(]/.test(m.location))?m.location:m.area&&m.at&&isRegion(m.area)?placeAt(m.area,m.at)??areaName(m.area):areaName(m.area);
  const exitRegion=here?exitOf(here).region:null;
  const floors=here?zoneFloors.get(here.zone??here.label)??[here]:[];
  return <main><header><div className="brand"><i><MapIcon/></i><b>ROUTE 151<small>{game.title} Companion</small></b></div>
  <label className="game-select"><span className="sr-only">Game</span><select value={game.id} onChange={e=>pickGame(e.target.value)} aria-label="Game">{GAMES.map(g=><option key={g.id} value={g.id}>{g.short}</option>)}</select><ChevronDown/></label>
+ {tab==='mapa'&&<div className="map-controls"><button className="location-button" onClick={()=>setLocations(!locations)} aria-expanded={locations}>{here?<DoorOpen/>:<MapPin/>}<span>{here?here.label:area?<>{area.label}<small> — all areas</small></>:'Loading…'}</span><ChevronDown/></button><button className={`layers-button ${active.length<groups.length?'filtered':''}`} onClick={()=>setLayersOpen(v=>!v)} aria-pressed={layersOpen} aria-label="Map layers"><Layers/></button></div>}
  <nav>{tabs.map(([k,t])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}>{t}</button>)}</nav><div className="counter"><span>{completed} completed</span><i><em style={{width:`${pct}%`}}/></i><b>{pct}%</b></div><button className="about-button" onClick={()=>setAbout(true)} aria-label="Credits"><Info/></button></header>
- <section className="toolbar" hidden={tab!=='mapa'}><button className="location-button" onClick={()=>setLocations(!locations)}>{here?<DoorOpen/>:<MapPin/>}<span>{here?here.label:area?`${area.label} — all areas`:'Loading…'}</span><ChevronDown/></button><label><Search/><input value={query} onFocus={()=>setSearching(true)} onBlur={()=>setTimeout(()=>setSearching(false),150)} onChange={e=>{setQuery(e.target.value);setSearching(true)}} placeholder="Search Pokémon, items or places…"/></label><button className={`layers-button ${active.length<groups.length?'filtered':''}`} onClick={()=>setLayersOpen(v=>!v)} aria-pressed={layersOpen} aria-label="Map layers"><Layers/></button><span>{shown.length} markers here</span>
- {searching&&results.length>0&&<div className="search-results">{results.map(m=><button key={m.id} onMouseDown={e=>e.preventDefault()} onClick={()=>reveal(m)}><Figure m={m}/><span><b>{m.name}</b><small>{resultPlace(m)}</small></span></button>)}</div>}</section>
  <div className={`app ${layersOpen?'layers-open':''}`} hidden={tab!=='mapa'}><aside><h3>MAP LAYERS</h3>{groups.map(([name,Icon,color])=><button key={name} onClick={()=>toggleGroup(name)} className={active.includes(name)?'enabled':''}><i style={{'--color':color} as React.CSSProperties}>{active.includes(name)&&<Check/>}</i><Icon/><span>{LAYER_NAMES[name]??name}</span><b>{counts[name]??0}</b></button>)}<div className="source"><Sparkles/><p><b>Separate maps</b>{regions.map(r=>r.label).join(' and ')} and every dungeon have their own map. Enter through the yellow doors.</p></div></aside>
  <div className="map-stage"><div ref={el} className="leaflet-map"/>
  {here&&<div className="floorbar"><button onClick={leave}><ArrowLeft/>{areaById.get(exitRegion??'')?.label??'Back'}</button>{floors.length>1&&floors.map(f=><button key={f.id} className={f.id===here.id?'on':''} onClick={()=>switchFloor(f.id)}>{short.get(f.id)||f.label}</button>)}</div>}
