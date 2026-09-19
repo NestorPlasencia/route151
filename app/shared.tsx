@@ -44,6 +44,7 @@ const yellowCredits=(tr:T):Credit[]=>[
 const frlgCredits=(tr:T):Credit[]=>[
  {what:tr.t('creditFrlg'),who:'pret/pokefirered',href:'https://github.com/pret/pokefirered',note:tr.t('creditDecomp')},
  {what:tr.t('creditDex'),who:'PokéAPI',href:'https://pokeapi.co'},
+ {what:tr.t('creditClasses'),who:'Pokémon Wiki (es)',href:'https://pokemon.fandom.com/es/wiki/Lista_de_clases_de_entrenadores'},
 ];
 export function Credits({game,tr}:{game:string;tr:T}){return <div className="credits">
  <ul>{(game==='yellow'?yellowCredits(tr):frlgCredits(tr)).map(c=><li key={c.what}><span>{c.what}</span><a href={c.href} target="_blank" rel="noreferrer">{c.who}</a>{c.note&&<small>{c.note}</small>}</li>)}</ul>

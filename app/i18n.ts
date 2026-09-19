@@ -80,6 +80,7 @@ const TEXT = {
  creditOrder: ['Walkthrough order', 'Orden de la guía'],
  creditFrlg: ['Maps, markers and encounters', 'Mapas, marcadores y encuentros'],
  creditDex: ['Pokédex data and icons', 'Datos de la Pokédex e iconos'],
+ creditClasses: ['Spanish trainer classes', 'Clases de entrenador en español'],
  creditVia: ['via Pokémon Completion', 'vía Pokémon Completion'],
  creditFlags: ['with event flag research by FabioAttard', 'con la investigación de flags de FabioAttard'],
  creditDecomp: ['generated from the decompilation', 'generado desde la decompilación'],
@@ -196,6 +197,27 @@ const PARTS: [string, string][] = [
  ['Post-game', 'Post-juego'], ['Other areas', 'Otras zonas'], ['Events', 'Eventos'],
 ];
 
+// Clases de entrenador en espanol. Las de Rojo Fuego y Verde Hoja salen de la
+// lista de la Pokemon Wiki en espanol (pokemon.fandom.com/es, CC BY-SA); las que
+// esa lista no recoge (lideres, Alto Mando, Rocket, nadadores) llevan el nombre
+// que usan los juegos en espanol.
+const CLASSES: Record<string, string> = {
+ 'Aroma Lady': 'Señorita Aroma', Beauty: 'Bella', Biker: 'Motorista', 'Bird Keeper': 'Ornitólogo',
+ 'Black Belt': 'Karateka', 'Bug Catcher': 'Cazabichos', Burglar: 'Ladrón', Camper: 'Campista',
+ Channeler: 'Exorcista', 'Cool Couple': 'Pareja Guay', Cooltrainer: 'Entrenador Guay',
+ 'Crush Girl': 'Luchadora', 'Crush Kin': 'Dúo Fuerte', 'Cue Ball': 'Calvo', Engineer: 'Mecánico',
+ Fisherman: 'Pescador', Gamer: 'Jugón', Gentleman: 'Caballero', Hiker: 'Montañero',
+ Juggler: 'Malabarista', Lady: 'Damisela', Lass: 'Chica', Painter: 'Pintora', Picnicker: 'Dominguera',
+ Pokemaniac: 'Pokemaníaco', 'Pkmn Breeder': 'Criapokémon', 'Pkmn Ranger': 'Pokéguarda',
+ Psychic: 'Médium', Rocker: 'Rockero', 'Ruin Maniac': 'Ruinamaníaco', Sailor: 'Marinero',
+ Scientist: 'Científico', 'Sis And Bro': 'Hermanos', 'Super Nerd': 'Supernecio',
+ 'Swimmer M': 'Nadador', 'Swimmer F': 'Nadadora', Tamer: 'Domador', Tuber: 'Playero',
+ Twins: 'Gemelas', 'Young Couple': 'Pareja Joven', Youngster: 'Joven',
+ Leader: 'Líder', 'Elite Four': 'Alto Mando', Champion: 'Campeón', Boss: 'Jefe', Rival: 'Rival',
+ 'Team Rocket Grunt': 'Recluta del Equipo Rocket', 'Team Rocket': 'Equipo Rocket',
+};
+const CLASS_ORDER = Object.keys(CLASSES).sort((a, b) => b.length - a.length);
+
 // Traduce las partes conocidas del nombre de un interior y deja el resto igual.
 const parts = (rest: string) => PARTS.reduce((out, [en, es]) => out.split(en).join(es), rest);
 
@@ -220,7 +242,11 @@ export function translator(lang: Lang, names: Names = null) {
   // Nombre de un objeto ('Coins ×10' -> 'Monedas ×10'); lo demas (Pokemon,
   // entrenadores) se queda igual.
   name: (n: string) => {
-   if (lang !== 'es' || !names) return n;
+   if (lang !== 'es') return n;
+   // Combates: 'Bug Catcher Robby' -> 'Cazabichos Robby'.
+   const cls = CLASS_ORDER.find(c => n === c || n.startsWith(c + ' '));
+   if (cls) return (CLASSES[cls] + n.slice(cls.length)).trim();
+   if (!names) return n;
    const [, base, tail] = n.match(/^(.*?)( ×\d+)?$/) ?? [];
    return (names.items[base] ?? base) + (tail ?? '');
   },
