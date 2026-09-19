@@ -1,0 +1,57 @@
+{
+ "-79.38,7.38": {
+  "id": 2,
+  "label": "Lance's Room",
+  "zone": "Indigo Plateau",
+  "order": 4
+ },
+ "-83.38,31.88": {
+  "id": 3,
+  "label": "Agatha's Room",
+  "zone": "Indigo Plateau",
+  "order": 3
+ },
+ "-83.38,52.62": {
+  "id": 4,
+  "label": "Bruno's Room",
+  "zone": "Indigo Plateau",
+  "order": 2
+ },
+ "-83.38,73.38": {
+  "id": 5,
+  "label": "Lorelei's Room",
+  "zone": "Indigo Plateau",
+  "order": 1
+ },
+ "-83.38,94.12": {
+  "id": 6,
+  "label": "Elite Four Entrance",
+  "zone": "Indigo Plateau",
+  "order": 0
+ },
+ "-518.12,778.12": {
+  "id": 1493,
+  "label": "Pokémon Tower 1F",
+  "zone": "Pokémon Tower"
+ },
+ "-510.62,235.62": {
+  "id": 1471,
+  "label": "Seafoam Islands 1F",
+  "zone": "Seafoam Islands"
+ },
+ "-555.12,235.62": {
+  "id": 1815,
+  "label": "Seafoam Islands B1F",
+  "zone": "Seafoam Islands"
+ },
+ "-107.00,276.25": {
+  "id": 10,
+  "label": "Mt. Moon B1F",
+  "zone": "Mt. Moon"
+ },
+ "-715.00,495.62": {
+  "id": 3233,
+  "label": "Silph Co. 1F",
+  "zone": "Silph Co."
+ }
+}

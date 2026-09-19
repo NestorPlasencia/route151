@@ -1,0 +1,24 @@
+[
+ {
+  "label": "Cinnabar Gym",
+  "zone": "Cinnabar Island",
+  "note": "Sala dibujada pegada a la isla: su muro izquierdo linda con la franja de vallas.",
+  "rect": [
+   1842,
+   5932,
+   2163,
+   6221
+  ],
+  "door": {
+   "at": [
+    1814,
+    6265
+   ],
+   "to": [
+    2114,
+    6212
+   ],
+   "note": "at: puerta del edificio GYM de la isla; to: alfombra de entrada de la sala (px del mapa completo)."
+  }
+ }
+]
