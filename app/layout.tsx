@@ -16,6 +16,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: '#11182a',
+  // Instalada en iOS, la app ocupa toda la pantalla (barra de estado translucida):
+  // con 'cover' el navegador da las zonas seguras (env(safe-area-inset-*)).
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({

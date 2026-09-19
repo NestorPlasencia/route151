@@ -237,3 +237,10 @@ header .location-button small{font-size:inherit;color:#95a2b9}
 @media (min-width:1025px){header{gap:16px}.game-select,.map-controls{margin-left:0}.game-select{margin-left:12px}header>nav{margin-left:20px}}
 /* Popup debajo del pin cuando arriba no cabe: la flecha pasa arriba. */
 .marker-pop.pop-below .leaflet-popup-tip-container{position:absolute;top:-20px;transform:rotate(180deg)}
+/* La app ocupa la pantalla fija: la pagina nunca se desplaza ni rebota (en la PWA
+   de iOS eso sacaba de la pantalla la barra de pestanas). Solo desplazan dentro
+   el mapa y las listas. La cabecera deja sitio a la barra de estado. */
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+main{position:fixed;inset:0;height:auto}
+header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-inset-top))}
+@media (max-width:1024px),(pointer:coarse) and (max-width:1366px){header{height:calc(56px + env(safe-area-inset-top))}}
