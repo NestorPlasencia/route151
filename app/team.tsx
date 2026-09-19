@@ -16,7 +16,8 @@ export type Battle={
  chart:Record<string,Record<string,number>>;
 };
 // `bench`: suplente. El equipo lleva como mucho seis; los demas esperan abajo.
-export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[];bench?:boolean};
+// `stats`: las que pone el juego, si se escriben; si no, se estiman.
+export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[];bench?:boolean;stats?:number[]};
 
 const STATS=['hp','atk','def','spa','spd','spe'] as const;
 const IV=15;
@@ -36,7 +37,7 @@ export const effectiveness=(chart:Battle['chart'],type:string,against:string[])=
 export function damage(battle:Battle,attacker:TeamMon,move:Move,target:number,targetLevel:number){
  const me=battle.species[attacker.n],foe=battle.species[target];
  if(!me||!foe||!move.power)return null;
- const mine=statsOf(me.base,attacker.level,battle.natures[attacker.nature]??[null,null]);
+ const mine=attacker.stats??statsOf(me.base,attacker.level,battle.natures[attacker.nature]??[null,null]);
  const theirs=statsOf(foe.base,targetLevel);
  const physical=move.category==='physical';
  const a=mine[physical?1:3],d=theirs[physical?2:4];
@@ -84,7 +85,8 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
  const moveLabel=(key:string)=>{const m=battle.moves[key];return `${moveName(m.name)} · ${typeName(m.type)}${m.power?` · ${m.power}`:''}`};
  const card=(mon:TeamMon)=>{
   const s=battle.species[mon.n],info=species.get(mon.n),pool=movePool(battle,mon);
-  const stats=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null]);
+  const guess=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null]);
+  const stats=mon.stats??guess,own=!!mon.stats;
   return <article key={mon.id} className="team-mon">
    <header>
     <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
@@ -99,7 +101,12 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
     <label>{t('nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${t(('stat_'+up) as never)} −${t(('stat_'+down) as never)})`:''}</option>)}</select></label>
     <label>{t('ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{s.abilities.map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>
    </div>
-   <dl className="team-stats">{STATS.map((stat,i)=><div key={stat}><dt>{t(('stat_'+stat) as never)}</dt><dd>{stats[i]}</dd></div>)}</dl>
+   <dl className={`team-stats ${own?'own':''}`}>{STATS.map((stat,i)=><div key={stat}>
+    <dt>{t(('stat_'+stat) as never)}</dt>
+    <dd><input type="number" min={1} max={999} value={stats[i]} aria-label={t(('stat_'+stat) as never)}
+     onChange={e=>update(mon.id,{stats:stats.map((v,j)=>j===i?Math.max(1,Math.min(999,+e.target.value||1)):v)})}/></dd>
+   </div>)}</dl>
+   <p className="team-note">{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
    <div className="team-moves">{[0,1,2,3].map(i=>
     <select key={i} value={mon.moves[i]??''} onChange={e=>update(mon.id,{moves:mon.moves.map((m,j)=>j===i?(e.target.value||null):m)})}>
      <option value="">{t('noMove')}</option>
