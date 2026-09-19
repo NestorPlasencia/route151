@@ -96,6 +96,24 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
   return best?[best]:[];
  }).sort((a,b)=>b.max-a.max);
 
+ // Grafico de juez: hexagono con la valoracion de cada IV, como en los juegos.
+ const judgeLabel=(iv:number)=>t((iv>=31?'rate5':iv>=30?'rate4':iv>=21?'rate3':iv>=11?'rate2':iv>=1?'rate1':'rate0') as never);
+ const judge=(mon:TeamMon)=>{
+  const s=battle.species[mon.n],stats=mon.stats;if(!stats)return null;
+  const mods=battle.natures[mon.nature]??[null,null];
+  const fits=STATS.map((stat,i)=>genes(s.base[i],mon.level,stats[i],stat,mods));
+  if(fits.some(f=>!f))return null;
+  // De un rango se toma su punto medio, sin pasar de 31 (lo de mas son EVs).
+  return fits.map(f=>Math.min(31,Math.round((f!.min+Math.min(31,f!.max))/2)));
+ };
+ // Ejes como en el juego: PS arriba y, girando a la derecha, Ataque, Defensa,
+ // Velocidad, Def. Esp. y At. Esp.
+ const AXES=[0,1,2,5,4,3];
+ const hexagon=(values:number[],radius:number)=>AXES.map((stat,i)=>{
+  const angle=Math.PI/2-i*Math.PI/3,r=radius*Math.max(.08,values[stat]/31);
+  return `${(60+r*Math.cos(angle)).toFixed(1)},${(60-r*Math.sin(angle)).toFixed(1)}`;
+ }).join(' ');
+
  // Naturalezas con las que cuadran todas las cifras escritas: si la elegida no
  // encaja, casi siempre es que la naturaleza es otra (sube una y baja otra).
  const fittingNatures=(mon:TeamMon)=>{
@@ -114,7 +132,9 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
   const max=Math.min(31,fit.max);
   return t('iv',{range:fit.min===max?`${fit.min}`:`${fit.min}–${max}`})+(fit.max>31?'+':'');
  };
- const moveLabel=(key:string)=>{const m=battle.moves[key];return `${moveName(m.name)} · ${typeName(m.type)}${m.power?` · ${m.power}`:''}`};
+ const moveLabel=(key:string)=>{const m=battle.moves[key];
+  const kind=m.power?t(m.category==='physical'?'physicalShort':'specialShort'):t('statusShort');
+  return `${moveName(m.name)} · ${typeName(m.type)} · ${kind}${m.power?` ${m.power}`:''}`};
  const card=(mon:TeamMon)=>{
   const s=battle.species[mon.n],info=species.get(mon.n),pool=movePool(battle,mon);
   const guess=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null]);
@@ -140,13 +160,34 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
     {own&&(fit=>fit?<small>{ivLabel(fit)}</small>:<small title={t('ivNoFitHelp')}>{t('ivNoFit')}</small>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}
    </div>)}</dl>
    <p className="team-note">{own&&<span className="team-iv">{t('ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
+   {own&&(ivs=>ivs?<div className="judge">
+    <h4>{t('judge')}<small>{t('judgeTotal',{n:ivs.reduce((a,b)=>a+b,0)})}</small></h4>
+    <div className="judge-chart">
+     <svg viewBox="0 0 120 120" aria-hidden="true">
+      {[1,.66,.33].map(k=><polygon key={k} className="judge-grid" points={hexagon([31,31,31,31,31,31],48*k)}/>)}
+      {AXES.map((stat,i)=>{const angle=Math.PI/2-i*Math.PI/3;
+       return <line key={stat} className="judge-grid" x1="60" y1="60" x2={(60+48*Math.cos(angle)).toFixed(1)} y2={(60-48*Math.sin(angle)).toFixed(1)}/>})}
+      <polygon className="judge-shape" points={hexagon(ivs,48)}/>
+     </svg>
+     <ul>{AXES.map(i=><li key={STATS[i]}><b>{t(('stat_'+STATS[i]) as never)}</b><span>{judgeLabel(ivs[i])}</span></li>)}</ul>
+    </div>
+    <p className="team-note">{t('judgeNote')}</p>
+   </div>:null)(judge(mon))}
    {own&&(fits=>fits.length&&!fits.includes(mon.nature)?<p className="team-note team-natures">{t('natureFits')} {fits.map(n=>
     <button key={n} className="team-reset" onClick={()=>update(mon.id,{nature:n})}>{natureName(n)}</button>)}</p>:null)(fittingNatures(mon))}
-   <div className="team-moves">{[0,1,2,3].map(i=>
-    <select key={i} value={mon.moves[i]??''} onChange={e=>update(mon.id,{moves:mon.moves.map((m,j)=>j===i?(e.target.value||null):m)})}>
-     <option value="">{t('noMove')}</option>
-     {pool.map(key=><option key={key} value={key}>{moveLabel(key)}</option>)}
-    </select>)}
+   <div className="team-moves">{[0,1,2,3].map(i=>{
+    const move=mon.moves[i]?battle.moves[mon.moves[i]!]:null;
+    return <div key={i} className="move-slot" data-type={move?.type}>
+     <select value={mon.moves[i]??''} onChange={e=>update(mon.id,{moves:mon.moves.map((m,j)=>j===i?(e.target.value||null):m)})}>
+      <option value="">{t('noMove')}</option>
+      {pool.map(key=><option key={key} value={key}>{moveLabel(key)}</option>)}
+     </select>
+     {move&&<small><i className={`type t-${move.type}`}>{typeName(move.type)}</i>
+      <b>{move.power?t(move.category==='physical'?'physical':'special'):t('status')}</b>
+      {move.power>0&&<span>{t('power')} {move.power}</span>}
+      <span>PP {move.pp}</span></small>}
+    </div>;
+   })}
    </div>
   </article>;
  };
@@ -180,7 +221,7 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
      const label=info?.name+(mon.bench?` · ${t('bench')}`:'');
      return <div key={mon.id} className={`advice-row ${eff===0?'none':eff>1?'good':eff<1?'bad':''}`}>
       <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
-      <span><b>{moveName(move.name)}</b><small>{label} · {typeName(move.type)}{eff!==1&&` · ×${eff}`}</small></span>
+      <span><b>{moveName(move.name)}</b><small>{label} · {typeName(move.type)} · {t(move.category==='physical'?'physicalShort':'specialShort')}{eff!==1&&` · ×${eff}`}</small></span>
       <em>{eff===0?t('noEffect'):`${min}–${max}%`}</em>
      </div>})}</div>}
     {foe&&!advice.length&&<p className="list-empty">{t('noDamage')}</p>}
