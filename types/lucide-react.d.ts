@@ -19,6 +19,7 @@ declare module 'lucide-react' {
   export const Mountain: Icon;
   export const Search: Icon;
   export const Sparkles: Icon;
+  export const Store: Icon;
   export const Swords: Icon;
   export const X: Icon;
 }

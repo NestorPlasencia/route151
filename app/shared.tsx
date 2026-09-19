@@ -1,5 +1,5 @@
 // Piezas comunes al mapa, la checklist y la Pokedex.
-import {Backpack,Gift,ListChecks,MapPin,Mountain,Search,Sparkles,Swords} from 'lucide-react';
+import {Backpack,Gift,ListChecks,MapPin,Mountain,Search,Sparkles,Store,Swords} from 'lucide-react';
 import trainerIcons from '../public/data/trainer-icons.json';
 
 export type Encounter={zone:string;min:number;max:number;chance:number;methods:string[];sprite?:string};
@@ -12,15 +12,15 @@ export type Marker={id:string;uid:number;category:string;name:string;location:st
 export const groups=[['Pokémon',Sparkles,'#ffd739'],['Item In Map',MapPin,'#49a8ff'],['Item Gift',Gift,'#ff8ec1'],['In-Game Trade',Gift,'#ad83ff'],['In-Game Gift Pokémon',Sparkles,'#f3a63b'],['Battle',Swords,'#ff5f66']] as const;
 // Yellow suma su coleccion de objetos (un pin por objeto: el Old Amber, los
 // fosiles, las MT, los de tienda...) y sus tareas; FireRed/LeafGreen, los objetos
-// ocultos y los obstaculos (rocas, arbustos).
+// ocultos, las tiendas y los obstaculos (rocas, arbustos).
 const yellowGroups=[...groups,['Item',Backpack,'#5ccfb4'],['Miscellaneous Task',ListChecks,'#b9c2cf']] as const;
-export const frlgGroups=[...groups.slice(0,2),['Hidden Item',Search,'#7fd4ff'],...groups.slice(2),['Obstacle',Mountain,'#9aa6b8']] as const;
+export const frlgGroups=[...groups.slice(0,2),['Hidden Item',Search,'#7fd4ff'],...groups.slice(2),['Shop',Store,'#5ccfb4'],['Obstacle',Mountain,'#9aa6b8']] as const;
 export type Group=(typeof yellowGroups)[number]|(typeof frlgGroups)[number];
 export const groupsOf=(game:string):readonly Group[]=>game==='yellow'?yellowGroups:frlgGroups;
 export const colorOf=(category:string)=>[...yellowGroups,...frlgGroups].find(g=>g[0]===category)?.[2]??'#fff';
 // Nombre de la capa cuando la categoria no se entiende sola.
 export const LAYER_NAMES:Record<string,string>={Item:'Collectible Item','Miscellaneous Task':'Task'};
-export const CATEGORY_NAMES:Record<string,string>={'Pokémon':'Pokémon','Item In Map':'Item on the map','Hidden Item':'Hidden item','Item Gift':'Gift item','In-Game Trade':'In-game trade','In-Game Gift Pokémon':'Gift Pokémon','Battle':'Battle',Item:'Item','Miscellaneous Task':'Task',Obstacle:'Obstacle'};
+export const CATEGORY_NAMES:Record<string,string>={'Pokémon':'Pokémon','Item In Map':'Item on the map','Hidden Item':'Hidden item','Item Gift':'Gift item','In-Game Trade':'In-game trade','In-Game Gift Pokémon':'Gift Pokémon','Battle':'Battle',Item:'Item','Miscellaneous Task':'Task',Obstacle:'Obstacle',Shop:'Shop'};
 
 // Los combates de Yellow no traen icono: se deduce de la clase del rival
 // ("Youngster #3" -> sprite de Joven; "Snorlax" -> su figurita). Ver

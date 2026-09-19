@@ -16,7 +16,8 @@ export type Game={
  id:string;short:string;title:string;
  // Claves de localStorage con el progreso (las de Yellow son las de siempre).
  storage:{done:string;dex:string};
- // Capas que empiezan ocultas y categorias que no cuentan como progreso.
+ // Capas que empiezan ocultas y categorias que no cuentan como progreso (en FRLG,
+ // obstaculos y tiendas: comprar no es coleccionar).
  hidden:string[];untracked:string[];
  encounterSource:string;
  // En FRLG `location` es el lugar exacto de cada marcador; en Yellow es un texto
@@ -96,6 +97,6 @@ async function loadFrlg(version:'firered'|'leafgreen'):Promise<World>{
 
 export const GAMES:Game[]=[
  {id:'yellow',short:'Yellow',title:'Pokémon Yellow',storage:{done:'ruta151-full',dex:'ruta151-dex'},hidden:[],untracked:[],encounterSource:'PokéAPI encounters',exactLocations:false,load:loadYellow},
- {id:'firered',short:'FireRed',title:'Pokémon FireRed',storage:{done:'ruta151-firered',dex:'ruta151-firered-dex'},hidden:['Obstacle'],untracked:['Obstacle'],encounterSource:'Wild encounters',exactLocations:true,load:()=>loadFrlg('firered')},
- {id:'leafgreen',short:'LeafGreen',title:'Pokémon LeafGreen',storage:{done:'ruta151-leafgreen',dex:'ruta151-leafgreen-dex'},hidden:['Obstacle'],untracked:['Obstacle'],encounterSource:'Wild encounters',exactLocations:true,load:()=>loadFrlg('leafgreen')},
+ {id:'firered',short:'FireRed',title:'Pokémon FireRed',storage:{done:'ruta151-firered',dex:'ruta151-firered-dex'},hidden:['Obstacle'],untracked:['Obstacle','Shop'],encounterSource:'Wild encounters',exactLocations:true,load:()=>loadFrlg('firered')},
+ {id:'leafgreen',short:'LeafGreen',title:'Pokémon LeafGreen',storage:{done:'ruta151-leafgreen',dex:'ruta151-leafgreen-dex'},hidden:['Obstacle'],untracked:['Obstacle','Shop'],encounterSource:'Wild encounters',exactLocations:true,load:()=>loadFrlg('leafgreen')},
 ];

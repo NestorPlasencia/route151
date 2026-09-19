@@ -184,7 +184,11 @@ def load_trainers():
         cls = cls.group(1)
         name = re.search(r'\.trainerName = _\("([^"]*)"\)', body).group(1)
         party = re.search(r'\((sParty_\w+)\)', body)
-        out[tid] = {'name': title(name), 'class': const_name(cls, 'TRAINER_CLASS_'),
+        cls_name = const_name(cls, 'TRAINER_CLASS_')
+        if cls_name.startswith('Rival') or cls_name == 'Champion':
+            # El rival se llama como lo nombre el jugador; Terry es el de fabrica.
+            cls_name, name = ('Rival' if cls_name.startswith('Rival') else 'Champion'), ''
+        out[tid] = {'name': title(name), 'class': cls_name,
                     'party': parties.get(party.group(1), []) if party else []}
     return out
 
@@ -208,7 +212,10 @@ def load_scripts(version):
     return blocks
 
 
-def follow(scripts, label, depth=5):
+REACHED = set()  # etiquetas ya alcanzadas desde un personaje, casilla o cartel
+
+
+def follow(scripts, label, depth=5, track=True):
     """Cuerpo del script mas los de las etiquetas a las que salta (goto, call)
     dentro del mismo mapa: el combate del Alto Mando esta tras un goto_if y los
     premios del Casino, cinco saltos mas alla del empleado."""
@@ -219,6 +226,8 @@ def follow(scripts, label, depth=5):
         for l in frontier:
             text = scripts.get(l, '')
             body += text
+            if track:
+                REACHED.add(l)
             for ref in re.findall(r'\b(' + re.escape(prefix) + r'\w+)', text):
                 if ref not in seen:
                     seen.add(ref)
@@ -335,34 +344,68 @@ def gifts(body):
     return list(dict.fromkeys(out))
 
 
-def classify(o, body, trades):
-    """Marcadores de un objeto: [(categoria, nombre, extras)]."""
+def given_items(body):
+    """Objetos que da un script, en orden y sin repetir: 'finditem ITEM_X',
+    'giveitem ITEM_X', 'additem ITEM_X' y 'giveitem_msg <texto>, ITEM_X'."""
+    found = re.findall(r'\b(?:finditem|giveitem|additem) (ITEM_\w+)|\bgiveitem_msg \w+, (ITEM_\w+)', body)
+    return list(dict.fromkeys(a or b for a, b in found))
+
+
+def prize_items(body):
+    """Objetos que se dan por variable ('setvar VAR_TEMP_1, ITEM_TM13' ...
+    'giveitem VAR_TEMP_1'): los premios del Casino."""
+    out = []
+    for var in dict.fromkeys(re.findall(r'\b(?:giveitem|additem) (VAR_\w+)', body)):
+        out += re.findall(r'setvar ' + re.escape(var) + r', (ITEM_\w+)', body)
+    return list(dict.fromkeys(out))
+
+
+def shop_items(body, scripts):
+    """Lo que vende una tienda: las listas de 'pokemart <etiqueta>' (.2byte ITEM_X)."""
+    out = []
+    for label in re.findall(r'pokemart (\w+)', body):
+        out += [i for i in re.findall(r'\.2byte (ITEM_\w+)', scripts.get(label, '')) if i != 'ITEM_NONE']
+    return list(dict.fromkeys(out))
+
+
+def classify(o, body, trades, scripts):
+    """Marcadores de un objeto: [(categoria, nombre, extras)]. Un mismo personaje
+    puede dar varios: un lider de gimnasio es un combate y regala una MT."""
     items, trainers, numbers = load_items(), load_trainers(), d.species_numbers()
     gfx = o.get('graphics_id', '')
     battle = re.search(r'trainerbattle_\w+ (TRAINER_\w+)', body)
     static = re.search(r'setwildbattle (SPECIES_\w+), (\d+)', body)
-    item = re.search(r'(finditem|giveitem) (ITEM_\w+)', body)
     trade = re.search(r'setvar VAR_0x8008, (INGAME_TRADE_\w+)', body)
     mon = lambda sp: species(sp.removeprefix('SPECIES_'))
+    given = [i for i in given_items(body) if i in items and i != 'ITEM_NONE']
+    # Poke Ball del suelo: su unico objeto.
+    if gfx == 'OBJ_EVENT_GFX_ITEM_BALL' and given and not gifts(body) and not static:
+        return [('Item In Map', items[given[0]]['name'], {'icon': item_icon(given[0])})]
+    out = []
     if battle and battle.group(1) in trainers:
         t = trainers[battle.group(1)]
         party = ', '.join(f'{s} Lv{l}' for s, l in t['party'])
-        return [('Battle', f'{t["class"]} {t["name"]}'.strip(), {'icon': npc_icon(gfx), 'detail': party})]
+        out.append(('Battle', f'{t["class"]} {t["name"]}'.strip(), {'icon': npc_icon(gfx), 'detail': party}))
     if trade and trade.group(1) in trades:
         got, wanted = trades[trade.group(1)]
-        return [('In-Game Trade', mon(got), {'icon': mon_icon(numbers[got]), 'detail': f'Trade your {mon(wanted)}'})]
-    if gifts(body):
-        return [('In-Game Gift Pokémon', mon(sp), {'key': f'gift:{sp}', 'icon': mon_icon(numbers[sp]), 'detail': f'Lv. {lv}' if lv else None})
-                for sp, lv in gifts(body)]
+        out.append(('In-Game Trade', mon(got), {'icon': mon_icon(numbers[got]), 'detail': f'Trade your {mon(wanted)}'}))
+    out += [('In-Game Gift Pokémon', mon(sp), {'key': f'gift:{sp}', 'icon': mon_icon(numbers[sp]), 'detail': f'Lv. {lv}' if lv else None})
+            for sp, lv in gifts(body)]
     if static:
         lv = int(static.group(2))
-        return [('Pokémon', mon(static.group(1)), {'key': 'static', 'catch': static.group(1), 'icon': mon_icon(numbers[static.group(1)]),
-                 'encounter': {'zone': None, 'min': lv, 'max': lv, 'chance': 100, 'methods': ['Static encounter'],
-                               'sprite': SPRITE.format(numbers[static.group(1)])}})]
-    if item and item.group(2) in items:
-        category = 'Item Gift' if gfx != 'OBJ_EVENT_GFX_ITEM_BALL' else 'Item In Map'
-        return [(category, items[item.group(2)]['name'], {'icon': item_icon(item.group(2))})]
-    return []
+        out.append(('Pokémon', mon(static.group(1)), {'key': 'static', 'catch': static.group(1), 'icon': mon_icon(numbers[static.group(1)]),
+                    'encounter': {'zone': None, 'min': lv, 'max': lv, 'chance': 100, 'methods': ['Static encounter'],
+                                  'sprite': SPRITE.format(numbers[static.group(1)])}}))
+    out += [('Item Gift', items[i]['name'], {'key': f'gift:{i}', 'icon': item_icon(i)}) for i in given]
+    # Por variable: premios del Casino, o canjes (bebidas en la azotea de
+    # Azulona, Berry Powder en Celeste).
+    prize = 'Game Corner prize' if 'GameCorner' in o.get('script', '') else 'Reward or exchange'
+    out += [('Item Gift', items[i]['name'], {'key': f'prize:{i}', 'icon': item_icon(i), 'detail': prize})
+            for i in prize_items(body) if i in items and i not in given]
+    sold = [items[i]['name'] for i in shop_items(body, scripts) if i in items]
+    if sold:
+        out.append(('Shop', 'Poké Mart', {'key': 'shop', 'icon': npc_icon(gfx), 'detail': 'Sells ' + ', '.join(sold)}))
+    return out
 
 
 def main():
@@ -434,26 +477,65 @@ def main():
 
     markers, warps = [], []
     encounter_zones = {v: defaultdict(dict) for v in VERSIONS}
+    placed = set()  # (mapa, categoria, nombre, version) ya puestos
+
+    # `catch`: especie de un Pokemon salvaje o fijo. Como en Yellow, todos los
+    # de una especie comparten uid: atraparlo en un sitio lo completa en todos.
+    # `once`: si ya hay uno igual en el mapa no se repite (escenas en varias
+    # casillas); los regalos de objetos nunca se repiten en un mismo mapa (Bill
+    # sale dos veces en su cabana y da un solo S.S. Ticket).
+    def add_to(mid, category, name, x, y, key=None, icon=None, detail=None, encounter=None, version=None, catch=None, once=False):
+        kind = 'item' if category in ('Item In Map', 'Hidden Item', 'Item Gift') else category
+        tag = (mid, kind, name, version)
+        if (once or category == 'Item Gift') and (tag in placed or (mid, kind, name, None) in placed):
+            return
+        placed.add(tag)
+        area, px = at(mid, x, y)
+        if encounter:
+            encounter = {**encounter, 'zone': encounter['zone'] or location(mid)}
+        mid_key = f'{mid}:{key or category}:{x},{y}' + (f':{version}' if version else '')
+        mk = {'id': mid_key, 'uid': uid_of(f'catch:{catch}' if catch else mid_key), 'category': category, 'name': name, 'location': location(mid),
+              'area': area, 'at': px, 'map': mid, 'zone': zone_of[mid], 'icon': icon}
+        if mid in floor_of:
+            mk['floor'] = floor_of[mid]
+        for k, v in (('detail', detail), ('encounter', encounter), ('version', version)):
+            if v:
+                mk[k] = v
+        markers.append(mk)
+
+    def actor(mid, body):
+        """Personaje que protagoniza una escena: el objeto del mapa cuyo LOCALID
+        mas se nombra en el script (Celio, el dependiente del Mart, el rival)."""
+        objs = [o for o in maps[mid].get('object_events') or [] if o.get('local_id')]
+        counts = {o['local_id']: body.count(o['local_id']) for o in objs}
+        best = max(objs, key=lambda o: counts[o['local_id']], default=None)
+        return best if best and counts[best['local_id']] else None
+
+    def place_scene(mid, label, x=None, y=None, track=True):
+        """Combates y regalos de una escena que no dispara un personaje al hablarle.
+        Van en la casilla que la dispara o, si no hay (escenas al entrar al mapa),
+        sobre su protagonista o en el centro del mapa."""
+        found = {}
+        for v in VERSIONS:
+            body = follow(scripts[v], label, track=track)
+            who = actor(mid, body)
+            specs = [s for s in classify({'graphics_id': who['graphics_id'] if who else ''}, body, trades[v], scripts[v]) if s[0] in ('Battle', 'Item Gift')]
+            found[v] = (specs, who)
+        same = found['firered'][0] == found['leafgreen'][0]
+        for v in VERSIONS:
+            specs, who = found[v]
+            px, py = (x, y) if x is not None else (who['x'], who['y']) if who else tuple(n // 2 for n in layout_size(mid))
+            for spec in specs:
+                extra = {**spec[2], 'key': f'scene:{spec[2].get("key") or spec[1]}'}
+                add_to(mid, *spec[:2], px, py, **extra, version=None if same else v, once=True)
+            if same:
+                break
+
     for m in maps.values():
         mid = m['id']
         if mid not in where or mid in COPIES:
             continue
-
-        # `catch`: especie de un Pokemon salvaje o fijo. Como en Yellow, todos los
-        # de una especie comparten uid: atraparlo en un sitio lo completa en todos.
-        def add(category, name, x, y, key=None, icon=None, detail=None, encounter=None, version=None, catch=None):
-            area, px = at(mid, x, y)
-            if encounter:
-                encounter = {**encounter, 'zone': encounter['zone'] or location(mid)}
-            mid_key = f'{mid}:{key or category}:{x},{y}' + (f':{version}' if version else '')
-            mk = {'id': mid_key, 'uid': uid_of(f'catch:{catch}' if catch else mid_key), 'category': category, 'name': name, 'location': location(mid),
-                  'area': area, 'at': px, 'map': mid, 'zone': zone_of[mid], 'icon': icon}
-            if mid in floor_of:
-                mk['floor'] = floor_of[mid]
-            for k, v in (('detail', detail), ('encounter', encounter), ('version', version)):
-                if v:
-                    mk[k] = v
-            markers.append(mk)
+        add = lambda *args, mid=mid, **kw: add_to(mid, *args, **kw)
 
         for o in m.get('object_events') or []:
             gfx, x, y = o.get('graphics_id', ''), o['x'], o['y']
@@ -462,7 +544,7 @@ def main():
                 continue
             # Se clasifica con los scripts de cada version: si coinciden es un
             # solo marcador; si no (premios del Casino, intercambios), uno por version.
-            found = {v: classify(o, follow(scripts[v], o.get('script', '')), trades[v]) for v in VERSIONS}
+            found = {v: classify(o, follow(scripts[v], o.get('script', '')), trades[v], scripts[v]) for v in VERSIONS}
             same = found['firered'] == found['leafgreen']
             for v in VERSIONS:
                 for spec in found[v]:
@@ -476,6 +558,12 @@ def main():
                 coins = b['item'] == 'ITEM_NONE'
                 name = ('Coins' if coins else items[b['item']]['name']) + (f' ×{q}' if q > 1 else '')
                 add('Hidden Item', name, b['x'], b['y'], icon=item_icon('ITEM_COIN_CASE' if coins else b['item']))
+
+        # Casillas que disparan una escena al pisarlas (el rival en Celeste, la Ruta
+        # 22...): sus combates y regalos, una vez aunque la escena ocupe varias.
+        for c in m.get('coord_events') or []:
+            if c.get('script'):
+                place_scene(mid, c['script'], c['x'], c['y'])
 
         # Pokemon salvajes: un pin por especie y mapa, sobre la hierba (o el agua
         # si solo sale surfeando o pescando). Si las dos versiones coinciden es un
@@ -536,6 +624,15 @@ def main():
             dst_area, dst = at(dest, targets[k]['x'], targets[k]['y'])
             if src_area != dst_area:
                 warps.append({'area': src_area, 'at': src, 'to': dst_area, 'toAt': dst})
+
+    # Escenas que dispara el propio mapa (al entrar, o tras otra escena): el
+    # Campeon, el Oak's Parcel, lo que da Celio... Cada etiqueta va al mapa que
+    # nombra ('OneIsland_PokemonCenter_1F_EventScript_...'); lo ya puesto no se repite.
+    by_name = {m['name']: m['id'] for m in maps.values() if m['id'] in where and m['id'] not in COPIES}
+    for label in sorted(set(scripts['firered']) | set(scripts['leafgreen'])):
+        owner = by_name.get(label.split('_EventScript_')[0])
+        if owner and '_EventScript_' in label and label not in REACHED:
+            place_scene(owner, label, track=False)
 
     # Las puertas anchas son varias casillas de warp: se unen en una.
     merged = []
