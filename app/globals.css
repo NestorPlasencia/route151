@@ -244,3 +244,4 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 main{position:fixed;inset:0;height:auto}
 header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-inset-top))}
 @media (max-width:1024px),(pointer:coarse) and (max-width:1366px){header{height:calc(56px + env(safe-area-inset-top))}}
+.door.done{background-image:linear-gradient(#52d388 55%,#11182a 55%)}

@@ -47,6 +47,22 @@ export default function Home(){
  const short=useMemo(()=>{const s=new Map<string,string>();zoneFloors.forEach(l=>shortLabels(l).forEach((v,k)=>s.set(k,v)));return s},[zoneFloors]);
  const byId=useMemo(()=>new Map((world?.markers??[]).map(m=>[m.id,m])),[world]);
  const inArea=useMemo(()=>{const g=new Map<string,Marker[]>();for(const m of world?.markers??[])if(m.area&&m.at){const l=g.get(m.area);if(l)l.push(m);else g.set(m.area,[m])}return g},[world]);
+ // Lugar al que lleva una puerta: el interior y lo que se alcanza desde el sin
+ // salir a una region (sus pisos y escaleras; en Yellow, los pisos de su
+ // mazmorra, que no tienen puertas entre si). Su puerta va en verde cuando alli
+ // no queda nada por hacer: todo completado, o nada que contar.
+ const placeOf=useMemo(()=>{
+  const parent=new Map<string,string>(),find=(a:string):string=>{const p=parent.get(a);if(!p||p===a)return a;const r=find(p);parent.set(a,r);return r};
+  const join=(a:string,b:string)=>parent.set(find(a),find(b));
+  for(const w of world?.warps??[])if(!isRegion(w.area)&&!isRegion(w.to))join(w.area,w.to);
+  if(game.id==='yellow')zoneFloors.forEach(list=>list.forEach(f=>join(f.id,list[0].id)));
+  return find;
+ },[world,isRegion,zoneFloors,game.id]);
+ const finished=useMemo(()=>{
+  const left=new Map<string,number>();
+  for(const m of world?.markers??[])if(m.area&&!isRegion(m.area)&&!game.untracked.includes(m.category)&&!done.includes(m.uid)){const k=placeOf(m.area);left.set(k,(left.get(k)??0)+1)}
+  return (area:string)=>!left.get(placeOf(area));
+ },[world,isRegion,game.untracked,done,placeOf]);
 
  useEffect(()=>{
   // Un solo mapa para todos los juegos: al cambiar de juego solo cambia la imagen.
@@ -164,11 +180,11 @@ export default function Home(){
   const door=(cls:string)=>L.divIcon({className:'pin-wrap',html:`<span class="door ${cls}"></span>`,iconSize:[26,26],iconAnchor:[13,13]});
   for(const w of world.warps)if(w.area===area.id){
    const toRegion=isRegion(w.to),dest=areaById.get(w.to);
-   L.marker(ll(w.at),{icon:door(toRegion?'exit':''),title:toRegion?`Exit to ${placeAt(w.to,w.toAt)??dest?.label}`:dest?.label??'Interior',zIndexOffset:500})
+   L.marker(ll(w.at),{icon:door(toRegion?'exit':finished(w.to)?'done':''),title:toRegion?`Exit to ${placeAt(w.to,w.toAt)??dest?.label}`:`${dest?.label??'Interior'}${finished(w.to)?' · nothing left to do':''}`,zIndexOffset:500})
     .on('click',()=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})).addTo(g);
   }
   if(arrival&&arrival.area===area.id)L.marker(ll(arrival.at),{icon:L.divIcon({className:'arrive',html:'<span></span><i></i>',iconSize:[0,0]}),title:arrival.label,interactive:false,zIndexOffset:1000}).addTo(g);
- },[stacks,done,mapReady,world,area,areaById,arrival,isRegion,placeAt]);
+ },[stacks,done,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished]);
 
  useLayoutEffect(()=>{
   const m=map.current,p=popup.current;if(!m||!p)return;
