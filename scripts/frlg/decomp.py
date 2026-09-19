@@ -302,7 +302,8 @@ def _item_icons():
     """ITEM_X -> (png del icono, .pal de su paleta)."""
     table = open(path('src/data/item_icon_table.h'), encoding='utf-8').read()
     gfx = open(path('src/data/graphics/items.h'), encoding='utf-8').read()
-    files = {sym: path(p.split('.')[0]) for sym, p in re.findall(r'(gItemIcon(?:Palette)?_\w+)\[\] = INCBIN_U32\("([^"]+)"\)', gfx)}
+    # Las paletas de MT/MO se declaran alineadas ('..._GroundTMHM[]   = INCBIN...').
+    files = {sym: path(p.split('.')[0]) for sym, p in re.findall(r'(gItemIcon(?:Palette)?_\w+)\[\]\s*=\s*INCBIN_U32\("([^"]+)"\)', gfx)}
     out = {}
     for item, icon, pal in re.findall(r'\[(ITEM_\w+)\]\s*= \{(\w+), (\w+)\}', table):
         if icon in files and pal in files:

@@ -419,7 +419,9 @@ def classify(o, body, trades, scripts):
     if battle and battle.group(1) in trainers:
         t = trainers[battle.group(1)]
         party = ', '.join(f'{s} Lv{l}' for s, l in t['party'])
-        out.append(('Battle', f'{t["class"]} {t["name"]}'.strip(), {'icon': npc_icon(gfx), 'detail': party}))
+        # El rival y el Campeon son siempre Blue, aunque su escena no deje ver quien es.
+        icon = npc_icon(gfx) or (npc_icon('OBJ_EVENT_GFX_BLUE') if t['class'] in ('Rival', 'Champion') else None)
+        out.append(('Battle', f'{t["class"]} {t["name"]}'.strip(), {'icon': icon, 'detail': party}))
     if trade and trade.group(1) in trades:
         got, wanted = trades[trade.group(1)]
         out.append(('In-Game Trade', mon(got), {'icon': mon_icon(numbers[got]), 'detail': f'Trade your {mon(wanted)}'}))
