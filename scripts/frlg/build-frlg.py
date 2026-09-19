@@ -102,23 +102,57 @@ def layout_size(map_id):
     return l['width'], l['height']
 
 
+def offset_to(a, b):
+    """Desplazamiento (en bloques) de `b` respecto de `a` segun la conexion a -> b."""
+    for c in d.maps()[a].get('connections') or []:
+        if c['map'] == b:
+            (aw, ah), (bw, bh), o = layout_size(a), layout_size(b), c['offset']
+            return {'up': (o, -bh), 'down': (o, ah), 'left': (-bw, o), 'right': (aw, o)}[c['direction']]
+    return None
+
+
+def consistent(a, b):
+    """La conexion a -> b coincide con la de vuelta b -> a (si la hay). No siempre:
+    la Ruta 6 pone a Azafran con desfase 0 y Azafran a la Ruta 6 con 12; el juego
+    solo dibuja vecinos y no se nota, pero en un mapa global descuadra Kanto."""
+    there, back = offset_to(a, b), offset_to(b, a)
+    return back is None or (there[0] + back[0], there[1] + back[1]) == (0, 0)
+
+
 def place_group(start):
-    """Posicion (en bloques) de cada mapa conectado a `start`."""
+    """Posicion (en bloques) de cada mapa conectado a `start`. Las conexiones que
+    se contradicen con su vuelta se ignoran: esos mapas se colocan por sus otros
+    vecinos, que si cuadran (asi Kanto encaja sin solapes)."""
     maps = d.maps()
     pos, queue = {start: (0, 0)}, [start]
     while queue:
         a = queue.pop()
-        (ax, ay), (aw, ah) = pos[a], layout_size(a)
         for c in maps[a].get('connections') or []:
             b = c['map']
-            if b in pos or b not in maps or b in ALIAS or SKIP.match(b):
+            if b in pos or b not in maps or b in ALIAS or SKIP.match(b) or not consistent(a, b):
                 continue
-            (bw, bh), o = layout_size(b), c['offset']
-            pos[b] = {'up': (ax + o, ay - bh), 'down': (ax + o, ay + ah),
-                      'left': (ax - bw, ay + o), 'right': (ax + aw, ay + o)}[c['direction']]
+            dx, dy = offset_to(a, b)
+            pos[b] = (pos[a][0] + dx, pos[a][1] + dy)
             queue.append(b)
+    check_group(pos)
     x0, y0 = min(p[0] for p in pos.values()), min(p[1] for p in pos.values())
     return {m: (x - x0, y - y0) for m, (x, y) in pos.items()}
+
+
+def check_group(pos):
+    """Avisa de uniones que no cuadran o mapas que se pisan en la region armada."""
+    for a in pos:
+        for c in d.maps()[a].get('connections') or []:
+            b = c['map']
+            if b in pos and consistent(a, b):
+                dx, dy = offset_to(a, b)
+                if (pos[a][0] + dx, pos[a][1] + dy) != pos[b]:
+                    print(f'aviso: {a} -> {b} no cuadra en el mapa global')
+    items = [(m, *pos[m], *layout_size(m)) for m in pos]
+    for i, (a, ax, ay, aw, ah) in enumerate(items):
+        for b, bx, by, bw, bh in items[i + 1:]:
+            if min(ax + aw, bx + bw) > max(ax, bx) and min(ay + ah, by + bh) > max(ay, by):
+                print(f'aviso: {a} y {b} se solapan')
 
 
 def group_size(group):
