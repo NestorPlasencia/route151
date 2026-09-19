@@ -1,8 +1,9 @@
 'use client';
 import {Fragment,useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import type {Map as LeafletMap,LayerGroup,ImageOverlay} from 'leaflet';
+import {createPortal} from 'react-dom';
+import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
 import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Map as MapIcon,MapPin,Search,Sparkles,X} from 'lucide-react';
-import {CATEGORY_NAMES,Credits,Figure,LAYER_NAMES,colorOf,groupsOf,type Encounter,type Marker} from './shared';
+import {Credits,Figure,LAYER_NAMES,colorOf,groupsOf,type Encounter,type Marker} from './shared';
 import {ChecklistView,PokedexView} from './lists';
 import {GAMES,METHODS,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
 
@@ -15,6 +16,7 @@ const shortLabels=(list:Area[])=>{const words=list.map(f=>f.label.split(' '));le
 const GAME_KEY='ruta151-game';
 
 export default function Home(){
+ const popup=useRef<Popup|null>(null),[popupBox,setPopupBox]=useState<HTMLDivElement|null>(null);
  const el=useRef<HTMLDivElement>(null),map=useRef<LeafletMap|null>(null),layer=useRef<LayerGroup|null>(null),overlay=useRef<ImageOverlay|null>(null),shownArea=useRef<string|null>(null),leaflet=useRef<typeof import('leaflet')|null>(null);
  const [mapReady,setMapReady]=useState(false);
  const [gameId,setGameId]=useState(GAMES[0].id),[world,setWorld]=useState<World|null>(null);
@@ -55,6 +57,10 @@ export default function Home(){
    L.control.zoom({position:'bottomright'}).addTo(m);
    // Pixelado nitido solo al acercar; al alejar, el suavizado evita el muare.
    m.on('zoomend',()=>{el.current?.classList.toggle('crisp',m.getZoom()>=0);el.current?.classList.toggle('far',m.getZoom()<-1)});
+   // Ficha de un marcador: un popup junto al pin; React pinta su contenido.
+   const box=document.createElement('div');L.DomEvent.disableClickPropagation(box);
+   popup.current=L.popup({closeButton:false,className:'marker-pop',offset:[0,-6],autoPanPaddingTopLeft:[20,130],autoPanPaddingBottomRight:[20,20],maxWidth:300}).setContent(box);
+   m.on('popupclose',()=>{setSelected(null);setStack(null)});setPopupBox(box);
    layer.current=L.layerGroup().addTo(m);map.current=m;setMapReady(true);
   }).catch(e=>console.error('No se pudo cargar Leaflet',e));
   return()=>{disposed=true;map.current?.remove();map.current=null};
@@ -161,6 +167,14 @@ export default function Home(){
   if(arrival&&arrival.area===area.id)L.marker(ll(arrival.at),{icon:L.divIcon({className:'arrive',html:'<span></span><i></i>',iconSize:[0,0]}),title:arrival.label,interactive:false,zIndexOffset:1000}).addTo(g);
  },[stacks,done,mapReady,world,area,areaById,arrival,isRegion,placeAt]);
 
+ useEffect(()=>{
+  const m=map.current,p=popup.current;if(!m||!p)return;
+  const at=(selected??stack?.[0])?.at,where=(selected??stack?.[0])?.area;
+  if(at&&where===area?.id){if(!m.hasLayer(p))p.setLatLng(ll(at)).openOn(m);else p.setLatLng(ll(at))}
+  else if(m.hasLayer(p))m.closePopup(p);
+ },[selected,stack,area,mapReady]);
+ // Leaflet no se entera de que React cambio el contenido: se recoloca a mano.
+ useEffect(()=>{popup.current?.update()},[selected,stack,done]);
  const toggleGroup=(name:string)=>setActive(a=>a.includes(name)?a.filter(x=>x!==name):[...a,name]);
  const saveDone=(update:(old:number[])=>number[])=>setDone(old=>{const n=update(old);try{localStorage.setItem(game.storage.done,JSON.stringify(n))}catch{}return n});
  const toggleDone=(uid:number)=>saveDone(old=>old.includes(uid)?old.filter(x=>x!==uid):[...old,uid]);
@@ -177,12 +191,13 @@ export default function Home(){
  const listed=useMemo(()=>world?world.markers.filter(m=>world.checklist.markers[m.id]):[],[world]);
  const tabs=([['mapa','Map',MapIcon],['checklist','Checklist',ListChecks],['pokedex','Pokédex',BookOpen]] as const);
  const areaName=(id?:string)=>id?areaById.get(id)?.label??'—':'—';
- // Ficha de lo que no es un Pokemon, como la de un Pokemon: el lugar arriba si es
- // corto, y en la tarjeta lo importante (equipo, lo que vende, que pide a cambio)
- // y debajo el tipo; los textos largos de Yellow ("Received from a girl...") van
- // en la tarjeta.
+ // Ficha de un marcador: el lugar junto a la categoria si es corto.
  const shortPlace=(m:Marker)=>!!m.location&&m.location.length<=40;
- const cardLines=(m:Marker):[string,string|null]=>{const kind=CATEGORY_NAMES[m.category]??m.category,place=shortPlace(m)||!m.location?null:m.location;return m.detail?[m.detail,place??kind]:place?[place,kind]:[kind,null]};
+ // Linea de detalle: niveles y probabilidad, equipo, lo que vende, lo que pide un
+ // intercambio, o el texto largo de Yellow.
+ // En un grupo el lugar va una vez en el titulo; cada fila, sin subtitulo.
+ const popRow=(m:Marker,compact=false)=><div className="pop-item"><div className="pop-head">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label="Mark as completed" onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<Figure m={m}/><div><b>{m.name}</b>{!compact&&<small>{m.encounter?`${m.category} · ${m.encounter.zone}`:shortPlace(m)?`${m.category} · ${m.location}`:m.category}</small>}</div></div>{popLine(m)&&<p>{popLine(m)}</p>}</div>;
+ const popLine=(m:Marker)=>{const e=m.encounter;return e?`${levels(e)} · up to ${e.chance}% · ${e.methods.join(' · ')}`:m.detail??(shortPlace(m)?null:m.location||null)};
  // Donde esta un resultado de busqueda: su lugar exacto (FRLG), el texto de Yellow
  // si nombra un solo sitio ("Pewter Museum of Science"), o el lugar mas cercano.
  const resultPlace=(m:Marker)=>game.exactLocations||(m.location&&m.location.length<=40&&!/[,;(]/.test(m.location))?m.location:m.area&&m.at&&isRegion(m.area)?placeAt(m.area,m.at)??areaName(m.area):areaName(m.area);
@@ -202,8 +217,7 @@ export default function Home(){
  {locations&&world&&<div className="locations">{here&&<button className="leave-inline" onClick={()=>{leave();setLocations(false)}}><ArrowLeft/>Back to the {areaById.get(exitRegion??'')?.label} map</button>}
   {regions.map((r,i)=><Fragment key={r.id}><h3>{r.label.toUpperCase()}</h3><button className={area?.id===r.id?'current':''} onClick={()=>showRegion(r.id)}><MapIcon/>Whole map</button>{world.places.filter(p=>p.area===r.id||(i===0&&!isRegion(p.area))).map(loc=><button key={loc.name} onClick={()=>go(loc)}><MapPin/>{loc.name}</button>)}</Fragment>)}
   <h3>DUNGEONS &amp; INTERIORS</h3>{[...zoneFloors].map(([zone,list])=><div key={zone} className="dungeon"><h4>{zone}</h4>{list.map(f=><button key={f.id} onClick={()=>enter(f.id)} className={here?.id===f.id?'current':''}><DoorOpen/>{f.label}<b>{inArea.get(f.id)?.length??0}</b></button>)}</div>)}</div>}
- {selected&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setSelected(null)}}><dialog open className="drawer" aria-modal="true" aria-label={selected.name}><button className="close" onClick={()=>setSelected(null)} aria-label="Close"><X/></button><small>{selected.encounter?`${selected.category} · ${selected.encounter.zone}`:shortPlace(selected)?`${selected.category} · ${selected.location}`:selected.category}</small><div className="title-row"><Figure m={selected}/><h2>{selected.name}</h2></div>{selected.encounter?<div className="local-encounter">{selected.encounter.sprite?<img src={selected.encounter.sprite} alt=""/>:<Figure m={selected}/>}<div><b>{levels(selected.encounter)}</b><span>Up to {selected.encounter.chance}% encounter rate</span><em>{selected.encounter.methods.join(' · ')}</em></div></div>:<div className="local-encounter"><Figure m={selected}/><div>{(([main,sub])=><><b>{main}</b>{sub&&<span>{sub}</span>}</>)(cardLines(selected))}</div></div>}{!game.untracked.includes(selected.category)&&<button className={`complete ${done.includes(selected.uid)?'checked':''}`} onClick={()=>toggleDone(selected.uid)}>{done.includes(selected.uid)?<><Check/>Caught / completed</>:<>Mark as completed</>}</button>}</dialog></div>}
- {stack&&!selected&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setStack(null)}}><dialog open className="modal" aria-modal="true" aria-label="Items at this spot"><button className="close" onClick={()=>setStack(null)} aria-label="Close"><X/></button><small>{stack.length} at this spot</small><h2>Several items here</h2><div className="stack-list">{stack.map(m=><div key={m.id} className="stack-row"><button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label="Mark as completed" onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button><button className="stack-item" onClick={()=>setSelected(m)}><Figure m={m}/><span><b>{m.name}</b>{(e=>e?<small className="enc">{levels(e)} · up to {e.chance}% · <em>{e.methods.join(' · ')}</em></small>:<small>{m.detail??m.category}</small>)(m.encounter)}</span></button></div>)}</div></dialog></div>}
+ {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRow(selected)}</div>:<div className="pop pop-list"><small className="pop-title">{stack!.length} at this spot · {areaName(stack![0].area)}</small>{stack!.map(m=><Fragment key={m.id}>{popRow(m,true)}</Fragment>)}</div>,popupBox)}
  {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={encounterZone.name}><button className="close" onClick={()=>setEncounterZone(null)} aria-label="Close"><X/></button><small>{game.encounterSource.toUpperCase()}</small><h2>{encounterZone.name}</h2><p>{encounterZone.pokemon.length} Pokémon available in this area.</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>Lv. {min}{max!==min&&`–${max}`} · up to {chance}%</span><em>{[...new Set(variants.map(v=>METHODS[v.method]??v.method))].join(' · ')}</em></div></article>})}</div></dialog></div>}
  </div>
  {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} detail={detail}/>:<div className="listview loading-list">Loading checklist…</div>)}

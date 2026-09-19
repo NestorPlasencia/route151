@@ -127,8 +127,8 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .row{display:grid;grid-template-columns:28px 40px minmax(0,1fr) 34px;align-items:center;gap:8px;padding:6px 10px 6px 12px;border-top:1px solid #eef2f6}
 .row-text b{display:block;font-size:13px}.row-text small{display:block;font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row.done .row-text b{color:#8b96a7;text-decoration:line-through}
-.row .tick,.dex-row .tick{width:22px;height:22px;border:2px solid #bdc7d4;border-radius:6px;background:#fff;display:grid;place-items:center;cursor:pointer;padding:0}
-.row .tick.on,.dex-row .tick.on{background:#23a66c;border-color:#23a66c;color:#fff}.row .tick svg,.dex-row .tick svg{width:14px}
+.row .tick,.dex-row .tick,.pop .tick{width:22px;height:22px;border:2px solid #bdc7d4;border-radius:6px;background:#fff;display:grid;place-items:center;cursor:pointer;padding:0}
+.row .tick.on,.dex-row .tick.on,.pop .tick.on{background:#23a66c;border-color:#23a66c;color:#fff}.row .tick svg,.dex-row .tick svg,.pop .tick svg{width:14px}
 .show{width:32px;height:32px;border:0;border-radius:8px;background:#eef3fb;color:var(--blue);display:grid;place-items:center;cursor:pointer;flex:none}.show svg{width:15px}
 .list-source,.list-empty{font-size:11px;color:var(--muted);text-align:center}.list-source a{color:var(--blue)}
 .dex-row{display:grid;grid-template-columns:28px 40px minmax(0,1fr);align-items:center;gap:8px;padding:8px 12px;background:#fff;border:1px solid var(--line);border-radius:11px;margin-bottom:6px}
@@ -187,3 +187,21 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .local-encounter img.fig-trainer{height:64px}
 .local-encounter .fig-none{width:36px;height:36px;margin:auto;border-radius:9px;background:var(--pin)}
 .local-encounter b{line-height:1.35}
+/* Ficha de un marcador: popup pequeno junto al pin. */
+.marker-pop .leaflet-popup-content-wrapper{border-radius:12px;padding:0;box-shadow:0 10px 30px #0006}
+.marker-pop .leaflet-popup-content{margin:0;width:auto!important;min-width:200px;max-width:280px}
+.pop{padding:10px 12px;font-family:Arial,sans-serif;color:var(--ink)}
+.pop-head{display:flex;align-items:center;gap:8px}
+.pop-head .fig{width:32px;height:28px}
+.pop-head .fig-trainer{height:30px}
+.pop-head div{display:flex;flex-direction:column;min-width:0}
+.pop-head b{font-size:13px}
+.pop-head small{font-size:9px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin-top:2px}
+.pop p{margin:7px 0 0;font-size:11px;line-height:1.4;color:#657389}
+.pop .tick{flex:none}
+/* Grupo de marcadores en un mismo punto: lista en el popup. */
+.pop-list{max-height:min(340px,55vh);overflow-y:auto;padding-top:8px}
+.pop-title{display:block;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;color:#8b97aa;margin-bottom:4px}
+.pop-list .pop-item{padding:7px 0;border-top:1px solid var(--line)}
+.pop-list .pop-item:first-of-type{border-top:0}
+.pop-list{min-width:250px}.pop-list .pop-head b{font-size:12px}.pop-list .pop p{margin-top:3px}.pop-list .pop-item p{margin:3px 0 0 30px}
