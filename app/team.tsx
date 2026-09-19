@@ -30,6 +30,20 @@ export function statsOf(base:number[],level:number,nature:[string|null,string|nu
   return Math.floor((raw+5)*mod);
  });
 }
+// De una estadistica escrita se puede despejar IV + EV/4, no cada uno por
+// separado. Se prueban los 95 valores posibles y se devuelve el rango que
+// encaja; cuanto mas alto es el nivel, mas estrecho sale.
+export function genes(base:number,level:number,value:number,stat:typeof STATS[number],nature:[string|null,string|null]){
+ const mod=stat==='hp'?1:nature[0]===stat?1.1:nature[1]===stat?0.9:1;
+ const fit=[];
+ for(let x=0;x<=31+63;x++){
+  const raw=Math.floor((2*base+x)*level/100);
+  const got=stat==='hp'?raw+level+10:Math.floor((raw+5)*mod);
+  if(got===value)fit.push(x);
+ }
+ return fit.length?{min:fit[0],max:fit[fit.length-1]}:null;
+}
+
 export const effectiveness=(chart:Battle['chart'],type:string,against:string[])=>
  against.reduce((m,t)=>m*(chart[type]?.[t]??1),1);
 
@@ -82,6 +96,24 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
   return best?[best]:[];
  }).sort((a,b)=>b.max-a.max);
 
+ // Naturalezas con las que cuadran todas las cifras escritas: si la elegida no
+ // encaja, casi siempre es que la naturaleza es otra (sube una y baja otra).
+ const fittingNatures=(mon:TeamMon)=>{
+  const s=battle.species[mon.n],stats=mon.stats;if(!stats)return [];
+  const fit=Object.entries(battle.natures).flatMap(([n,mods])=>{
+   const each=STATS.map((stat,i)=>genes(s.base[i],mon.level,stats[i],stat,mods));
+   // Sin EVs si a cada cifra le basta un IV de 0 a 31.
+   return each.every(Boolean)?[{n,clean:each.every(g=>g!.min<=31)}]:[];
+  });
+  return fit.sort((a,b)=>Number(b.clean)-Number(a.clean)).map(x=>x.n);
+ };
+ // Texto del IV deducido: exacto, un rango, o con EVs si pasa de 31.
+ const ivLabel=(fit:{min:number;max:number}|null)=>{
+  if(!fit)return t('ivNoFit');
+  if(fit.min>31)return t('ivWithEv',{n:fit.min});
+  const max=Math.min(31,fit.max);
+  return t('iv',{range:fit.min===max?`${fit.min}`:`${fit.min}–${max}`})+(fit.max>31?'+':'');
+ };
  const moveLabel=(key:string)=>{const m=battle.moves[key];return `${moveName(m.name)} · ${typeName(m.type)}${m.power?` · ${m.power}`:''}`};
  const card=(mon:TeamMon)=>{
   const s=battle.species[mon.n],info=species.get(mon.n),pool=movePool(battle,mon);
@@ -105,8 +137,11 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
     <dt>{t(('stat_'+stat) as never)}</dt>
     <dd><input type="number" min={1} max={999} value={stats[i]} aria-label={t(('stat_'+stat) as never)}
      onChange={e=>update(mon.id,{stats:stats.map((v,j)=>j===i?Math.max(1,Math.min(999,+e.target.value||1)):v)})}/></dd>
+    {own&&(fit=>fit?<small>{ivLabel(fit)}</small>:<small title={t('ivNoFitHelp')}>{t('ivNoFit')}</small>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}
    </div>)}</dl>
-   <p className="team-note">{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
+   <p className="team-note">{own&&<span className="team-iv">{t('ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
+   {own&&(fits=>fits.length&&!fits.includes(mon.nature)?<p className="team-note team-natures">{t('natureFits')} {fits.map(n=>
+    <button key={n} className="team-reset" onClick={()=>update(mon.id,{nature:n})}>{natureName(n)}</button>)}</p>:null)(fittingNatures(mon))}
    <div className="team-moves">{[0,1,2,3].map(i=>
     <select key={i} value={mon.moves[i]??''} onChange={e=>update(mon.id,{moves:mon.moves.map((m,j)=>j===i?(e.target.value||null):m)})}>
      <option value="">{t('noMove')}</option>
