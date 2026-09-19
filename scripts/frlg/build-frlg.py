@@ -1,6 +1,6 @@
 """Genera los mapas y marcadores de FireRed/LeafGreen desde pret/pokefirered.
 
-Cada area es una imagen:
+Cada area es una imagen (terreno y objetos: personas, Poke Balls, rocas):
 - regiones: los exteriores unidos por sus conexiones (Kanto; las Islas Sete
   como grupos de islas colocados en filas);
 - interiores: cada mapa suelto (casas, cuevas, pisos), agrupado por zona segun
@@ -141,10 +141,18 @@ def build_regions():
 
 
 def render_region(region):
+    """Terreno de todos los mapas y, despues, sus objetos: asi un sprite en el
+    borde entre dos mapas no queda tapado por el vecino."""
     w, h = region['size']
     img = Image.new('RGBA', (w * B, h * B))
     for m, (x, y) in region['maps'].items():
         img.paste(d.render_layout(d.maps()[m]['layout']), (x * B, y * B))
+    for m, (x, y) in region['maps'].items():
+        if m in COPIES:
+            real, (dx, dy) = next((a, (t[1], t[2])) for a, t in ALIAS.items() if t[0] == m)
+            d.draw_objects(img, real, (x - dx, y - dy))
+        else:
+            d.draw_objects(img, m, (x, y))
     return img
 
 
@@ -242,6 +250,7 @@ def main():
         zone = mapsecs.get(m['region_map_section'], 'Other')
         label = map_label(m['name'], zone)
         img = d.render_layout(m['layout'])
+        d.draw_objects(img, mid)
         rel = f'{slug(zone)}/{slug(m["name"])}.png'
         os.makedirs(os.path.dirname(f'{OUT_IMG}/{rel}'), exist_ok=True)
         img.save(f'{OUT_IMG}/{rel}', optimize=True)

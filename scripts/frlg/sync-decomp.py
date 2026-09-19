@@ -25,6 +25,9 @@ PATHS = [
     '/src/data/region_map/',
     '/include/fieldmap.h',
     '/src/data/items.json',
+    '/src/data/object_events/',
+    '/src/event_object_movement.c',
+    '/graphics/object_events/',
     '/src/data/trainers.h',
     '/src/data/trainer_parties.h',
 ]

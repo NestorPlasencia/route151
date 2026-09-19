@@ -157,6 +157,81 @@ def _renderer(primary, secondary):
     return Renderer(primary, secondary)
 
 
+@lru_cache(None)
+def _object_graphics():
+    """OBJ_EVENT_GFX_X -> {'frames': [(png, ancho, alto, cuadro)], 'palette': .pal}.
+
+    Cadena del decomp: puntero -> GraphicsInfo (etiqueta de paleta, imagenes)
+    -> tabla de cuadros (overworld_frame) -> gObjectEventPic_X (.4bpp = .png).
+    """
+    src = lambda f: open(path('src/data/object_events', f), encoding='utf-8').read()
+    graphics = src('object_event_graphics.h')
+    files = {sym: path(p.rsplit('.', 1)[0]) for sym, p in re.findall(r'(gObjectEvent(?:Pic|Pal)_\w+)\[\] = INCBIN_U\d+\("([^"]+)"\)', graphics)}
+    movement = open(path('src/event_object_movement.c'), encoding='utf-8').read()
+    pal_by_tag = {tag: sym for sym, tag in re.findall(r'\{(gObjectEventPal_\w+),\s*(OBJ_EVENT_PAL_TAG_\w+)\}', movement)}
+    tables = {name: re.findall(r'overworld_frame\((\w+), (\d+), (\d+), (\d+)\)', body)
+              for name, body in re.findall(r'(sPicTable_\w+)\[\] = \{(.*?)\};', src('object_event_pic_tables.h'), re.S)}
+    infos = {name: body for name, body in re.findall(r'const struct ObjectEventGraphicsInfo (\w+) = \{(.*?)\};', src('object_event_graphics_info.h'), re.S)}
+    out = {}
+    for gfx, info in re.findall(r'\[(OBJ_EVENT_GFX_\w+)\]\s*= &(\w+)', src('object_event_graphics_info_pointers.h')):
+        body = infos.get(info, '')
+        images, tag = re.search(r'\.images = (\w+)', body), re.search(r'\.paletteTag = (\w+)', body)
+        frames = tables.get(images.group(1)) if images else None
+        pal = files.get(pal_by_tag.get(tag.group(1) if tag else '', ''))
+        if frames and pal:
+            out[gfx] = {'frames': [(files[p] + '.png', int(w) * 8, int(h) * 8, int(i)) for p, w, h, i in frames], 'palette': pal + '.pal'}
+    return out
+
+
+# Cuadro de la animacion estandar para cada direccion (derecha = izquierda volteada).
+FACING = {'down': 0, 'up': 1, 'left': 2, 'right': 2}
+
+
+def facing(movement_type):
+    m = re.search(r'(?:FACE|LOOK)_(UP|DOWN|LEFT|RIGHT)', movement_type or '') or re.search(r'_(UP|DOWN|LEFT|RIGHT)$', movement_type or '')
+    return m.group(1).lower() if m else 'down'
+
+
+@lru_cache(None)
+def object_sprite(gfx, direction='down'):
+    """Sprite RGBA del objeto mirando hacia `direction`, o None si no tiene
+    grafico fijo (los OBJ_EVENT_GFX_VAR_* se deciden durante el juego)."""
+    g = _object_graphics().get(gfx)
+    if not g:
+        return None
+    index = FACING[direction] if len(g['frames']) > FACING[direction] else 0
+    png, w, h, frame = g['frames'][index]
+    sheet = np.array(Image.open(png))
+    cols = sheet.shape[1] // w
+    y, x = divmod(frame, cols)
+    idx = sheet[y * h:(y + 1) * h, x * w:(x + 1) * w]
+    if idx.shape != (h, w):
+        # El S.S. Anne, el Seagallop y el mapa de pueblo se arman con varias
+        # piezas (subsprites); solo salen en escenas de la historia, se omiten.
+        return None
+    pal = np.array(_palette(g['palette']), dtype=np.uint8)
+    rgba = np.zeros((h, w, 4), np.uint8)
+    rgba[..., :3] = pal[idx]
+    rgba[..., 3] = np.where(idx == 0, 0, 255)
+    img = Image.fromarray(rgba, 'RGBA')
+    return img.transpose(Image.Transpose.FLIP_LEFT_RIGHT) if direction == 'right' else img
+
+
+def draw_objects(img, map_id, offset=(0, 0)):
+    """Dibuja encima del mapa sus objetos (personas, Poke Balls, rocas) como los
+    coloca el juego: centrados en su casilla y apoyados en su borde inferior.
+    Se dibujan de arriba abajo para que los de delante tapen a los de detras."""
+    ox, oy = offset
+    objs = sorted(maps()[map_id].get('object_events') or [], key=lambda o: o.get('y', 0))
+    for o in objs:
+        sprite = object_sprite(o.get('graphics_id', ''), facing(o.get('movement_type')))
+        if sprite is None:
+            continue
+        x = (ox + o['x']) * BLOCK + BLOCK // 2 - sprite.width // 2
+        y = (oy + o['y']) * BLOCK + BLOCK - sprite.height
+        img.alpha_composite(sprite, (x, y)) if x >= 0 and y >= 0 else img.paste(sprite, (x, y), sprite)
+
+
 def blocks(layout_id):
     l = layouts()[layout_id]
     data = np.fromfile(path(l['blockdata_filepath']), dtype='<u2')
