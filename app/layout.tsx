@@ -1,9 +1,21 @@
+import type { Metadata, Viewport } from 'next';
+import { ServiceWorker } from './service-worker';
 import './globals.css';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Route 151 — Pokémon Yellow Companion',
   description: 'Interactive map, checklist and Pokédex for Pokémon Yellow.',
-  icons: { icon: '/favicon.svg' },
+  applicationName: 'Route 151',
+  icons: { icon: '/favicon.svg', apple: '/icons/apple-touch-icon.png' },
+  appleWebApp: {
+    capable: true,
+    title: 'Route 151',
+    statusBarStyle: 'black-translucent',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#11182a',
 };
 
 export default function RootLayout({
@@ -13,7 +25,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <ServiceWorker />
+      </body>
     </html>
   );
 }

@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "data:sync": "node scripts/sync-yellow-data.mjs",
+    "pwa:icons": "node scripts/build-pwa-icons.mjs",
     "lint": "oxlint",
     "format": "oxfmt"
   },
