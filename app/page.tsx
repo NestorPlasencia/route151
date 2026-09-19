@@ -128,7 +128,9 @@ export default function Home(){
  };
  const showRegion=(id:string)=>{setLocations(false);setSelected(null);setEncounterZone(null);setArrival(null);saved.current=null;setView({area:id});if(id!==area?.id)setToast(`Now in ${areaById.get(id)?.label}`)};
  const switchFloor=(id:string)=>{setSelected(null);setView({area:id});setArrival(null);setToast(`Now in ${areaById.get(id)?.label??'another floor'}`)};
- const reveal=(m:Marker)=>{setStack(null);setArrival(null);if(!m.area||!m.at)return;if(m.area!==area?.id)saveRegion();setView({area:m.area,focus:m.at,zoom:.5});setSelected(m);setQuery('');setSearching(false)};
+ // El buscador abre la ficha; desde las listas solo se senala el objeto en el
+ // mapa, con el mismo anillo parpadeante que marca por donde se entra.
+ const reveal=(m:Marker,open=true)=>{setStack(null);setArrival(null);setSelected(null);if(!m.area||!m.at)return;if(m.area!==area?.id)saveRegion();setView({area:m.area,focus:m.at,zoom:.5});if(open)setSelected(m);else setArrival({area:m.area,at:m.at,label:m.name});setQuery('');setSearching(false)};
  const go=(loc:Place)=>{
   setLocations(false);setSelected(null);setEncounterZone(world?.zones.find(z=>z.name===loc.name)??null);
   if(!isRegion(loc.area)){saveRegion();setView({area:loc.area});setArrival(null);setToast(`Entered ${areaById.get(loc.area)?.label}`);return}
@@ -170,7 +172,7 @@ export default function Home(){
  const pct=tracked.size?Math.round(completed/tracked.size*100):0;
  // El mapa sigue montado bajo las listas; al volver, Leaflet recalcula su tamaño.
  useEffect(()=>{if(tab==='mapa')setTimeout(()=>map.current?.invalidateSize(),0)},[tab]);
- const showOnMap=(m:Marker)=>{setTab('mapa');reveal(m)};
+ const showOnMap=(m:Marker)=>{setTab('mapa');reveal(m,false)};
  const detail=(m:Marker)=>{const e=m.encounter;return e?`${levels(e)} · up to ${e.chance}% · ${e.methods.join(' · ')}`:m.detail??null};
  const listed=useMemo(()=>world?world.markers.filter(m=>world.checklist.markers[m.id]):[],[world]);
  const tabs=([['mapa','Map',MapIcon],['checklist','Checklist',ListChecks],['pokedex','Pokédex',BookOpen]] as const);
