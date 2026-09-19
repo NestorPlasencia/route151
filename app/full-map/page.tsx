@@ -4,6 +4,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import type {Map as LeafletMap,LayerGroup} from 'leaflet';
 import {Credits} from '../shared';
+import {translator} from '../i18n';
 
 type Marker={id:string;uid:number;category:string;name:string;location:string;position:[number,number];icon?:string;requirements:unknown};
 type Bounds=[[number,number],[number,number]];
@@ -131,7 +132,7 @@ export default function Trabajo(){
     <div>{pending.map(b=><button key={b.id} className={pickedBlock?.id===b.id?'on':''} onClick={()=>{const s=byId.get(b.id);if(s)goBlock(s)}}>#{b.id}<small>{b.label??'?'}</small></button>)}</div>
     {pickedBlock&&<dl><dt>Section</dt><dd>#{pickedBlock.id} · key {pickedBlock.key}</dd><dt>Current name</dt><dd>{pickedBlock.label??'unnamed'}</dd><dt>Contents</dt><dd>{pickedBlock.ids.length} items · {pickedBlock.doors.length} doors</dd></dl>}
    </div>}
-   <details className="wk-credits"><summary>Credits</summary><Credits game="yellow"/></details>
+   <details className="wk-credits"><summary>Credits</summary><Credits game="yellow" tr={translator('en')}/></details>
    <input className="wk-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search by name, place, id or uid…"/>
    <div className="wk-count">{visible.length} results{visible.length>LIST_LIMIT&&` · showing the first ${LIST_LIMIT}`}</div>
    <div className="wk-list">

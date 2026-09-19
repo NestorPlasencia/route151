@@ -3,12 +3,13 @@ import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} 
 import {createPortal} from 'react-dom';
 import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
 import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Map as MapIcon,MapPin,Sparkles,X} from 'lucide-react';
-import {Credits,Figure,LAYER_NAMES,colorOf,groupsOf,type Encounter,type Marker} from './shared';
+import {Credits,Figure,colorOf,groupsOf,type Encounter,type Marker} from './shared';
+import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
 import {GAMES,METHODS,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
-const levels=(e:Encounter)=>`Lv. ${e.min}${e.max!==e.min?`–${e.max}`:''}`;
+const span=(e:Encounter)=>`${e.min}${e.max!==e.min?`–${e.max}`:''}`;
 // CRS.Simple: x a la derecha, y hacia arriba; la imagen crece hacia abajo.
 const ll=(p:Pt):[number,number]=>[-p[1],p[0]];
 // "Silph Co. 7F" -> "7F": quita las palabras que comparten todos los pisos.
@@ -19,14 +20,15 @@ export default function Home(){
  const popup=useRef<Popup|null>(null),[popupBox,setPopupBox]=useState<HTMLDivElement|null>(null);
  const el=useRef<HTMLDivElement>(null),map=useRef<LeafletMap|null>(null),layer=useRef<LayerGroup|null>(null),overlay=useRef<ImageOverlay|null>(null),shownArea=useRef<string|null>(null),leaflet=useRef<typeof import('leaflet')|null>(null);
  const [mapReady,setMapReady]=useState(false);
- const [gameId,setGameId]=useState(GAMES[0].id),[world,setWorld]=useState<World|null>(null);
+ const [gameId,setGameId]=useState(GAMES[0].id),[world,setWorld]=useState<World|null>(null),[lang,setLang]=useState<Lang>('en');
+ const tr=useMemo(()=>translator(lang),[lang]),{t,category,method}=tr,layerName=tr.layer;
  const game=GAMES.find(g=>g.id===gameId)??GAMES[0],groups=groupsOf(game.id);
  const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'>('mapa'),[view,setView]=useState<View>({area:''});
  const [active,setActive]=useState<string[]>(groups.map(g=>g[0])),[selected,setSelected]=useState<Marker|null>(null),[stack,setStack]=useState<Marker[]|null>(null),[done,setDone]=useState<number[]>([]),[locations,setLocations]=useState(false),[about,setAbout]=useState(false),[layersOpen,setLayersOpen]=useState(false);
  const [encounterZone,setEncounterZone]=useState<EncounterZone|null>(null);
 
  // El juego elegido se recuerda; ?game=firered en la URL manda.
- useEffect(()=>{let saved:string|null=null;try{saved=localStorage.getItem(GAME_KEY)}catch{}const id=[new URLSearchParams(location.search).get('game'),saved].find(x=>GAMES.some(g=>g.id===x));if(id)setGameId(id)},[]);
+ useEffect(()=>{let saved:string|null=null;try{saved=localStorage.getItem(GAME_KEY)}catch{}const id=[new URLSearchParams(location.search).get('game'),saved].find(x=>GAMES.some(g=>g.id===x));if(id)setGameId(id);setLang(savedLang())},[]);
  // Cada juego carga sus datos y su progreso, y empieza en su primera region.
  useEffect(()=>{
   let live=true;setWorld(null);setSelected(null);setStack(null);setEncounterZone(null);setLocations(false);saved.current=null;setArrival(null);
@@ -36,6 +38,8 @@ export default function Home(){
   return()=>{live=false};
  },[game]);
  const pickGame=(id:string)=>{setGameId(id);try{localStorage.setItem(GAME_KEY,id)}catch{}};
+ const pickLang=(l:Lang)=>{setLang(l);try{localStorage.setItem(LANG_KEY,l)}catch{}};
+ useEffect(()=>{document.documentElement.lang=lang},[lang]);
 
  const areaById=useMemo(()=>new Map((world?.areas??[]).map(a=>[a.id,a])),[world]);
  const regions=useMemo(()=>world?.areas.filter(a=>a.kind==='region')??[],[world]);
@@ -150,29 +154,29 @@ export default function Home(){
  const enter=(id:string,door?:{at:Pt;toAt:Pt})=>{
   const label=areaById.get(id)?.label??'Interior',from=door&&area?.kind==='region'?placeAt(area.id,door.at):undefined;
   saveRegion();setView(door?{area:id,focus:door.toAt,zoom:-99}:{area:id});setSelected(null);setEncounterZone(null);setLocations(false);
-  setArrival(door?{area:id,at:door.toAt,label:'You entered here'}:null);setToast(`Entered ${label}${from?` from ${from}`:''}`);
+  setArrival(door?{area:id,at:door.toAt,label:t('enteredHere')}:null);setToast(from?t('enteredFrom',{place:label,from}):t('entered',{place:label}));
  };
  const leave=()=>{
   if(!here)return;setSelected(null);
   const exit=exitOf(here),back=saved.current?.region===exit.region?saved.current:null;
   setView(back?{area:back.region,restore:back.restore}:exit.at?{area:exit.region,focus:exit.at}:{area:exit.region});
   saved.current=null;
-  setArrival(exit.at?{area:exit.region,at:exit.at,label:'You left here'}:null);
-  const to=exit.at&&placeAt(exit.region,exit.at);setToast(`Left ${here.label} to ${to??areaById.get(exit.region)?.label}`);
+  setArrival(exit.at?{area:exit.region,at:exit.at,label:t('leftHere')}:null);
+  const to=exit.at&&placeAt(exit.region,exit.at);setToast(t('leftTo',{place:here.label,to:to??areaById.get(exit.region)?.label??''}));
  };
  const exitTo=(region:string,to:Pt)=>{
   setSelected(null);saved.current=null;setView({area:region,focus:to});
-  setArrival({area:region,at:to,label:'You left here'});const place=placeAt(region,to);
-  if(here)setToast(`Left ${here.label} to ${place??areaById.get(region)?.label}`);
+  setArrival({area:region,at:to,label:t('leftHere')});const place=placeAt(region,to);
+  if(here)setToast(t('leftTo',{place:here.label,to:place??areaById.get(region)?.label??''}));
  };
- const showRegion=(id:string)=>{setLocations(false);setSelected(null);setEncounterZone(null);setArrival(null);saved.current=null;setView({area:id});if(id!==area?.id)setToast(`Now in ${areaById.get(id)?.label}`)};
- const switchFloor=(id:string)=>{setSelected(null);setView({area:id});setArrival(null);setToast(`Now in ${areaById.get(id)?.label??'another floor'}`)};
+ const showRegion=(id:string)=>{setLocations(false);setSelected(null);setEncounterZone(null);setArrival(null);saved.current=null;setView({area:id});if(id!==area?.id)setToast(t('nowIn',{place:areaById.get(id)?.label??''}))};
+ const switchFloor=(id:string)=>{setSelected(null);setView({area:id});setArrival(null);setToast(t('nowIn',{place:areaById.get(id)?.label??''}))};
  // Desde las listas solo se senala el objeto en el mapa, con el mismo anillo
  // parpadeante que marca por donde se entra; `open` abre ademas su ficha.
  const reveal=(m:Marker,open=true)=>{setStack(null);setArrival(null);setSelected(null);if(!m.area||!m.at)return;if(m.area!==area?.id)saveRegion();setView({area:m.area,focus:m.at,zoom:.5});if(open)setSelected(m);else setArrival({area:m.area,at:m.at,label:m.name})};
  const go=(loc:Place)=>{
   setLocations(false);setSelected(null);setEncounterZone(world?.zones.find(z=>z.name===loc.name)??null);
-  if(!isRegion(loc.area)){saveRegion();setView({area:loc.area});setArrival(null);setToast(`Entered ${areaById.get(loc.area)?.label}`);return}
+  if(!isRegion(loc.area)){saveRegion();setView({area:loc.area});setArrival(null);setToast(t('entered',{place:areaById.get(loc.area)?.label??''}));return}
   saved.current=null;setArrival(null);setView(loc.at?{area:loc.area,focus:loc.at,zoom:-1}:{area:loc.area});
  };
 
@@ -194,11 +198,11 @@ export default function Home(){
   const door=(cls:string)=>L.divIcon({className:'pin-wrap',html:`<span class="door ${cls}"></span>`,iconSize:[26,26],iconAnchor:[13,13]});
   for(const w of world.warps)if(w.area===area.id){
    const toRegion=isRegion(w.to),dest=areaById.get(w.to);
-   L.marker(ll(w.at),{icon:door(toRegion?'exit':finished(w.area,w.to)?'done':''),title:toRegion?`Exit to ${placeAt(w.to,w.toAt)??dest?.label}`:`${dest?.label??'Interior'}${finished(w.area,w.to)?' · nothing left to do':''}`,zIndexOffset:500})
+   L.marker(ll(w.at),{icon:door(toRegion?'exit':finished(w.area,w.to)?'done':''),title:toRegion?t('exitTo',{place:placeAt(w.to,w.toAt)??dest?.label??''}):`${dest?.label??t('interior')}${finished(w.area,w.to)?` · ${t('nothingLeft')}`:''}`,zIndexOffset:500})
     .on('click',()=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})).addTo(g);
   }
   if(arrival&&arrival.area===area.id)L.marker(ll(arrival.at),{icon:L.divIcon({className:'arrive',html:'<span></span><i></i>',iconSize:[0,0]}),title:arrival.label,interactive:false,zIndexOffset:1000}).addTo(g);
- },[stacks,done,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished]);
+ },[stacks,done,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t]);
 
  useLayoutEffect(()=>{
   const m=map.current,p=popup.current;if(!m||!p)return;
@@ -235,38 +239,39 @@ export default function Home(){
  // El mapa sigue montado bajo las listas; al volver, Leaflet recalcula su tamaño.
  useEffect(()=>{if(tab==='mapa')setTimeout(()=>map.current?.invalidateSize(),0)},[tab]);
  const showOnMap=(m:Marker)=>{setTab('mapa');reveal(m,false)};
- const detail=(m:Marker)=>{const e=m.encounter;return e?`${levels(e)} · up to ${e.chance}% · ${e.methods.join(' · ')}`:m.detail??null};
+ const detail=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):m.detail??null};
  const listed=useMemo(()=>world?world.markers.filter(m=>world.checklist.markers[m.id]):[],[world]);
- const tabs=([['mapa','Map',MapIcon],['checklist','Checklist',ListChecks],['pokedex','Pokédex',BookOpen]] as const);
+ const tabs=([['mapa',t('tabMap'),MapIcon],['checklist',t('tabChecklist'),ListChecks],['pokedex',t('tabDex'),BookOpen]] as const);
  const areaName=(id?:string)=>id?areaById.get(id)?.label??'—':'—';
  // Ficha de un marcador: el lugar junto a la categoria si es corto.
  const shortPlace=(m:Marker)=>!!m.location&&m.location.length<=40;
  // Linea de detalle: niveles y probabilidad, equipo, lo que vende, lo que pide un
  // intercambio, o el texto largo de Yellow.
  // En un grupo el lugar va una vez en el titulo; cada fila, sin subtitulo.
- const popRow=(m:Marker,compact=false)=><div className="pop-item"><div className="pop-head">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label="Mark as completed" onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<Figure m={m}/><div><b>{m.name}</b>{!compact&&<small>{m.encounter?`${m.category} · ${m.encounter.zone}`:shortPlace(m)?`${m.category} · ${m.location}`:m.category}</small>}</div></div>{popLine(m)&&<p>{popLine(m)}</p>}</div>;
- const popLine=(m:Marker)=>{const e=m.encounter;return e?`${levels(e)} · up to ${e.chance}% · ${e.methods.join(' · ')}`:m.detail??(shortPlace(m)?null:m.location||null)};
+ const popRow=(m:Marker,compact=false)=><div className="pop-item"><div className="pop-head">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<Figure m={m}/><div><b>{m.name}</b>{!compact&&<small>{m.encounter?`${category(m.category)} · ${m.encounter.zone}`:shortPlace(m)?`${category(m.category)} · ${m.location}`:category(m.category)}</small>}</div></div>{popLine(m)&&<p>{popLine(m)}</p>}</div>;
+ const popLine=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):m.detail??(shortPlace(m)?null:m.location||null)};
  const exitRegion=here?exitOf(here).region:null;
  const floors=here?zoneFloors.get(here.zone??here.label)??[here]:[];
- return <main><header><div className="brand"><i><MapIcon/></i><b>ROUTE 151<small>{game.title} Companion</small></b></div>
- <label className="game-select"><span className="sr-only">Game</span><select value={game.id} onChange={e=>pickGame(e.target.value)} aria-label="Game">{GAMES.map(g=><option key={g.id} value={g.id}>{g.short}</option>)}</select><ChevronDown/></label>
- {tab==='mapa'&&<div className="map-controls"><button className="location-button" onClick={()=>setLocations(!locations)} aria-expanded={locations}>{here?<DoorOpen/>:<MapPin/>}<span>{here?here.label:area?<>{area.label}<small> — all areas</small></>:'Loading…'}</span><ChevronDown/></button><button className={`layers-button ${active.length<groups.length?'filtered':''}`} onClick={()=>setLayersOpen(v=>!v)} aria-pressed={layersOpen} aria-label="Map layers"><Layers/></button></div>}
- <nav>{tabs.map(([k,t])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}>{t}</button>)}</nav><div className="counter"><span>{completed} completed</span><i><em style={{width:`${pct}%`}}/></i><b>{pct}%</b></div><button className="about-button" onClick={()=>setAbout(true)} aria-label="Credits"><Info/></button></header>
- <div className={`app ${layersOpen?'layers-open':''}`} hidden={tab!=='mapa'}><aside><h3>MAP LAYERS</h3>{groups.map(([name,Icon,color])=><button key={name} onClick={()=>toggleGroup(name)} className={active.includes(name)?'enabled':''}><i style={{'--color':color} as React.CSSProperties}>{active.includes(name)&&<Check/>}</i><Icon/><span>{LAYER_NAMES[name]??name}</span><b>{counts[name]??0}</b></button>)}<div className="source"><Sparkles/><p><b>Separate maps</b>{regions.map(r=>r.label).join(' and ')} and every dungeon have their own map. Enter through the yellow doors.</p></div></aside>
+ return <main><header><div className="brand"><i><MapIcon/></i><b>ROUTE 151<small>{t('companion',{game:game.title})}</small></b></div>
+ <label className="game-select"><span className="sr-only">{t('game')}</span><select value={game.id} onChange={e=>pickGame(e.target.value)} aria-label={t('game')}>{GAMES.map(g=><option key={g.id} value={g.id}>{g.short}</option>)}</select><ChevronDown/></label>
+ <label className="game-select lang-select"><span className="sr-only">{t('language')}</span><select value={lang} onChange={e=>pickLang(e.target.value as Lang)} aria-label={t('language')}>{LANGS.map(l=><option key={l} value={l}>{LANG_NAMES[l]}</option>)}</select><ChevronDown/></label>
+ {tab==='mapa'&&<div className="map-controls"><button className="location-button" onClick={()=>setLocations(!locations)} aria-expanded={locations}>{here?<DoorOpen/>:<MapPin/>}<span>{here?here.label:area?<>{area.label}<small>{t('allAreas')}</small></>:t('loading')}</span><ChevronDown/></button><button className={`layers-button ${active.length<groups.length?'filtered':''}`} onClick={()=>setLayersOpen(v=>!v)} aria-pressed={layersOpen} aria-label={t('mapLayers')}><Layers/></button></div>}
+ <nav>{tabs.map(([k,t])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}>{t}</button>)}</nav><div className="counter"><span>{t('completed',{n:completed})}</span><i><em style={{width:`${pct}%`}}/></i><b>{pct}%</b></div><button className="about-button" onClick={()=>setAbout(true)} aria-label={t('credits')}><Info/></button></header>
+ <div className={`app ${layersOpen?'layers-open':''}`} hidden={tab!=='mapa'}><aside><h3>{t('layers')}</h3>{groups.map(([name,Icon,color])=><button key={name} onClick={()=>toggleGroup(name)} className={active.includes(name)?'enabled':''}><i style={{'--color':color} as React.CSSProperties}>{active.includes(name)&&<Check/>}</i><Icon/><span>{layerName(name)}</span><b>{counts[name]??0}</b></button>)}<div className="source"><Sparkles/><p><b>{t('separateTitle')}</b>{t('separateText',{regions:regions.map(r=>r.label).join(' + ')})}</p></div></aside>
  <div className="map-stage"><div ref={el} className="leaflet-map"/>
- {here&&<div className="floorbar"><button onClick={leave}><ArrowLeft/>{areaById.get(exitRegion??'')?.label??'Back'}</button>{floors.length>1&&floors.map(f=><button key={f.id} className={f.id===here.id?'on':''} onClick={()=>switchFloor(f.id)}>{short.get(f.id)||f.label}</button>)}</div>}
+ {here&&<div className="floorbar"><button onClick={leave}><ArrowLeft/>{areaById.get(exitRegion??'')?.label??t('back')}</button>{floors.length>1&&floors.map(f=><button key={f.id} className={f.id===here.id?'on':''} onClick={()=>switchFloor(f.id)}>{short.get(f.id)||f.label}</button>)}</div>}
  {!here&&regions.length>1&&<div className="floorbar">{regions.map(r=><button key={r.id} className={r.id===area?.id?'on':''} onClick={()=>showRegion(r.id)}><MapIcon/>{r.label}</button>)}</div>}
  {toast&&<output className="toast" key={toast}>{toast}</output>}
- {!world&&<div className="loading">Loading {game.short}…</div>}<div className="map-note">Scroll or pinch to zoom · drag to explore</div></div>
- {locations&&world&&<div className="locations">{here&&<button className="leave-inline" onClick={()=>{leave();setLocations(false)}}><ArrowLeft/>Back to the {areaById.get(exitRegion??'')?.label} map</button>}
-  {regions.map((r,i)=><Fragment key={r.id}><h3>{r.label.toUpperCase()}</h3><button className={area?.id===r.id?'current':''} onClick={()=>showRegion(r.id)}><MapIcon/>Whole map</button>{world.places.filter(p=>p.area===r.id||(i===0&&!isRegion(p.area))).map(loc=><button key={loc.name} onClick={()=>go(loc)}><MapPin/>{loc.name}</button>)}</Fragment>)}
-  <h3>DUNGEONS &amp; INTERIORS</h3>{[...zoneFloors].map(([zone,list])=><div key={zone} className="dungeon"><h4>{zone}</h4>{list.map(f=><button key={f.id} onClick={()=>enter(f.id)} className={here?.id===f.id?'current':''}><DoorOpen/>{f.label}<b>{inArea.get(f.id)?.length??0}</b></button>)}</div>)}</div>}
- {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRow(selected)}</div>:<div className="pop pop-list"><small className="pop-title">{stack!.length} at this spot · {areaName(stack![0].area)}</small>{stack!.map(m=><Fragment key={m.id}>{popRow(m,true)}</Fragment>)}</div>,popupBox)}
- {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={encounterZone.name}><button className="close" onClick={()=>setEncounterZone(null)} aria-label="Close"><X/></button><small>{game.encounterSource.toUpperCase()}</small><h2>{encounterZone.name}</h2><p>{encounterZone.pokemon.length} Pokémon available in this area.</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>Lv. {min}{max!==min&&`–${max}`} · up to {chance}%</span><em>{[...new Set(variants.map(v=>METHODS[v.method]??v.method))].join(' · ')}</em></div></article>})}</div></dialog></div>}
+ {!world&&<div className="loading">{t('loadingGame',{game:game.short})}</div>}<div className="map-note">{t('mapNote')}</div></div>
+ {locations&&world&&<div className="locations">{here&&<button className="leave-inline" onClick={()=>{leave();setLocations(false)}}><ArrowLeft/>{t('backToMap',{region:areaById.get(exitRegion??'')?.label??''})}</button>}
+  {regions.map((r,i)=><Fragment key={r.id}><h3>{r.label.toUpperCase()}</h3><button className={area?.id===r.id?'current':''} onClick={()=>showRegion(r.id)}><MapIcon/>{t('wholeMap')}</button>{world.places.filter(p=>p.area===r.id||(i===0&&!isRegion(p.area))).map(loc=><button key={loc.name} onClick={()=>go(loc)}><MapPin/>{loc.name}</button>)}</Fragment>)}
+  <h3>{t('interiors')}</h3>{[...zoneFloors].map(([zone,list])=><div key={zone} className="dungeon"><h4>{zone}</h4>{list.map(f=><button key={f.id} onClick={()=>enter(f.id)} className={here?.id===f.id?'current':''}><DoorOpen/>{f.label}<b>{inArea.get(f.id)?.length??0}</b></button>)}</div>)}</div>}
+ {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRow(selected)}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{stack!.map(m=><Fragment key={m.id}>{popRow(m,true)}</Fragment>)}</div>,popupBox)}
+ {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={encounterZone.name}><button className="close" onClick={()=>setEncounterZone(null)} aria-label={t('close')}><X/></button><small>{t(game.id==='yellow'?'encountersPokeapi':'encountersWild').toUpperCase()}</small><h2>{encounterZone.name}</h2><p>{t('availableHere',{n:encounterZone.pokemon.length})}</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>{t('encounterRate',{levels:`${min}${max!==min?`–${max}`:''}`,chance,methods:[...new Set(variants.map(v=>method(METHODS[v.method]??v.method)))].join(' · ')})}</span></div></article>})}</div></dialog></div>}
  </div>
- {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} detail={detail}/>:<div className="listview loading-list">Loading checklist…</div>)}
- {tab==='pokedex'&&(world?<PokedexView dex={world.dex} byId={byId} done={done} setMany={setMany} onShow={showOnMap} game={game.short} storageKey={game.storage.dex}/>:<div className="listview loading-list">Loading Pokédex…</div>)}
- {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label="Credits"><button className="close" onClick={()=>setAbout(false)} aria-label="Close"><X/></button><small>About</small><h2>Credits</h2><Credits game={game.id}/></dialog></div>}
+ {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} detail={detail} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
+ {tab==='pokedex'&&(world?<PokedexView dex={world.dex} byId={byId} done={done} setMany={setMany} onShow={showOnMap} game={game.short} storageKey={game.storage.dex} tr={tr}/>:<div className="listview loading-list">{t('loadingDex')}</div>)}
+ {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label={t('credits')}><button className="close" onClick={()=>setAbout(false)} aria-label={t('close')}><X/></button><small>{t('about')}</small><h2>{t('credits')}</h2><Credits game={game.id} tr={tr}/></dialog></div>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>
  </main>
 }

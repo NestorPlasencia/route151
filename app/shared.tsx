@@ -1,6 +1,7 @@
 // Piezas comunes al mapa, la checklist y la Pokedex.
 import {Backpack,Gift,ListChecks,MapPin,Mountain,Search,Sparkles,Store,Swords} from 'lucide-react';
 import trainerIcons from '../public/data/trainer-icons.json';
+import type {T} from './i18n';
 
 export type Encounter={zone:string;min:number;max:number;chance:number;methods:string[];sprite?:string};
 // `area` y `at`: donde se pinta (sin ellos solo aparece en las listas);
@@ -18,9 +19,6 @@ export const frlgGroups=[...groups.slice(0,2),['Hidden Item',Search,'#7fd4ff'],.
 export type Group=(typeof yellowGroups)[number]|(typeof frlgGroups)[number];
 export const groupsOf=(game:string):readonly Group[]=>game==='yellow'?yellowGroups:frlgGroups;
 export const colorOf=(category:string)=>[...yellowGroups,...frlgGroups].find(g=>g[0]===category)?.[2]??'#fff';
-// Nombre de la capa cuando la categoria no se entiende sola.
-export const LAYER_NAMES:Record<string,string>={Item:'Collectible Item','Miscellaneous Task':'Task'};
-export const CATEGORY_NAMES:Record<string,string>={'Pokémon':'Pokémon','Item In Map':'Item on the map','Hidden Item':'Hidden item','Item Gift':'Gift item','In-Game Trade':'In-game trade','In-Game Gift Pokémon':'Gift Pokémon','Battle':'Battle',Item:'Item','Miscellaneous Task':'Task',Obstacle:'Obstacle',Shop:'Shop'};
 
 // Los combates de Yellow no traen icono: se deduce de la clase del rival
 // ("Youngster #3" -> sprite de Joven; "Snorlax" -> su figurita). Ver
@@ -36,18 +34,18 @@ export function Figure({m}:{m:{icon?:string|null;category:string;name?:string}})
 
 // Creditos: todo el contenido es de terceros y la app es un proyecto de fans.
 type Credit={what:string;who:string;href:string;note?:string};
-const YELLOW_CREDITS:Credit[]=[
- {what:'Map image',who:'ZaidusRecon',href:'https://pokemoncompletion.com/completion/Yellow',note:'via Pokémon Completion'},
- {what:'Checklist and map markers',who:'Pokémon Completion',href:'https://pokemoncompletion.com/completion/Yellow',note:'with event flag research by FabioAttard'},
- {what:'Encounters, Pokédex data and sprites',who:'PokéAPI',href:'https://pokeapi.co'},
- {what:'Trainer sprites',who:'Pokémon Showdown',href:'https://play.pokemonshowdown.com'},
- {what:'Walkthrough order',who:'Bulbapedia',href:'https://bulbapedia.bulbagarden.net/wiki/Appendix:Yellow_walkthrough'},
+const yellowCredits=(tr:T):Credit[]=>[
+ {what:tr.t('creditMap'),who:'ZaidusRecon',href:'https://pokemoncompletion.com/completion/Yellow',note:tr.t('creditVia')},
+ {what:tr.t('creditMarkers'),who:'Pokémon Completion',href:'https://pokemoncompletion.com/completion/Yellow',note:tr.t('creditFlags')},
+ {what:tr.t('creditData'),who:'PokéAPI',href:'https://pokeapi.co'},
+ {what:tr.t('creditTrainers'),who:'Pokémon Showdown',href:'https://play.pokemonshowdown.com'},
+ {what:tr.t('creditOrder'),who:'Bulbapedia',href:'https://bulbapedia.bulbagarden.net/wiki/Appendix:Yellow_walkthrough'},
 ];
-const FRLG_CREDITS:Credit[]=[
- {what:'Maps, markers and encounters',who:'pret/pokefirered',href:'https://github.com/pret/pokefirered',note:'generated from the decompilation'},
- {what:'Pokédex data and icons',who:'PokéAPI',href:'https://pokeapi.co'},
+const frlgCredits=(tr:T):Credit[]=>[
+ {what:tr.t('creditFrlg'),who:'pret/pokefirered',href:'https://github.com/pret/pokefirered',note:tr.t('creditDecomp')},
+ {what:tr.t('creditDex'),who:'PokéAPI',href:'https://pokeapi.co'},
 ];
-export function Credits({game}:{game:string}){return <div className="credits">
- <ul>{(game==='yellow'?YELLOW_CREDITS:FRLG_CREDITS).map(c=><li key={c.what}><span>{c.what}</span><a href={c.href} target="_blank" rel="noreferrer">{c.who}</a>{c.note&&<small>{c.note}</small>}</li>)}</ul>
- <p>Route 151 is an unofficial fan project and is not affiliated with, endorsed or sponsored by Nintendo, Game Freak, Creatures Inc. or The Pokémon Company. Pokémon and all related names and images are trademarks of their respective owners.</p>
+export function Credits({game,tr}:{game:string;tr:T}){return <div className="credits">
+ <ul>{(game==='yellow'?yellowCredits(tr):frlgCredits(tr)).map(c=><li key={c.what}><span>{c.what}</span><a href={c.href} target="_blank" rel="noreferrer">{c.who}</a>{c.note&&<small>{c.note}</small>}</li>)}</ul>
+ <p>{tr.t('disclaimer')}</p>
 </div>}
