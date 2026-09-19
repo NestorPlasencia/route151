@@ -39,3 +39,6 @@ next-env.d.ts
 /outputs/
 /work/
 /data/frlg/pokefirered/
+
+# python
+__pycache__/

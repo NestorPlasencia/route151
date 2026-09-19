@@ -3,8 +3,8 @@ import { ServiceWorker } from './service-worker';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Route 151 — Pokémon Yellow Companion',
-  description: 'Interactive map, checklist and Pokédex for Pokémon Yellow.',
+  title: 'Route 151 — Pokémon Companion',
+  description: 'Interactive map, checklist and Pokédex for Pokémon Yellow, FireRed and LeafGreen.',
   applicationName: 'Route 151',
   icons: { icon: '/favicon.svg', apple: '/icons/apple-touch-icon.png' },
   appleWebApp: {

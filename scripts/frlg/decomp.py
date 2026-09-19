@@ -72,6 +72,7 @@ class Tileset:
     def __init__(self, dirs):
         self.tiles = np.array(Image.open(os.path.join(dirs['tiles'], 'tiles.png')))  # indices 0..15
         self.metatiles = np.fromfile(os.path.join(dirs['metatiles'], 'metatiles.bin'), dtype='<u2').reshape(-1, 8)
+        self.attributes = np.fromfile(os.path.join(dirs['metatiles'], 'metatile_attributes.bin'), dtype='<u4')
         pal_dir = os.path.join(dirs['palettes'], 'palettes')
         self.palettes = [_palette(os.path.join(pal_dir, f'{i:02}.pal')) for i in range(16)]
 
@@ -249,3 +250,74 @@ def render_layout(layout_id):
         for x in range(w):
             img[y * BLOCK:(y + 1) * BLOCK, x * BLOCK:(x + 1) * BLOCK] = r.metatile(int(grid[y, x]))
     return Image.fromarray(img, 'RGBA')
+
+
+# Tipo de encuentro de cada metatile (bits 24-26 de sus atributos).
+ENCOUNTER_NONE, ENCOUNTER_LAND, ENCOUNTER_WATER = 0, 1, 2
+
+
+def encounter_grid(layout_id):
+    """Tipo de encuentro de cada bloque del diseno: donde hay hierba (o suelo de
+    cueva) y donde hay agua."""
+    l = layouts()[layout_id]
+    p, s = tileset(l['primary_tileset']), tileset(l['secondary_tileset'])
+    grid = blocks(layout_id) & 0x3FF
+    attr = np.where(grid < METATILES_PRIMARY,
+                    p.attributes[np.minimum(grid, len(p.attributes) - 1)],
+                    s.attributes[np.clip(grid - METATILES_PRIMARY, 0, len(s.attributes) - 1)])
+    return (attr >> 24) & 7
+
+
+@lru_cache(None)
+def species_numbers():
+    """SPECIES_X -> numero interno; hasta Celebi (251) coincide con la Pokedex nacional."""
+    text = open(path('include/constants/species.h'), encoding='utf-8').read()
+    return {k: int(v) for k, v in re.findall(r'#define (SPECIES_\w+) (\d+)', text)}
+
+
+def version_text(text, version):
+    """Deja solo la rama de `version` ('FIRERED' o 'LEAFGREEN') de los
+    #if defined(FIRERED) / #elif defined(LEAFGREEN) / #else / #endif."""
+    # Tambien las directivas del ensamblador de los scripts (.ifdef / .endif).
+    out, keep = [], [True]
+    for line in text.splitlines():
+        m = re.match(r'\s*#(if|elif) defined\((\w+)\)|\s*\.(ifdef|ifndef) (\w+)', line)
+        if m and m.group(1) == 'if':
+            keep.append(m.group(2) == version)
+        elif m and m.group(1) == 'elif':
+            keep[-1] = m.group(2) == version
+        elif m:
+            keep.append((m.group(4) == version) == (m.group(3) == 'ifdef'))
+        elif re.match(r'\s*[#.]else', line):
+            keep[-1] = not keep[-1]
+        elif re.match(r'\s*[#.]endif', line):
+            keep.pop()
+        elif all(keep):
+            out.append(line)
+    return '\n'.join(out)
+
+
+@lru_cache(None)
+def _item_icons():
+    """ITEM_X -> (png del icono, .pal de su paleta)."""
+    table = open(path('src/data/item_icon_table.h'), encoding='utf-8').read()
+    gfx = open(path('src/data/graphics/items.h'), encoding='utf-8').read()
+    files = {sym: path(p.split('.')[0]) for sym, p in re.findall(r'(gItemIcon(?:Palette)?_\w+)\[\] = INCBIN_U32\("([^"]+)"\)', gfx)}
+    out = {}
+    for item, icon, pal in re.findall(r'\[(ITEM_\w+)\]\s*= \{(\w+), (\w+)\}', table):
+        if icon in files and pal in files:
+            out[item] = (files[icon] + '.png', files[pal] + '.pal')
+    return out
+
+
+def item_icon(item):
+    """Icono del objeto (24x24 RGBA) tal como lo muestra la mochila, o None."""
+    f = _item_icons().get(item)
+    if not f or not os.path.exists(f[0]) or not os.path.exists(f[1]):
+        return None
+    idx = np.array(Image.open(f[0]))
+    pal = np.array(_palette(f[1]), dtype=np.uint8)
+    rgba = np.zeros(idx.shape + (4,), np.uint8)
+    rgba[..., :3] = pal[idx]
+    rgba[..., 3] = np.where(idx == 0, 0, 255)
+    return Image.fromarray(rgba, 'RGBA')

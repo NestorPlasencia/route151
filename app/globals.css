@@ -175,3 +175,10 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .map-note{display:none}
 }
 .modal-backdrop>dialog{position:relative;inset:auto;margin:0;border:0;color:var(--ink)}
+/* Selector de juego (Yellow / FireRed / LeafGreen) junto a la marca. */
+.game-select{position:relative;display:flex;align-items:center;margin-left:-30px}
+.game-select select{appearance:none;height:34px;padding:0 30px 0 12px;border:1px solid #2f3a52;border-radius:9px;background:#1d2740;color:#fff;font:inherit;font-size:12px;font-weight:bold;cursor:pointer}
+.game-select select:focus-visible{outline:2px solid #ffd936;outline-offset:2px}
+.game-select svg{position:absolute;right:9px;width:14px;color:#ffd936;pointer-events:none}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(max-width:760px){.game-select{margin-left:0}.game-select select{height:32px;font-size:12px}}

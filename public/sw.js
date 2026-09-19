@@ -94,7 +94,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(networkFirst(request, SHELL));
   } else if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(cacheFirst(request, ASSETS));
-  } else if (/^\/(data|areas|icons)\//.test(url.pathname)) {
+  } else if (/^\/(data|areas|icons|frlg)\//.test(url.pathname)) {
     // Mismo nombre de archivo aunque se regeneren: se refrescan solos.
     event.respondWith(staleWhileRevalidate(event, DATA));
   }
