@@ -36,6 +36,20 @@ PATHS = [
     '/graphics/object_events/',
     '/src/data/trainers.h',
     '/src/data/trainer_parties.h',
+    '/src/data/pokemon/species_info.h',
+    '/src/data/pokemon/level_up_learnsets.h',
+    '/src/data/pokemon/level_up_learnset_pointers.h',
+    '/src/data/pokemon/tmhm_learnsets.h',
+    '/src/data/pokemon/tutor_learnsets.h',
+    '/src/data/battle_moves.h',
+    '/src/data/text/move_names.h',
+    '/src/data/text/abilities.h',
+    '/src/pokemon.c',
+    '/src/battle_main.c',
+    '/include/constants/moves.h',
+    '/include/constants/abilities.h',
+    '/include/constants/pokemon.h',
+    '/include/constants/items.h',
 ]
 
 

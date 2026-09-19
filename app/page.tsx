@@ -2,10 +2,11 @@
 import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
-import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Map as MapIcon,MapPin,Sparkles,X} from 'lucide-react';
+import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Map as MapIcon,MapPin,Sparkles,Swords,X} from 'lucide-react';
 import {Credits,Figure,colorOf,groupsOf,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
+import {TeamView,type Battle} from './team';
 import {GAMES,METHODS,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
@@ -25,7 +26,7 @@ export default function Home(){
  // Los nombres en espanol de los objetos (de PokeAPI) solo se bajan si hacen falta.
  useEffect(()=>{if(lang!=='es'||names)return;fetch('/data/names-es.json').then(r=>r.json()).then(setNames).catch(e=>console.error('No se pudieron cargar los nombres',e))},[lang,names]);
  const game=GAMES.find(g=>g.id===gameId)??GAMES[0],groups=groupsOf(game.id);
- const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'>('mapa'),[view,setView]=useState<View>({area:''});
+ const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'|'team'>('mapa'),[battle,setBattle]=useState<Battle|null>(null),[view,setView]=useState<View>({area:''});
  const [active,setActive]=useState<string[]>(groups.map(g=>g[0])),[selected,setSelected]=useState<Marker|null>(null),[stack,setStack]=useState<Marker[]|null>(null),[done,setDone]=useState<number[]>([]),[locations,setLocations]=useState(false),[about,setAbout]=useState(false),[layersOpen,setLayersOpen]=useState(false);
  const [encounterZone,setEncounterZone]=useState<EncounterZone|null>(null);
 
@@ -42,6 +43,8 @@ export default function Home(){
  const pickGame=(id:string)=>{setGameId(id);try{localStorage.setItem(GAME_KEY,id)}catch{}};
  const pickLang=(l:Lang)=>{setLang(l);try{localStorage.setItem(LANG_KEY,l)}catch{}};
  useEffect(()=>{document.documentElement.lang=lang},[lang]);
+ // Los datos de combate (164 KB) solo se bajan al abrir la pestana de equipo.
+ useEffect(()=>{if(tab!=='team'||battle||game.id==='yellow')return;fetch('/frlg/data/battle.json').then(r=>r.json()).then(setBattle).catch(e=>console.error('No se pudieron cargar los datos de combate',e))},[tab,battle,game.id]);
 
  const areaById=useMemo(()=>new Map((world?.areas??[]).map(a=>[a.id,a])),[world]);
  const regions=useMemo(()=>world?.areas.filter(a=>a.kind==='region')??[],[world]);
@@ -243,7 +246,7 @@ export default function Home(){
  const showOnMap=(m:Marker)=>{setTab('mapa');reveal(m,false)};
  const detail=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):info(m)??null};
  const listed=useMemo(()=>world?world.markers.filter(m=>world.checklist.markers[m.id]):[],[world]);
- const tabs=([['mapa',t('tabMap'),MapIcon],['checklist',t('tabChecklist'),ListChecks],['pokedex',t('tabDex'),BookOpen]] as const);
+ const tabs=([['mapa',t('tabMap'),MapIcon],['checklist',t('tabChecklist'),ListChecks],['pokedex',t('tabDex'),BookOpen],...(game.id==='yellow'?[]:[['team',t('tabTeam'),Swords] as const])] as const);
  const areaName=(id?:string)=>id?place(areaById.get(id)?.label??'—'):'—';
  // Ficha de un marcador: el lugar junto a la categoria si es corto.
  // Lo que vende una tienda, con los objetos traducidos; los demas detalles solo
@@ -277,6 +280,7 @@ export default function Home(){
  </div>
  {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} detail={detail} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
  {tab==='pokedex'&&(world?<PokedexView dex={world.dex} byId={byId} done={done} setMany={setMany} onShow={showOnMap} game={game.short} storageKey={game.storage.dex} tr={tr}/>:<div className="listview loading-list">{t('loadingDex')}</div>)}
+ {tab==='team'&&(world?<TeamView dex={world.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{t('loadingTeam')}</div>)}
  {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label={t('credits')}><button className="close" onClick={()=>setAbout(false)} aria-label={t('close')}><X/></button><small>{t('about')}</small><h2>{t('credits')}</h2><Credits game={game.id} tr={tr}/></dialog></div>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>
  </main>

@@ -16,6 +16,7 @@ declare module 'lucide-react' {
   export const ListChecks: Icon;
   export const Map: Icon;
   export const MapPin: Icon;
+  export const Plus: Icon;
   export const Mountain: Icon;
   export const Search: Icon;
   export const Sparkles: Icon;

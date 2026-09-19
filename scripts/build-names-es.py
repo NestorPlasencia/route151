@@ -1,4 +1,4 @@
-"""Nombres en espanol de los objetos, desde PokeAPI.
+"""Nombres en espanol de objetos, ataques, habilidades y naturalezas, desde PokeAPI.
 
 La app muestra los objetos con el nombre ingles que traen los datos de cada
 juego ('Old Amber', 'TM26', 'Thunderstone'). Aqui se busca cada uno en PokeAPI
@@ -62,6 +62,34 @@ def wanted_items():
     return sorted(names)
 
 
+def battle_names(kind, keys, aliases=()):
+    """Nombres en espanol de ataques, habilidades o naturalezas del decomp."""
+    alias = dict(aliases)
+    out, missing = {}, []
+    with ThreadPoolExecutor(8) as pool:
+        wanted = {k: alias.get(k, slug(k)) for k in keys}
+        got = dict(zip(wanted, pool.map(lambda s: fetch(f'{API}/{kind}/{s}'), wanted.values())))
+    for key, entry in got.items():
+        es = spanish(entry) if entry else None
+        (out.setdefault(key, es) if es else missing.append(key))
+    return out, missing
+
+
+def fetch(url):
+    try:
+        return get(url)
+    except Exception:
+        return None
+
+
+# Ataques cuyo identificador en PokeAPI no coincide con el del juego.
+MOVE_ALIASES = {
+    'HI_JUMP_KICK': 'high-jump-kick', 'FAINT_ATTACK': 'feint-attack', 'VICE_GRIP': 'vice-grip',
+    'SMELLING_SALT': 'smelling-salts', 'SELF_DESTRUCT': 'self-destruct', 'SOFT_BOILED': 'soft-boiled',
+    'EXTREME_SPEED': 'extreme-speed', 'DOUBLE_SLAP': 'double-slap', 'SAND_ATTACK': 'sand-attack',
+}
+
+
 def main():
     known = {i['name'] for i in get(f'{API}/item?limit=3000')['results']}
     moves = {m['name'] for m in get(f'{API}/move?limit=2000')['results']}
@@ -103,11 +131,22 @@ def main():
             continue
         items[full] = (f'{es} - {move_names[move]}' if move and move_names.get(move) else es) + extra[full]
 
-    io.open(OUT, 'w', encoding='utf-8', newline='\n').write(
-        json.dumps({'items': dict(sorted(items.items()))}, ensure_ascii=False, separators=(',', ':')))
-    print(f'{len(items)} objetos en espanol -> {OUT}')
-    if missing:
-        print(f'sin traduccion ({len(missing)}):', ', '.join(sorted(missing)))
+    battle = json.load(io.open('public/frlg/data/battle.json', encoding='utf-8'))
+    moves, no_move = battle_names('move', battle['moves'], MOVE_ALIASES.items())
+    abilities, no_ability = battle_names('ability', battle['abilities'])
+    natures, no_nature = battle_names('nature', battle['natures'])
+    # Se guardan por el nombre ingles que muestra la app.
+    moves = {battle['moves'][k]['name']: v for k, v in moves.items()}
+    abilities = {battle['abilities'][k]: v for k, v in abilities.items()}
+
+    io.open(OUT, 'w', encoding='utf-8', newline='\n').write(json.dumps({
+        'items': dict(sorted(items.items())), 'moves': dict(sorted(moves.items())),
+        'abilities': dict(sorted(abilities.items())), 'natures': dict(sorted(natures.items())),
+    }, ensure_ascii=False, separators=(',', ':')))
+    print(f'{len(items)} objetos, {len(moves)} ataques, {len(abilities)} habilidades, {len(natures)} naturalezas -> {OUT}')
+    for what, names in [('objetos', missing), ('ataques', no_move), ('habilidades', no_ability), ('naturalezas', no_nature)]:
+        if names:
+            print(f'sin traduccion ({what}, {len(names)}):', ', '.join(sorted(names)))
 
 
 if __name__ == '__main__':

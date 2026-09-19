@@ -15,6 +15,26 @@ const TEXT = {
  tabMap: ['Map', 'Mapa'],
  tabChecklist: ['Checklist', 'Lista'],
  tabDex: ['Pokédex', 'Pokédex'],
+ tabTeam: ['Team', 'Equipo'],
+ loadingTeam: ['Loading team data…', 'Cargando los datos de combate…'],
+ addPokemon: ['Add a Pokémon by name…', 'Añade un Pokémon por su nombre…'],
+ teamEmpty: ['Your team is empty: search a Pokémon above to add it.', 'Tu equipo está vacío: busca arriba un Pokémon para añadirlo.'],
+ remove: ['Remove', 'Quitar'],
+ level: ['Level', 'Nivel'],
+ nature: ['Nature', 'Naturaleza'],
+ ability: ['Ability', 'Habilidad'],
+ noMove: ['— no move —', '— sin ataque —'],
+ pokemon: ['Pokémon', 'Pokémon'],
+ bestAgainst: ['Best move against…', 'Mejor ataque contra…'],
+ noEffect: ['no effect', 'no le afecta'],
+ noDamage: ['No move of your team damages it: add attacking moves.', 'Ningún ataque de tu equipo le hace daño: añade ataques ofensivos.'],
+ statsNote: ['Stats assume IVs of 15 and no EVs, like a normal playthrough.', 'Las estadísticas suponen IVs de 15 y sin EVs, como en una partida normal.'],
+ stat_hp: ['HP', 'PS'],
+ stat_atk: ['Attack', 'Ataque'],
+ stat_def: ['Defense', 'Defensa'],
+ stat_spa: ['Sp. Atk', 'At. Esp.'],
+ stat_spd: ['Sp. Def', 'Def. Esp.'],
+ stat_spe: ['Speed', 'Velocidad'],
  completed: ['{n} completed', '{n} completados'],
  allAreas: [' — all areas', ' — todo'],
  loading: ['Loading…', 'Cargando…'],
@@ -225,7 +245,7 @@ const pick = (table: Record<string, [string, string]>, key: string, lang: Lang) 
 
 export type T = ReturnType<typeof translator>;
 
-export type Names = {items: Record<string, string>} | null;
+export type Names = {items: Record<string, string>; moves: Record<string, string>; abilities: Record<string, string>; natures: Record<string, string>} | null;
 
 export function translator(lang: Lang, names: Names = null) {
  const fill = (text: string, vars?: Record<string, string | number>) =>
@@ -239,6 +259,10 @@ export function translator(lang: Lang, names: Names = null) {
   method: (m: string) => pick(METHODS, m, lang),
   type: (t: string) => pick(TYPES, t, lang),
   note: (n: string) => pick(NOTES, n, lang),
+  // Ataques, habilidades y naturalezas (de PokeAPI, como los objetos).
+  move: (m: string) => (lang === 'es' && names?.moves[m]) || m,
+  ability: (a: string) => (lang === 'es' && names?.abilities[a]) || a,
+  nature: (n: string) => (lang === 'es' && names?.natures[n]) || n,
   // Nombre de un objeto ('Coins ×10' -> 'Monedas ×10'); lo demas (Pokemon,
   // entrenadores) se queda igual.
   name: (n: string) => {

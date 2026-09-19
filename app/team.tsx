@@ -1,0 +1,139 @@
+'use client';
+// Pestana de equipo (solo FireRed/LeafGreen): se anota que Pokemon llevas, con
+// su nivel, naturaleza, habilidad y ataques, y se calcula con que ataque le
+// haces mas dano a un Pokemon concreto. Las cuentas son las del juego (tercera
+// generacion), suponiendo IVs de 15 y sin EVs, que es lo normal en una partida.
+import {useEffect,useMemo,useState} from 'react';
+import {Plus,Search,Swords,X} from 'lucide-react';
+import {Figure} from './shared';
+import type {T} from './i18n';
+import type {Dex} from './lists';
+
+export type Move={name:string;type:string;power:number;accuracy:number;pp:number;category:'physical'|'special'};
+export type Battle={
+ species:Record<string,{base:number[];types:string[];abilities:string[];learn:[number,string][];tms:string[]}>;
+ moves:Record<string,Move>;abilities:Record<string,string>;natures:Record<string,[string|null,string|null]>;
+ chart:Record<string,Record<string,number>>;
+};
+export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[]};
+
+const STATS=['hp','atk','def','spa','spd','spe'] as const;
+const IV=15;
+// Gen 3: PS y las demas estadisticas con sus formulas, y la naturaleza al final.
+export function statsOf(base:number[],level:number,nature:[string|null,string|null]=[null,null]){
+ return STATS.map((key,i)=>{
+  const raw=Math.floor((2*base[i]+IV)*level/100);
+  if(key==='hp')return base[i]===1?1:raw+level+10; // Shedinja no existe aqui, pero por si acaso
+  const mod=nature[0]===key?1.1:nature[1]===key?0.9:1;
+  return Math.floor((raw+5)*mod);
+ });
+}
+export const effectiveness=(chart:Battle['chart'],type:string,against:string[])=>
+ against.reduce((m,t)=>m*(chart[type]?.[t]??1),1);
+
+// Dano de un ataque, en porcentaje de los PS del rival (tirada media y maxima).
+export function damage(battle:Battle,attacker:TeamMon,move:Move,target:number,targetLevel:number){
+ const me=battle.species[attacker.n],foe=battle.species[target];
+ if(!me||!foe||!move.power)return null;
+ const mine=statsOf(me.base,attacker.level,battle.natures[attacker.nature]??[null,null]);
+ const theirs=statsOf(foe.base,targetLevel);
+ const physical=move.category==='physical';
+ const a=mine[physical?1:3],d=theirs[physical?2:4];
+ const stab=me.types.includes(move.type)?1.5:1;
+ const eff=effectiveness(battle.chart,move.type,foe.types);
+ const base=Math.floor(Math.floor(Math.floor(2*attacker.level/5+2)*move.power*a/d)/50)+2;
+ const top=Math.floor(base*stab*eff);
+ return {eff,max:Math.min(100,Math.round(top/theirs[0]*100)),min:Math.min(100,Math.round(top*.85/theirs[0]*100))};
+}
+
+// Ataques que puede llevar a su nivel: los que aprende subiendo y los de MT/MO.
+export const movePool=(battle:Battle,mon:TeamMon)=>{
+ const s=battle.species[mon.n];if(!s)return [];
+ const byLevel=s.learn.filter(([lvl])=>lvl<=mon.level).map(([,m])=>m);
+ return [...new Set([...byLevel,...s.tms])].filter(m=>battle.moves[m]);
+};
+
+export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;storageKey:string;tr:T}){
+ const {t,type:typeName,move:moveName,ability:abilityName,nature:natureName}=tr;
+ const [team,setTeam]=useState<TeamMon[]>([]),[query,setQuery]=useState(''),[target,setTarget]=useState<number|null>(null),[targetLevel,setTargetLevel]=useState(20);
+ useEffect(()=>{try{setTeam(JSON.parse(localStorage.getItem(storageKey)||'[]'))}catch{setTeam([])}},[storageKey]);
+ const save=(next:TeamMon[])=>{setTeam(next);try{localStorage.setItem(storageKey,JSON.stringify(next))}catch{}};
+ const species=useMemo(()=>new Map(dex.species.map(s=>[s.n,s])),[dex]);
+ const q=query.trim().toLowerCase();
+ const results=useMemo(()=>!q?[]:dex.species.filter(s=>battle?.species[s.n]&&s.name.toLowerCase().includes(q)).slice(0,8),[dex,battle,q]);
+
+ if(!battle)return <div className="listview loading-list">{t('loadingTeam')}</div>;
+ const add=(n:number)=>{
+  const s=battle.species[n];if(!s||team.length>=6)return;
+  const level=5,learn=s.learn.filter(([lvl])=>lvl<=level).map(([,m])=>m);
+  save([...team,{id:`${n}-${Date.now()}`,n,level,nature:'Hardy',ability:s.abilities[0]??'',moves:[...learn.slice(-4),null,null,null,null].slice(0,4)}]);
+  setQuery('');
+ };
+ const update=(id:string,change:Partial<TeamMon>)=>save(team.map(m=>m.id===id?{...m,...change}:m));
+ const foe=target?battle.species[target]:null;
+ // Mejor ataque de cada miembro contra el Pokemon elegido, de mas a menos dano.
+ const advice=!foe||!target?[]:team.flatMap(mon=>{
+  const best=mon.moves.flatMap(key=>{const move=key?battle.moves[key]:null;if(!move)return [];
+   const d=damage(battle,mon,move,target,targetLevel);return d?[{mon,move,...d}]:[]})
+   .sort((a,b)=>b.max-a.max)[0];
+  return best?[best]:[];
+ }).sort((a,b)=>b.max-a.max);
+
+ const moveLabel=(key:string)=>{const m=battle.moves[key];return `${moveName(m.name)} · ${typeName(m.type)}${m.power?` · ${m.power}`:''}`};
+ return <div className="listview">
+  <div className="list-head">
+   <div className="list-title"><h2>{t('tabTeam')}</h2><span className="progress"><b>{team.length}/6</b></span></div>
+   {team.length<6&&<label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('addPokemon')}/></label>}
+   {results.length>0&&<div className="team-results">{results.map(s=><button key={s.n} onClick={()=>add(s.n)}><Figure m={{icon:s.icon,category:'Pokémon'}}/><b>{s.name}</b><Plus/></button>)}</div>}
+  </div>
+  <div className="list-body team">
+   {team.map(mon=>{
+    const s=battle.species[mon.n],info=species.get(mon.n),pool=movePool(battle,mon);
+    const stats=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null]);
+    return <article key={mon.id} className="team-mon">
+     <header>
+      <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
+      <b>{info?.name??mon.n}</b>
+      <span className="types">{s.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span>
+      <button className="team-remove" aria-label={t('remove')} onClick={()=>save(team.filter(x=>x.id!==mon.id))}><X/></button>
+     </header>
+     <div className="team-fields">
+      <label>{t('level')}<input type="number" min={1} max={100} value={mon.level} onChange={e=>update(mon.id,{level:Math.max(1,Math.min(100,+e.target.value||1))})}/></label>
+      <label>{t('nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${t(('stat_'+up) as never)} −${t(('stat_'+down) as never)})`:''}</option>)}</select></label>
+      <label>{t('ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{s.abilities.map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>
+     </div>
+     <dl className="team-stats">{STATS.map((stat,i)=><div key={stat}><dt>{t(('stat_'+stat) as never)}</dt><dd>{stats[i]}</dd></div>)}</dl>
+     <div className="team-moves">{[0,1,2,3].map(i=>
+      <select key={i} value={mon.moves[i]??''} onChange={e=>update(mon.id,{moves:mon.moves.map((m,j)=>j===i?(e.target.value||null):m)})}>
+       <option value="">{t('noMove')}</option>
+       {pool.map(key=><option key={key} value={key}>{moveLabel(key)}</option>)}
+      </select>)}
+     </div>
+    </article>;
+   })}
+   {!team.length&&<p className="list-empty">{t('teamEmpty')}</p>}
+
+   <section className="team-vs">
+    <h3><Swords/>{t('bestAgainst')}</h3>
+    <div className="team-fields">
+     <label>{t('pokemon')}<select value={target??''} onChange={e=>setTarget(+e.target.value||null)}>
+      <option value="">—</option>
+      {dex.species.filter(s=>battle.species[s.n]).map(s=><option key={s.n} value={s.n}>{s.name}</option>)}
+     </select></label>
+     <label>{t('level')}<input type="number" min={1} max={100} value={targetLevel} onChange={e=>setTargetLevel(Math.max(1,Math.min(100,+e.target.value||1)))}/></label>
+    </div>
+    {foe&&<p className="team-foe"><span className="types">{foe.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span></p>}
+    {advice.length>0&&<div className="team-advice">{advice.map(({mon,move,eff,min,max})=>{
+     const info=species.get(mon.n);
+     return <div key={mon.id} className={`advice-row ${eff===0?'none':eff>1?'good':eff<1?'bad':''}`}>
+      <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
+      <span><b>{moveName(move.name)}</b><small>{info?.name} · {typeName(move.type)}{eff!==1&&` · ×${eff}`}</small></span>
+      <em>{eff===0?t('noEffect'):`${min}–${max}%`}</em>
+     </div>})}</div>}
+    {foe&&!advice.length&&<p className="list-empty">{t('noDamage')}</p>}
+   
+   </section>
+   <p className="list-source">{t('statsNote')}</p>
+  </div>
+ </div>;
+}

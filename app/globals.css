@@ -249,3 +249,39 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .lang-select{margin-left:0}
 .lang-select select{padding:0 24px 0 10px;font-size:11px}
 @media (max-width:600px){.lang-select select{padding:0 20px 0 8px}}
+/* Pestana de equipo. */
+.team-results{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.team-results button{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;font-size:12px;cursor:pointer}
+.team-results button:hover{border-color:var(--blue);color:var(--blue)}
+.team-results svg{width:14px}
+.team{display:flex;flex-direction:column;gap:12px}
+.team-mon{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}
+.team-mon>header{display:flex;align-items:center;gap:10px}
+.team-mon>header b{font-size:15px}
+.team-remove{margin-left:auto;width:28px;height:28px;border:0;border-radius:8px;background:#f0f3f7;display:grid;place-items:center;cursor:pointer}
+.team-remove svg{width:15px}
+.team-fields{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.team-fields label{display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.team-fields input,.team-fields select,.team-moves select{height:34px;border:1px solid var(--line);border-radius:8px;background:#f8fafc;padding:0 8px;font:inherit;font-size:12px;color:var(--ink);text-transform:none;letter-spacing:0}
+.team-fields input{width:70px}
+.team-stats{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+.team-stats div{flex:1;min-width:64px;background:#f4f7fb;border-radius:8px;padding:6px 8px}
+.team-stats dt{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.team-stats dd{margin:2px 0 0;font-size:14px;font-weight:bold}
+.team-moves{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+.team-vs{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:4px}
+.team-vs h3{display:flex;align-items:center;gap:8px;margin:0 0 4px;font-size:14px}
+.team-vs h3 svg{width:16px;color:var(--blue)}
+.team-foe{margin:8px 0 0}
+.team-advice{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.advice-row{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px;border-radius:9px;background:#f4f7fb}
+.advice-row b{display:block;font-size:13px}
+.advice-row small{color:var(--muted);font-size:10px}
+.advice-row em{font-style:normal;font-weight:bold;font-size:13px}
+.advice-row.good{background:#eaf7ef}.advice-row.good em{color:#23a66c}
+.advice-row.bad{background:#fdf1ef}.advice-row.bad em{color:#d2553d}
+.advice-row.none{opacity:.6}
+@media (max-width:1024px),(pointer:coarse) and (max-width:1366px){.team-moves{grid-template-columns:1fr}}
+/* La ficha de cada Pokemon usa <header>: no debe heredar la cabecera de la app. */
+.team-mon>header{height:auto;padding:0;gap:10px;background:none;color:var(--ink);border:0}
+.team-mon>header .fig{width:34px;height:30px}
