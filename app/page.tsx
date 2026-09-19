@@ -70,7 +70,9 @@ export default function Home(){
  useEffect(()=>{
   const L=leaflet.current,m=map.current;if(!L||!m||!area)return;
   const b:[Pt,Pt]=[[-area.height,0],[0,area.width]];
-  const key=`${game.id}/${area.id}`,changed=shownArea.current!==key;
+  // La imagen se identifica por su ruta: al cambiar de juego hay un render con el
+  // juego nuevo y el mapa viejo, y con 'juego/area' la imagen vieja quedaba fija.
+  const key=area.image,changed=shownArea.current!==key;
   if(changed){
    shownArea.current=key;overlay.current?.remove();
    overlay.current=L.imageOverlay(area.image,b,{className:'area-image',interactive:false}).addTo(m);
@@ -81,7 +83,7 @@ export default function Home(){
   if(view.restore)m.setView(view.restore.center,view.restore.zoom,{animate:!changed});
   else if(view.focus)m.setView(ll(view.focus),Math.max(fit,view.zoom??0),{animate:!changed});
   else m.fitBounds(b,{animate:!changed});
- },[view,area,mapReady,game.id]);
+ },[view,area,mapReady]);
 
  const q=query.trim().toLowerCase();
  const shown=useMemo(()=>(area?inArea.get(area.id)??[]:[]).filter(m=>active.includes(m.category)&&`${m.name} ${m.location}`.toLowerCase().includes(q)),[area,inArea,active,q]);
