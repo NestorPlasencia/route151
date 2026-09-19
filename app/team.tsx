@@ -48,8 +48,16 @@ export const effectiveness=(chart:Battle['chart'],type:string,against:string[])=
  against.reduce((m,t)=>m*(chart[type]?.[t]??1),1);
 
 // Dano de un ataque, en porcentaje de los PS del rival (tirada media y maxima).
+export type Species=Battle['species'][string];
+// Rival medio con el que comparar ataques entre si, sin pensar en tipos.
+export const DUMMY:Species={base:[70,70,70,70,70,70],types:['normal'],abilities:[],learn:[],tms:[]};
+
 export function damage(battle:Battle,attacker:TeamMon,move:Move,target:number,targetLevel:number){
- const me=battle.species[attacker.n],foe=battle.species[target];
+ const foe=battle.species[target];
+ return foe?damageVs(battle,attacker,move,foe,targetLevel):null;
+}
+export function damageVs(battle:Battle,attacker:TeamMon,move:Move,foe:Species,targetLevel:number){
+ const me=battle.species[attacker.n];
  if(!me||!foe||!move.power)return null;
  const mine=attacker.stats??statsOf(me.base,attacker.level,battle.natures[attacker.nature]??[null,null]);
  const theirs=statsOf(foe.base,targetLevel);
@@ -69,8 +77,10 @@ export const movePool=(battle:Battle,mon:TeamMon)=>{
  return [...new Set([...byLevel,...s.tms])].filter(m=>battle.moves[m]);
 };
 
-export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;storageKey:string;tr:T}){
- const {t,type:typeName,move:moveName,ability:abilityName,nature:natureName}=tr;
+export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Battle|null;moveText:Record<string,{en:string;es:string}>|null;storageKey:string;tr:T}){
+ const {t,lang,type:typeName,move:moveName,ability:abilityName,nature:natureName}=tr;
+ const describe=(key:string)=>moveText?.[key]?.[lang==='es'?'es':'en']??null;
+ const [candidate,setCandidate]=useState<Record<string,string>>({});
  const [team,setTeam]=useState<TeamMon[]>([]),[query,setQuery]=useState(''),[target,setTarget]=useState<number|null>(null),[targetLevel,setTargetLevel]=useState(20);
  useEffect(()=>{try{setTeam(JSON.parse(localStorage.getItem(storageKey)||'[]'))}catch{setTeam([])}},[storageKey]);
  const save=(next:TeamMon[])=>{setTeam(next);try{localStorage.setItem(storageKey,JSON.stringify(next))}catch{}};
@@ -157,9 +167,38 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
     <dt>{t(('stat_'+stat) as never)}</dt>
     <dd><input type="number" min={1} max={999} value={stats[i]} aria-label={t(('stat_'+stat) as never)}
      onChange={e=>update(mon.id,{stats:stats.map((v,j)=>j===i?Math.max(1,Math.min(999,+e.target.value||1)):v)})}/></dd>
-    {own&&(fit=>fit?<small>{ivLabel(fit)}</small>:<small title={t('ivNoFitHelp')}>{t('ivNoFit')}</small>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}
+    <small>{t('baseStat',{n:s.base[i]})}{own&&' · '}{own&&(fit=>fit?ivLabel(fit):<span title={t('ivNoFitHelp')}>{t('ivNoFit')}</span>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}</small>
    </div>)}</dl>
    <p className="team-note">{own&&<span className="team-iv">{t('ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
+   {(()=>{
+    // Al subir de nivel el juego ofrece un ataque nuevo: aqui se compara con los
+    // cuatro que lleva, usando sus estadisticas reales, contra un rival medio.
+    const pick=candidate[mon.id],newMove=pick?battle.moves[pick]:null;
+    const score=(key:string|null)=>{const m=key?battle.moves[key]:null;if(!m)return null;
+     const d=damageVs(battle,mon,m,DUMMY,mon.level);
+     return d?{key:key!,move:m,hit:Math.round((d.min+d.max)/2*(m.accuracy||100)/100)}:{key:key!,move:m,hit:null}};
+    const rows=[...mon.moves.map(score).filter(Boolean),...(newMove?[score(pick)!]:[])] as {key:string;move:Move;hit:number|null}[];
+    const worst=rows.filter(r=>r.key!==pick&&r.hit!==null).sort((a,b)=>a.hit!-b.hit!)[0];
+    const fresh=rows.find(r=>r.key===pick);
+    return <details className="team-compare">
+     <summary>{t('whichToDrop')}</summary>
+     <label>{t('newMove')}<select value={pick??''} onChange={e=>setCandidate({...candidate,[mon.id]:e.target.value})}>
+      <option value="">—</option>
+      {[...s.learn.map(([lvl,m])=>[m,lvl] as const),...s.tms.map(m=>[m,0] as const)]
+       .filter(([m],i,all)=>battle.moves[m]&&all.findIndex(([x])=>x===m)===i)
+       .map(([m,lvl])=><option key={m} value={m}>{lvl?`${t('level')} ${lvl} · `:'MT/MO · '}{moveLabel(m)}</option>)}
+     </select></label>
+     {rows.length>0&&<ul className="compare-list">{[...rows].sort((a,b)=>(b.hit??-1)-(a.hit??-1)).map(r=>
+      <li key={r.key} className={r.key===pick?'new':''}>
+       <i className={`type t-${r.move.type}`}>{typeName(r.move.type)}</i>
+       <b>{moveName(r.move.name)}</b>
+       <span>{r.hit===null?t('status'):t('hitsFor',{n:r.hit})}</span>
+      </li>)}</ul>}
+     {fresh&&<p className="team-note">{fresh.hit===null?t('dropYouDecide'):worst&&fresh.hit>worst.hit!
+       ?t('dropThis',{move:moveName(worst.move.name)}):t('keepMoves',{move:moveName(fresh.move.name)})}</p>}
+     <p className="team-note">{t('compareNote')}</p>
+    </details>;
+   })()}
    {own&&(ivs=>ivs?<div className="judge">
     <h4>{t('judge')}<small>{t('judgeTotal',{n:ivs.reduce((a,b)=>a+b,0)})}</small></h4>
     <div className="judge-chart">
@@ -186,6 +225,7 @@ export function TeamView({dex,battle,storageKey,tr}:{dex:Dex;battle:Battle|null;
       <b>{move.power?t(move.category==='physical'?'physical':'special'):t('status')}</b>
       {move.power>0&&<span>{t('power')} {move.power}</span>}
       <span>PP {move.pp}</span></small>}
+     {move&&describe(mon.moves[i]!)&&<p className="move-desc">{describe(mon.moves[i]!)}</p>}
     </div>;
    })}
    </div>
