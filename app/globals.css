@@ -182,3 +182,8 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .game-select svg{position:absolute;right:9px;width:14px;color:#ffd936;pointer-events:none}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media(max-width:760px){.game-select{margin-left:0}.game-select select{height:32px;font-size:12px}}
+/* Ficha de objetos y combates: la figurita ocupa el hueco del sprite del Pokemon. */
+.local-encounter img.fig{width:56px;height:56px;margin:auto;object-fit:contain}
+.local-encounter img.fig-trainer{height:64px}
+.local-encounter .fig-none{width:36px;height:36px;margin:auto;border-radius:9px;background:var(--pin)}
+.local-encounter b{line-height:1.35}
