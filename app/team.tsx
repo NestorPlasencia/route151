@@ -19,7 +19,10 @@ export type Battle={
 };
 // `bench`: suplente. El equipo lleva como mucho seis; los demas esperan abajo.
 // `stats`: las que pone el juego, si se escriben; si no, se estiman.
-export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[];bench?:boolean;stats?:number[]};
+// `guess`: lo que puso la app por ti y tu no has confirmado. Anadir un Pokemon
+// es un toque, y lo que no digas se supone; al tocar un campo deja de serlo.
+export type Guess='level'|'nature'|'ability'|'moves';
+export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[];bench?:boolean;stats?:number[];guess?:Guess[]};
 
 export const STATS=['hp','atk','def','spa','spd','spe'] as const;
 const IV=15;
@@ -260,7 +263,7 @@ export function adviseMoveReplacement(battle:Battle,mon:TeamMon,newKey:string):M
  return best&&best.delta>=4?{kind:'replace',old:best.old,delta:Math.round(best.delta)}:{kind:'keep',old:null,delta:best?.delta??0};
 }
 
-export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Battle|null;moveText:Record<string,{en:string;es:string}>|null;storageKey:string;tr:T}){
+export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex:Dex;battle:Battle|null;moveText:Record<string,{en:string;es:string}>|null;storageKey:string;suggestedLevel:number;tr:T}){
  const {t,lang,type:typeName,move:moveName,ability:abilityName,nature:natureName}=tr;
  const describe=(key:string)=>moveText?.[key]?.[lang==='es'?'es':'en']??null;
  const statusSummary=(key:string,move:Move)=>{
@@ -282,16 +285,31 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
  const results=useMemo(()=>!q?[]:dex.species.filter(s=>battle?.species[s.n]&&s.name.toLowerCase().includes(q)).slice(0,8),[dex,battle,q]);
 
  if(!battle)return <div className="listview loading-list">{t('loadingTeam')}</div>;
+ // Un toque y ya esta en el equipo: el nivel sale de tu progreso, los ataques
+ // son los ultimos que aprende a ese nivel, la naturaleza es neutra (no toca
+ // ninguna estadistica) y la habilidad, la primera de la especie. Todo queda
+ // marcado como supuesto hasta que lo cambies.
  const add=(n:number)=>{
   const s=battle.species[n];if(!s)return;
-  const level=5,learn=s.learn.filter(([lvl])=>lvl<=level).map(([,m])=>m);
-  save([...team,{id:`${n}-${Date.now()}`,n,level,nature:'Hardy',ability:s.abilities[0]??'',moves:[...learn.slice(-4),null,null,null,null].slice(0,4),bench:party.length>=6}]);
+  const level=Math.max(1,Math.min(100,suggestedLevel));
+  const learn=s.learn.filter(([lvl])=>lvl<=level).map(([,m])=>m);
+  const guess:Guess[]=['level','nature','moves',...(s.abilities.length>1?['ability' as const]:[])];
+  save([...team,{id:`${n}-${Date.now()}`,n,level,nature:'Hardy',ability:s.abilities[0]??'',
+   moves:[...learn.slice(-4),null,null,null,null].slice(0,4),bench:party.length>=6,guess}]);
   setQuery('');
  };
  // Alta desde el lector de fichas: llega ya con nivel, naturaleza, ataques y
  // las cifras que pone el juego.
  const addScanned=(mon:Omit<TeamMon,'id'>)=>save([...team,{...mon,id:`${mon.n}-${Date.now()}`,bench:party.length>=6}]);
- const update=(id:string,change:Partial<TeamMon>)=>save(team.map(m=>m.id===id?{...m,...change}:m));
+ const update=(id:string,change:Partial<TeamMon>)=>save(team.map(mon=>{
+  if(mon.id!==id)return mon;
+  // Lo que acabas de escribir ya no es un supuesto. Las estadisticas escritas
+  // fijan tambien el nivel, porque de ellas sale.
+  const touched=Object.keys(change).flatMap(field=>field==='stats'?['level' as Guess]:
+   (['level','nature','ability','moves'] as Guess[]).includes(field as Guess)?[field as Guess]:[]);
+  const guess=mon.guess?.filter(field=>!touched.includes(field));
+  return {...mon,...change,guess:guess?.length?guess:undefined};
+ }));
  const party=team.filter(m=>!m.bench),bench=team.filter(m=>m.bench);
  const foe=target?battle.species[target]:null;
  // Mejor ataque de cada miembro contra el Pokemon elegido, de mas a menos dano.
@@ -341,23 +359,38 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
  const moveLabel=(key:string)=>{const m=battle.moves[key];
   const kind=m.power?t(m.category==='physical'?'physicalShort':'specialShort'):t('statusShort');
   return `${moveName(m.name)} · ${typeName(m.type)} · ${categorySymbol(moveKind(m))} ${kind}${m.power?` ${m.power}`:''}`};
+ // Un supuesto se marca junto al campo, para saber de un vistazo que viene de
+ // tu partida y que lo puso la app.
+ const guessed=(mon:TeamMon,field:Guess)=>mon.guess?.includes(field)
+  ?<i className="team-guess" title={t('assumedHelp')}>{t('assumed')}</i>:null;
  const card=(mon:TeamMon)=>{
- const s=battle.species[mon.n],info=species.get(mon.n),pool=movePool(battle,mon);
- const guess=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null]);
-  const stats=mon.stats??guess,own=!!mon.stats,profile=buildProfile(battle,mon);
-  return <article key={mon.id} className="team-mon">
-   <header>
+  const s=battle.species[mon.n],info=species.get(mon.n),pool=movePool(battle,mon);
+  const estimate=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null]);
+  const stats=mon.stats??estimate,own=!!mon.stats,profile=buildProfile(battle,mon);
+  const known=mon.moves.filter(Boolean).length;
+  // La ficha nace plegada: anadir un Pokemon no deberia abrir un formulario.
+  return <details key={mon.id} className="team-mon">
+   <summary>
     <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
-    <b>{info?.name??mon.n}</b>
-    <span className="types">{s.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span>
+    <div className="team-title">
+     <b>{info?.name??mon.n}</b>
+     <span className="types">{s.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span>
+    </div>
+    <span className="team-sum">
+     <em>{t('levelShort',{n:mon.level})}</em>
+     <small>{known===0?t('movesNone'):known===1?t('movesCountOne'):t('movesCount',{n:known})}{mon.guess?.length?` · ${t('assumed')}`:''}</small>
+    </span>
+   </summary>
+   <div className="team-open">
+   <div className="team-actions">
     <button className="team-move" title={mon.bench?t('toParty'):t('toBench')} aria-label={mon.bench?t('toParty'):t('toBench')}
-     disabled={!!mon.bench&&party.length>=6} onClick={()=>update(mon.id,{bench:!mon.bench})}>{mon.bench?<ArrowUp/>:<ArrowDown/>}</button>
+     disabled={!!mon.bench&&party.length>=6} onClick={()=>update(mon.id,{bench:!mon.bench})}>{mon.bench?<ArrowUp/>:<ArrowDown/>}{mon.bench?t('toParty'):t('toBench')}</button>
     <button className="team-remove" aria-label={t('remove')} onClick={()=>save(team.filter(x=>x.id!==mon.id))}><X/></button>
-   </header>
+   </div>
    <div className="team-fields">
-    <label>{t('level')}<input type="number" min={1} max={100} value={mon.level} onChange={e=>update(mon.id,{level:Math.max(1,Math.min(100,+e.target.value||1))})}/></label>
-    <label>{t('nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${t(('stat_'+up) as never)} −${t(('stat_'+down) as never)})`:''}</option>)}</select></label>
-    <label>{t('ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{[...new Set([...s.abilities,mon.ability].filter(Boolean))].map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>
+    <label>{t('level')}{guessed(mon,'level')}<input type="number" min={1} max={100} value={mon.level} onChange={e=>update(mon.id,{level:Math.max(1,Math.min(100,+e.target.value||1))})}/></label>
+    <label>{t('nature')}{guessed(mon,'nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${t(('stat_'+up) as never)} −${t(('stat_'+down) as never)})`:''}</option>)}</select></label>
+    <label>{t('ability')}{guessed(mon,'ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{[...new Set([...s.abilities,mon.ability].filter(Boolean))].map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>
    </div>
    <dl className={`team-stats ${own?'own':''}`}>{STATS.map((stat,i)=><div key={stat}>
     <dt>{t(('stat_'+stat) as never)}</dt>
@@ -449,6 +482,7 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
      <p className="team-note">{t('compareNote')}</p>
     </details>;
    })()}
+   <h4 className="team-moves-head">{t('scanMoves')}{guessed(mon,'moves')}</h4>
    <div className="team-moves">{[0,1,2,3].map(i=>{
     const move=mon.moves[i]?battle.moves[mon.moves[i]!]:null;
     const impact=move&&move.power?damageVs(battle,mon,move,PROFILE_TARGET,mon.level):null;
@@ -464,7 +498,8 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
     </div>;
    })}
    </div>
-  </article>;
+   </div>
+  </details>;
  };
  return <div className="listview">
   <div className="list-head">
@@ -479,6 +514,7 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
    <ScanPanel battle={battle} dex={dex} tr={tr} onAdd={addScanned}/>
    {party.map(card)}
    {!party.length&&<p className="list-empty">{t('teamEmpty')}</p>}
+   {!team.length&&<p className="team-note team-hint">{t('quickAdd')}</p>}
 
    <h3 className="team-section">{t('bench')}{bench.length>0&&<b>{bench.length}</b>}</h3>
    {bench.map(card)}

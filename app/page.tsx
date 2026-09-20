@@ -252,6 +252,16 @@ export default function Home(){
  const showOnMap=(m:Marker)=>{setTab('mapa');reveal(m,false)};
  const detail=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):info(m)??null};
  const listed=useMemo(()=>world?world.markers.filter(m=>world.checklist.markers[m.id]):[],[world]);
+ // Por que nivel va la partida: el del proximo lider o Alto Mando que sigue sin
+ // marcar en la lista. Es lo que la app ya sabe de ti, y sirve de punto de
+ // partida para lo que anades al equipo sin dar detalles.
+ const suggestedLevel=useMemo(()=>{
+  const bosses=(world?.markers??[])
+   .filter(m=>m.category==='Battle'&&/^(Leader|Elite Four|Champion)/i.test(m.name))
+   .map(m=>({uid:m.uid,level:Math.max(0,...trainerOpponents(m.detail).map(foe=>foe.level))}))
+   .filter(boss=>boss.level>0).sort((a,b)=>a.level-b.level);
+  return bosses.find(boss=>!done.includes(boss.uid))?.level??bosses.at(-1)?.level??5;
+ },[world,done]);
  const tabs=([['mapa',t('tabMap'),MapIcon],['checklist',t('tabChecklist'),ListChecks],['pokedex',t('tabDex'),BookOpen],...(game.id==='yellow'?[]:[['team',t('tabTeam'),Swords] as const])] as const);
  const areaName=(id?:string)=>id?place(areaById.get(id)?.label??'—'):'—';
  // Ficha de un marcador: el lugar junto a la categoria si es corto.
@@ -290,7 +300,7 @@ export default function Home(){
  </div>
  {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} detail={detail} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
  {tab==='pokedex'&&(world?<PokedexView dex={world.dex} byId={byId} done={done} setMany={setMany} onShow={showOnMap} game={game.short} storageKey={game.storage.dex} tr={tr}/>:<div className="listview loading-list">{t('loadingDex')}</div>)}
- {tab==='team'&&(world?<TeamView dex={world.dex} battle={battle} moveText={moveText} storageKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{t('loadingTeam')}</div>)}
+ {tab==='team'&&(world?<TeamView dex={world.dex} battle={battle} moveText={moveText} storageKey={`${game.storage.done}-team`} suggestedLevel={suggestedLevel} tr={tr}/>:<div className="listview loading-list">{t('loadingTeam')}</div>)}
  {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label={t('credits')}><button className="close" onClick={()=>setAbout(false)} aria-label={t('close')}><X/></button><small>{t('about')}</small><h2>{t('credits')}</h2><Credits game={game.id} tr={tr}/></dialog></div>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>
  </main>
