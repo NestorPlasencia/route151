@@ -9,10 +9,12 @@ declare module 'lucide-react' {
   export const ArrowUp: Icon;
   export const Backpack: Icon;
   export const BookOpen: Icon;
+  export const Camera: Icon;
   export const Check: Icon;
   export const ChevronDown: Icon;
   export const DoorOpen: Icon;
   export const Gift: Icon;
+  export const Images: Icon;
   export const Info: Icon;
   export const Layers: Icon;
   export const ListChecks: Icon;
@@ -20,6 +22,7 @@ declare module 'lucide-react' {
   export const MapPin: Icon;
   export const Plus: Icon;
   export const Mountain: Icon;
+  export const ScanLine: Icon;
   export const Search: Icon;
   export const Sparkles: Icon;
   export const Store: Icon;

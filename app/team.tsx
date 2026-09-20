@@ -6,6 +6,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {ArrowDown,ArrowUp,Plus,Search,Swords,X} from 'lucide-react';
 import {Figure} from './shared';
+import {ScanPanel} from './scan';
 import type {T} from './i18n';
 import type {Dex} from './lists';
 
@@ -20,7 +21,7 @@ export type Battle={
 // `stats`: las que pone el juego, si se escriben; si no, se estiman.
 export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[];bench?:boolean;stats?:number[]};
 
-const STATS=['hp','atk','def','spa','spd','spe'] as const;
+export const STATS=['hp','atk','def','spa','spd','spe'] as const;
 const IV=15;
 // Gen 3: PS y las demas estadisticas con sus formulas, y la naturaleza al final.
 export function statsOf(base:number[],level:number,nature:[string|null,string|null]=[null,null]){
@@ -287,6 +288,9 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
   save([...team,{id:`${n}-${Date.now()}`,n,level,nature:'Hardy',ability:s.abilities[0]??'',moves:[...learn.slice(-4),null,null,null,null].slice(0,4),bench:party.length>=6}]);
   setQuery('');
  };
+ // Alta desde el lector de fichas: llega ya con nivel, naturaleza, ataques y
+ // las cifras que pone el juego.
+ const addScanned=(mon:Omit<TeamMon,'id'>)=>save([...team,{...mon,id:`${mon.n}-${Date.now()}`,bench:party.length>=6}]);
  const update=(id:string,change:Partial<TeamMon>)=>save(team.map(m=>m.id===id?{...m,...change}:m));
  const party=team.filter(m=>!m.bench),bench=team.filter(m=>m.bench);
  const foe=target?battle.species[target]:null;
@@ -353,7 +357,7 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
    <div className="team-fields">
     <label>{t('level')}<input type="number" min={1} max={100} value={mon.level} onChange={e=>update(mon.id,{level:Math.max(1,Math.min(100,+e.target.value||1))})}/></label>
     <label>{t('nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${t(('stat_'+up) as never)} −${t(('stat_'+down) as never)})`:''}</option>)}</select></label>
-    <label>{t('ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{s.abilities.map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>
+    <label>{t('ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{[...new Set([...s.abilities,mon.ability].filter(Boolean))].map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>
    </div>
    <dl className={`team-stats ${own?'own':''}`}>{STATS.map((stat,i)=><div key={stat}>
     <dt>{t(('stat_'+stat) as never)}</dt>
@@ -468,6 +472,7 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
    <label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('addPokemon')}/></label>
    {results.length>0&&<div className="team-results">{results.map(s=><button key={s.n} onClick={()=>add(s.n)}><Figure m={{icon:s.icon,category:'Pokémon'}}/><b>{s.name}</b><Plus/></button>)}</div>}
    {party.length>=6&&query&&<p className="team-note">{t('partyFull')}</p>}
+   <ScanPanel battle={battle} dex={dex} tr={tr} onAdd={addScanned}/>
   </div>
   <div className="list-body team">
    {party.map(card)}

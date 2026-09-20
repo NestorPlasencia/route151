@@ -92,7 +92,9 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request, SHELL));
-  } else if (url.pathname.startsWith('/_next/static/')) {
+  } else if (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/vendor/')) {
+    // /vendor/ es el lector de fichas (worker, WASM e idioma): no cambia, y
+    // guardado permite escanear sin conexion.
     event.respondWith(cacheFirst(request, ASSETS));
   } else if (/^\/(data|areas|icons|frlg)\//.test(url.pathname)) {
     // Mismo nombre de archivo aunque se regeneren: se refrescan solos.

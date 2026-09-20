@@ -376,6 +376,30 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .judge-rate{font-weight:500;font-size:12px}
 /* Descripcion del ataque y comparador para decidir cual cambiar. */
 .move-desc{margin:4px 0 0;font-size:10px;line-height:1.35;color:var(--muted)}
+.team-scan{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fbfcfe;padding:8px 10px}
+.team-scan summary{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:bold;cursor:pointer;color:var(--blue)}
+.team-scan summary svg{width:15px}
+.scan-picks{display:flex;gap:8px;flex-wrap:wrap}
+.scan-picks .scan-pick{flex:1 1 180px}
+.scan-pick{display:flex;align-items:center;gap:8px;margin-top:8px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:#f8fafc;font-size:12px;cursor:pointer}
+.scan-pick:hover{border-color:var(--blue);color:var(--blue)}
+.scan-pick svg{width:16px;flex:none}
+.scan-pick input{display:none}
+.scan-pick:has(input:disabled){cursor:progress;color:var(--muted)}
+.scan-draft{margin-top:10px}
+.scan-draft dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0}
+.scan-draft dl>div{padding:6px 8px;border-radius:8px;background:#f4f7fb;min-width:0}
+.scan-draft dt{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.scan-draft dd{margin:2px 0 0;font-size:12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.scan-draft dd b{overflow-wrap:anywhere}
+.scan-draft dd small{font-size:10px;color:var(--muted)}
+.scan-draft select{height:30px;border:1px solid var(--line);border-radius:7px;background:#fff;padding:0 6px;font:inherit;font-size:12px;max-width:100%}
+.scan-actions{display:flex;align-items:center;gap:12px;margin-top:10px}
+.scan-add{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border:0;border-radius:9px;background:var(--blue);color:#fff;font:inherit;font-size:12px;font-weight:bold;cursor:pointer}
+.scan-add:disabled{background:#c7d2e0;cursor:not-allowed}
+.scan-actions .team-reset{display:inline-flex;align-items:center;gap:4px}
+.scan-actions .team-reset svg{width:12px}
+.scan-error,.scan-warn{color:#b4232a}
 .team-compare{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fbfcfe;padding:8px 10px}
 .team-compare summary{font-size:12px;font-weight:bold;cursor:pointer;color:var(--blue)}
 .team-compare label{display:flex;flex-direction:column;gap:3px;margin-top:8px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
@@ -388,6 +412,7 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 @media (max-width:1100px){
  .team-analysis{grid-template-columns:1fr}
  .team-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .scan-draft dl{grid-template-columns:1fr}
 }
 @media (max-width:600px){
  .team-mon{padding:10px}
