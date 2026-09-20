@@ -26,20 +26,64 @@ export type Draft={
  ability:string|null;abilityText:string|null;stats:number[]|null;odd:number[]|null;moves:string[];
 };
 
- // Anchos con los que el lector acierta. Una foto del movil viene enorme y se
-// achica; una captura del juego ya viene en su punto y se deja igual, porque
-// reescalar por un factor raro deforma la letra de pixeles. Solo si es
-// diminuta se agranda, y por un numero entero.
+ // En una foto la pantalla del juego es una isla de luz en medio del negro del
+// cuarto. Se busca esa isla y se recorta: asi el lector no analiza el fondo y
+// el contraste se calcula sobre la pantalla, no sobre la oscuridad.
+const screenBox=(px:Uint8ClampedArray,width:number,height:number)=>{
+ let brightest=0;
+ const light=new Uint8Array(width*height);
+ for(let i=0,p=0;i<px.length;i+=4,p++){
+  const v=(px[i]*.299+px[i+1]*.587+px[i+2]*.114)|0;
+  light[p]=v;if(v>brightest)brightest=v;
+ }
+ // Se considera pantalla lo que pasa de un tercio de lo mas claro que haya.
+ const level=Math.max(40,brightest*.35);
+ const cols=new Uint32Array(width),rows=new Uint32Array(height);
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++)if(light[y*width+x]>level){cols[x]++;rows[y]++}
+ // Una franja cuenta si tiene bastante luz, para que un reflejo suelto o el
+ // borde encendido de la pantalla no estiren el recorte.
+ const span=(counts:Uint32Array,other:number)=>{
+  const need=Math.max(3,other*.25);
+  let first=-1,last=-1;
+  for(let i=0;i<counts.length;i++)if(counts[i]>=need){if(first<0)first=i;last=i}
+  return [first,last] as const;
+ };
+ const [x0,x1]=span(cols,height),[y0,y1]=span(rows,width);
+ return x0<0||y0<0?null:{x:x0,y:y0,w:x1-x0+1,h:y1-y0+1};
+};
+
+// Anchos con los que el lector acierta. Una foto viene enorme y se achica; una
+// captura del juego ya viene en su punto y se deja igual, porque reescalar por
+// un factor raro deforma la letra de pixeles. Solo si es diminuta se agranda,
+// y por un numero entero.
 const WIDTH=576,SMALL=400,BIG=900;
 const prepare=async(file:File|Blob,hard:boolean)=>{
- const bitmap=await createImageBitmap(file);
- const scale=bitmap.width>BIG?WIDTH/bitmap.width:bitmap.width<SMALL?Math.ceil(SMALL/bitmap.width):1;
+ // `from-image` respeta como se giro el movil al hacer la foto.
+ const bitmap=await createImageBitmap(file,{imageOrientation:'from-image'});
+ // Primero una copia pequena solo para buscar la pantalla.
+ const look=document.createElement('canvas');
+ const shrink=Math.min(1,600/bitmap.width);
+ look.width=Math.max(1,Math.round(bitmap.width*shrink));look.height=Math.max(1,Math.round(bitmap.height*shrink));
+ const eye=look.getContext('2d',{willReadFrequently:true});
+ let cut={x:0,y:0,w:bitmap.width,h:bitmap.height};
+ if(eye){
+  eye.drawImage(bitmap,0,0,look.width,look.height);
+  const box=screenBox(eye.getImageData(0,0,look.width,look.height).data,look.width,look.height);
+  // Solo se recorta si la pantalla es bastante mas pequena que la foto: una
+  // captura ya es toda pantalla y no hay nada que quitar.
+  if(box&&box.w*box.h<look.width*look.height*.7){
+   const pad=Math.round(Math.min(box.w,box.h)*.01);
+   cut={x:Math.max(0,(box.x-pad)/shrink),y:Math.max(0,(box.y-pad)/shrink),
+    w:Math.min(bitmap.width,(box.w+pad*2)/shrink),h:Math.min(bitmap.height,(box.h+pad*2)/shrink)};
+  }
+ }
+ const scale=cut.w>BIG?WIDTH/cut.w:cut.w<SMALL?Math.ceil(SMALL/cut.w):1;
  const canvas=document.createElement('canvas');
- canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
- const ctx=canvas.getContext('2d');if(!ctx)return canvas;
+ canvas.width=Math.max(1,Math.round(cut.w*scale));canvas.height=Math.max(1,Math.round(cut.h*scale));
+ const ctx=canvas.getContext('2d',{willReadFrequently:true});if(!ctx)return canvas;
  // Al agrandar, sin suavizado: la letra del juego son pixeles, no curvas.
  ctx.imageSmoothingEnabled=scale<1;ctx.imageSmoothingQuality='high';
- ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+ ctx.drawImage(bitmap,cut.x,cut.y,cut.w,cut.h,0,0,canvas.width,canvas.height);
  bitmap.close?.();
  const image=ctx.getImageData(0,0,canvas.width,canvas.height),px=image.data;
  const histogram=Array.from({length:256},()=>0);
@@ -87,12 +131,20 @@ const closest=<V,>(text:string,options:[string,V][],min:number)=>{
  }
  return best&&best.score>=min?best.value:null;
 };
-// Una linea puede traer basura delante ("[FIRE] Ember", "ABILITY Tangled
-// Feet"): se prueba la linea entera y tambien sin las primeras palabras.
-const fromLine=<V,>(line:string,options:[string,V][],min:number)=>{
+// Trozos de linea donde puede estar el nombre: la linea entera, sin las
+// primeras palabras ("[FIRE] Ember", "ABILITY Tangled Feet") y las ultimas
+// sueltas, porque la cabecera del juego se pega a la primera fila
+// ("Lv31 Charmander  Scratch").
+const pieces=(line:string)=>{
  const words=line.split(/\s+/).filter(Boolean);
- for(let skip=0;skip<Math.min(words.length,3);skip++){
-  const found=closest(words.slice(skip).join(' '),options,min);
+ const out:string[]=[];
+ for(let skip=0;skip<Math.min(words.length,3);skip++)out.push(words.slice(skip).join(' '));
+ for(let take=1;take<=Math.min(words.length,3);take++)out.push(words.slice(-take).join(' '));
+ return [...new Set(out)];
+};
+const fromLine=<V,>(line:string,options:[string,V][],min:number)=>{
+ for(const piece of pieces(line)){
+  const found=closest(piece,options,min);
   if(found!==null)return found;
  }
  return null;
@@ -116,17 +168,33 @@ const lineNumber=(line:string)=>{
  return null;
 };
 
+// Etiquetas de la pantalla de Datos en los dos idiomas del juego.
+const STAT_LABELS:[string,number][]=[
+ ['HP',0],['PS',0],['ATTACK',1],['ATAQUE',1],['DEFENSE',2],['DEFENSA',2],
+ ['SP.ATK',3],['AT.ESP',3],['SP.DEF',4],['DEF.ESP',4],['SPEED',5],['VELOCIDAD',5],
+];
+
 // PS sale como "56/56" y debajo van, una por linea, Ataque, Defensa, At. Esp.,
-// Def. Esp. y Velocidad. Las etiquetas rara vez se leen enteras, pero el orden
-// y los numeros si. Debajo empieza la experiencia y ahi se corta.
+// Def. Esp. y Velocidad. Se intenta primero por etiqueta, que aguanta que el
+// lector se salte una linea; si no reconoce ninguna, vale el orden. Debajo
+// empieza la experiencia y ahi se corta.
 const readStats=(text:string)=>{
  const lines=clean(text);
- const start=lines.findIndex(line=>/\d{1,3}\s*[/|]\s*\d{1,3}/.test(line));
+ const stop=lines.findIndex(line=>/EXP|POINT|NEXT/i.test(line));
+ const useful=stop>0?lines.slice(0,stop):lines;
+ const byLabel:(number|null)[]=[null,null,null,null,null,null];
+ for(const line of useful){
+  const value=lineNumber(line);if(value===null)continue;
+  const which=closest(line.split(/\s+/).filter(word=>!/^\d+$/.test(word)).join(' '),STAT_LABELS,.6);
+  if(which!==null&&byLabel[which]===null)byLabel[which]=value;
+ }
+ if(byLabel.every(value=>value!==null))return byLabel as number[];
+ // Por orden: los PS como "56/56" y los cinco numeros de las lineas siguientes.
+ const start=useful.findIndex(line=>/\d{1,3}\s*[/|]\s*\d{1,3}/.test(line));
  if(start<0)return null;
- const hp=/(\d{1,3})\s*[/|]\s*(\d{1,3})/.exec(lines[start]);
+ const hp=/(\d{1,3})\s*[/|]\s*(\d{1,3})/.exec(useful[start]);
  const rest:number[]=[];
- for(const line of lines.slice(start+1)){
-  if(/EXP|POINT|NEXT/i.test(line))break;
+ for(const line of useful.slice(start+1)){
   const value=lineNumber(line);
   if(value!==null)rest.push(value);
   if(rest.length===5)break;
@@ -134,11 +202,27 @@ const readStats=(text:string)=>{
  return hp&&rest.length===5?[+hp[2],...rest]:null;
 };
 
-const readMoves=(text:string,moves:[string,string][])=>{
+// Para los ataques no vale un porcentaje: "Dig" con una letra cambiada sigue
+// pareciendose mucho, y "Smokescreen" con tres, poco. Se permite un error
+// cada tres letras, asi los nombres cortos exigen ser exactos.
+const budget=(name:string)=>Math.floor((key(name).length-1)/3);
+const closestMove=(line:string,moves:[string,string][])=>{
+ let best:{value:string;slack:number}|null=null;
+ for(const piece of pieces(line)){
+  const want=key(piece);if(!want)continue;
+  for(const [name,value] of moves){
+   const slack=budget(name)-distance(want,key(name));
+   if(slack>=0&&(!best||slack>best.slack))best={value,slack};
+  }
+ }
+ return best?.value??null;
+};
+
+const readMoves=(text:string,moves:[string,string][],min=.72)=>{
  const found:string[]=[];
  for(const line of clean(text)){
   const bare=line.replace(/PP\s*\d{1,3}\s*[/|]\s*\d{1,3}/gi,'').trim();
-  const move=fromLine(bare,moves,.62);
+  const move=min<0?closestMove(bare,moves):fromLine(bare,moves,min);
   if(move&&!found.includes(move))found.push(move);
   if(found.length===4)break;
  }
@@ -226,9 +310,21 @@ export function readDraft(battle:Battle,dex:Dex,texts:string[]):Draft{
   species:dex.species.filter(s=>battle.species[s.n]).map(s=>[s.name,s.n]),
  };
  const reads=texts.map(text=>readOne(text,tables));
- const moves=reads.map(read=>read.moves).reduce((best,list)=>list.length>best.length?list:best,[] as string[]);
+ let moves=reads.map(read=>read.moves).reduce((best,list)=>list.length>best.length?list:best,[] as string[]);
  const named=reads.find(read=>read.named!==null)?.named??null;
  const ability=reads.find(read=>read.ability)?.ability??null;
+ // Con la especie leida de la ficha de Informacion se descartan los ataques
+ // que ese Pokemon no puede aprender: en una foto el lector confunde nombres
+ // ("SCRATCH" por "Rage") y un ataque inventado estropearia el resto.
+ if(named!==null&&battle.species[named]){
+  const pool=new Set([...battle.species[named].learn.map(([,move])=>move),...battle.species[named].tms]);
+  // Sabiendo la especie se vuelve a mirar, pero solo entre lo que ella
+  // aprende y con menos exigencia: "SCRATCH" leido "scRATew" ya no se pierde,
+  // y un nombre inventado no tiene donde encajar.
+  const table=tables.moves.filter(([,key])=>pool.has(key));
+  const again=texts.map(text=>readMoves(text,table,-1)).reduce((best,list)=>list.length>best.length?list:best,[] as string[]);
+  moves=again.length>=moves.filter(move=>pool.has(move)).length?again:moves.filter(move=>pool.has(move));
+ }
  const guesses=named!==null?[named]:speciesFrom(battle,moves,null);
  // Que lectura de cifras es la buena lo dice la aritmetica: las de la pantalla
  // de ataques ("PP 35/35") no cuadran con ningun nivel de la especie.
@@ -271,9 +367,12 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
  // La camara del movil da una foto por vez, asi que las fichas se van
  // sumando: cada lectura se guarda y el borrador se rehace con todas.
  const [pages,setPages]=useState<string[]>([]);
+ // Cifras corregidas a mano: en una foto de la pantalla el lector se come
+ // algun digito, y retocarlo es mas rapido que repetir la foto.
+ const [fixed,setFixed]=useState<number[]|null>(null);
  const names=new Map(dex.species.map(s=>[s.n,s.name]));
 
- const clear=()=>{setPages([]);setDraft(null);setSpecies(null);setPicked(null);setError(null)};
+ const clear=()=>{setPages([]);setDraft(null);setSpecies(null);setPicked(null);setFixed(null);setError(null)};
 
  const run=async(files:File[])=>{
   if(!files.length)return;
@@ -283,6 +382,8 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
    const fresh=await scanCards(files,(done,total)=>setBusy(t('scanReading',{done:Math.min(done+1,total),total})));
    const all=[...pages,...fresh];
    const read=readDraft(battle,dex,all);
+   // Lo escrito a mano no se toca: si el lector termina mientras corriges una
+   // cifra, lo tuyo manda.
    setPages(all);setDraft(read);
    // La especie elegida a mano se respeta si sigue entre las posibles.
    setSpecies(old=>old!==null&&(!read.species.length||read.species.includes(old))?old
@@ -298,7 +399,13 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
  // Con la especie ya elegida, las cifras dicen a que niveles pudo salir y con
  // que naturalezas. Se recalcula aqui porque la especie se puede cambiar a
  // mano despues de leer.
- const fits=draft?.stats&&species!==null?fitLevels(battle,species,draft.stats):[];
+ // Lo que se ve en las casillas: lo corregido a mano, lo leido, o lo leido y
+ // rechazado (que se ensena igual, para poder arreglar el digito que falle).
+ const shown=fixed??draft?.stats??draft?.odd??[0,0,0,0,0,0];
+ const full=shown.every(value=>value>0)?shown:null;
+ const fits=full&&species!==null?fitLevels(battle,species,full):[];
+ // Solo valen como estadisticas si cuadran con algun nivel de la especie.
+ const stats=fits.length?full:null;
  const levels=fits.map(fit=>fit.level);
  const level=picked!==null&&(!levels.length||levels.includes(picked))?picked
   :levels[Math.floor(levels.length/2)]??null;
@@ -308,8 +415,8 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
  const chosen=species!==null?battle.species[species]:null;
  // Que ficha falta por pasar, para poder pedirla sin adivinar.
  const missing=([
-  [!draft?.stats,'scanCardSkills'],[!draft?.moves.length,'scanCardMoves'],
-  [draft!==null&&draft.species.length!==1&&!draft.stats,'scanCardInfo'],
+  [!stats,'scanCardSkills'],[!draft?.moves.length,'scanCardMoves'],
+  [draft!==null&&draft.species.length!==1&&!stats,'scanCardInfo'],
  ] as const).flatMap(([need,card])=>need?[card]:[]);
 
  const add=()=>{
@@ -318,7 +425,7 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
   const learned=chosen.learn.filter(([lvl])=>lvl<=useLevel).map(([,move])=>move);
   const moves=(draft.moves.length?draft.moves:learned.slice(-4)).slice(0,4);
   onAdd({n:species,level:useLevel,nature:nature??natures[0]??'Hardy',ability:draft.ability??chosen.abilities[0]??'',
-   moves:[...moves,null,null,null,null].slice(0,4),stats:draft.stats??undefined});
+   moves:[...moves,null,null,null,null].slice(0,4),stats:stats??undefined});
   clear();
  };
 
@@ -363,9 +470,17 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
      {!nature&&natures.length>1&&<small>{t('scanNatureGuess',{n:natures.length})}</small>}
     </dd></div>
     <div><dt>{t('ability')}</dt><dd><b>{draft.abilityText?abilityName(draft.abilityText):'—'}</b></dd></div>
-    <div><dt>{t('scanStats')}</dt><dd>
-     <b className={draft.stats?'':'odd'}>{(draft.stats??draft.odd)?.join(' · ')??'—'}</b>
-     {!draft.stats&&draft.odd&&<small className="scan-warn">{t('scanStatsOdd')}</small>}
+    <div className="scan-stats"><dt>{t('scanStats')}</dt><dd>
+     <div className="scan-numbers">{STATS.map((stat,i)=>
+      <label key={stat}><small>{t(('stat_'+stat) as never)}</small>
+       <input type="number" min={0} max={999} value={shown[i]||''} placeholder="—" aria-label={t(('stat_'+stat) as never)}
+        onChange={e=>{const value=Math.max(0,Math.min(999,+e.target.value||0));
+         // Forma funcional: al escribir rapido dos casillas seguidas, la
+         // segunda pisaba a la primera si partia de la copia ya vieja.
+         setFixed(old=>(old??shown).map((was,j)=>j===i?value:was))}}/>
+      </label>)}</div>
+     {!stats&&species!==null&&full&&<small className="scan-warn">{t('scanStatsOdd')}</small>}
+     {!shown.some(value=>value>0)&&<small>{t('scanStatsType')}</small>}
     </dd></div>
     <div><dt>{t('scanMoves')}</dt><dd><b>{draft.moves.length?draft.moves.map(m=>moveName(battle.moves[m].name)).join(' · '):'—'}</b></dd></div>
    </dl>

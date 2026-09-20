@@ -40,6 +40,7 @@ const TEXT = {
  scanChoose: ['Choose the Pokémon above to be able to add it.', 'Escoge arriba el Pokémon para poder añadirlo.'],
  scanCards: ['{n} card(s) read', '{n} ficha(s) leída(s)'],
  scanStatsOdd: ['They do not fit any level of this Pokémon: either a figure was misread or the card is from another one.', 'No cuadran con ningún nivel de este Pokémon: o se leyó mal una cifra, o la ficha es de otro.'],
+ scanStatsType: ['Write them and the level, the nature and the IVs come out of them.', 'Escríbelas y de ahí salen el nivel, la naturaleza y los IVs.'],
  scanCardSkills: ['Skills', 'Datos'],
  scanCardMoves: ['Known Moves', 'Movimientos'],
  scanCardInfo: ['Info', 'Información'],
