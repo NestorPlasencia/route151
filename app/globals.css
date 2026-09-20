@@ -376,7 +376,7 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .judge-rate{font-weight:500;font-size:12px}
 /* Descripcion del ataque y comparador para decidir cual cambiar. */
 .move-desc{margin:4px 0 0;font-size:10px;line-height:1.35;color:var(--muted)}
-.team-scan{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fbfcfe;padding:8px 10px}
+.team-scan{margin:0 0 12px;border:1px solid var(--line);border-radius:10px;background:#fbfcfe;padding:8px 10px}
 .team-scan summary{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:bold;cursor:pointer;color:var(--blue)}
 .team-scan summary svg{width:15px}
 .scan-picks{display:flex;gap:8px;flex-wrap:wrap}

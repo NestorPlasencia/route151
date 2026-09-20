@@ -472,9 +472,11 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
    <label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('addPokemon')}/></label>
    {results.length>0&&<div className="team-results">{results.map(s=><button key={s.n} onClick={()=>add(s.n)}><Figure m={{icon:s.icon,category:'Pokémon'}}/><b>{s.name}</b><Plus/></button>)}</div>}
    {party.length>=6&&query&&<p className="team-note">{t('partyFull')}</p>}
-   <ScanPanel battle={battle} dex={dex} tr={tr} onAdd={addScanned}/>
   </div>
   <div className="list-body team">
+   {/* El lector va en el cuerpo, no en la cabecera: la cabecera no hace
+       scroll y su panel abierto dejaba el boton fuera de la pantalla. */}
+   <ScanPanel battle={battle} dex={dex} tr={tr} onAdd={addScanned}/>
    {party.map(card)}
    {!party.length&&<p className="list-empty">{t('teamEmpty')}</p>}
 
