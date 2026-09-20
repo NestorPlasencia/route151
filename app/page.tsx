@@ -252,15 +252,24 @@ export default function Home(){
  const showOnMap=(m:Marker)=>{setTab('mapa');reveal(m,false)};
  const detail=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):info(m)??null};
  const listed=useMemo(()=>world?world.markers.filter(m=>world.checklist.markers[m.id]):[],[world]);
- // Por que nivel va la partida: el del proximo lider o Alto Mando que sigue sin
- // marcar en la lista. Es lo que la app ya sabe de ti, y sirve de punto de
- // partida para lo que anades al equipo sin dar detalles.
+ // Por que nivel va la partida, mirando los gimnasios marcados en la lista.
+ // Manda el ultimo que ganaste, no el siguiente: al salir del gimnasio de
+ // Brock (nivel 14) se anda por 13-16, no por los 21 de Misty. Se le suma un
+ // cuarto de lo que falta hasta el proximo, que es el terreno que se recorre
+ // entrenando por el camino.
  const suggestedLevel=useMemo(()=>{
   const bosses=(world?.markers??[])
    .filter(m=>m.category==='Battle'&&/^(Leader|Elite Four|Champion)/i.test(m.name))
    .map(m=>({uid:m.uid,level:Math.max(0,...trainerOpponents(m.detail).map(foe=>foe.level))}))
    .filter(boss=>boss.level>0).sort((a,b)=>a.level-b.level);
-  return bosses.find(boss=>!done.includes(boss.uid))?.level??bosses.at(-1)?.level??5;
+  if(!bosses.length)return 5;
+  const beaten=bosses.filter(boss=>done.includes(boss.uid));
+  const last=beaten.at(-1)?.level??0;
+  const next=bosses.find(boss=>boss.level>last)?.level??last;
+  // Sin ningun gimnasio ganado se empieza por debajo del primero.
+  // Hacia abajo: quedarse corto hace el consejo prudente, pasarse lo hace
+  // prometer mas dano del que vas a hacer.
+  return last?Math.floor(last+(next-last)*.25):Math.max(5,next-5);
  },[world,done]);
  const tabs=([['mapa',t('tabMap'),MapIcon],['checklist',t('tabChecklist'),ListChecks],['pokedex',t('tabDex'),BookOpen],...(game.id==='yellow'?[]:[['team',t('tabTeam'),Swords] as const])] as const);
  const areaName=(id?:string)=>id?place(areaById.get(id)?.label??'—'):'—';

@@ -293,7 +293,10 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
  // marcado como supuesto hasta que lo cambies.
  const add=(n:number)=>{
   const s=battle.species[n];if(!s)return;
-  const level=Math.max(1,Math.min(100,suggestedLevel));
+  // Si ya corregiste el nivel de alguno, tu propio equipo es mejor dato que
+  // los gimnasios: se toma el del medio de los que confirmaste.
+  const mine=team.filter(mon=>!mon.guess?.includes('level')).map(mon=>mon.level).sort((a,b)=>a-b);
+  const level=Math.max(1,Math.min(100,mine.length?mine[Math.floor(mine.length/2)]:suggestedLevel));
   const learn=s.learn.filter(([lvl])=>lvl<=level).map(([,m])=>m);
   const guess:Guess[]=['level','nature','moves',...(s.abilities.length>1?['ability' as const]:[])];
   save([...team,{id:`${n}-${Date.now()}`,n,level,nature:'Hardy',ability:s.abilities[0]??'',
