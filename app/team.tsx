@@ -87,6 +87,38 @@ export const movePool=(battle:Battle,mon:TeamMon)=>{
  return [...new Set([...byLevel,...s.tms])].filter(m=>battle.moves[m]);
 };
 
+// Los cuatro ataques que se le suponen a un Pokemon del que solo sabes la
+// especie y el nivel. No son los ultimos que aprendio, que es lo que lleva uno
+// salvaje, sino los que mas sirven: un jugador va cambiando los flojos.
+//
+// Solo se miran los que aprende subiendo de nivel, nunca las MT: no hay forma
+// de saber cuales le ensenaste. Se puntua por dano esperado contra el rival
+// neutro, contando la precision, y se prefiere variedad de tipos antes que dos
+// ataques que hacen lo mismo. Si no llega a cuatro ataques, completan los
+// ultimos movimientos de estado que aprendio.
+export function assumedMoves(battle:Battle,n:number,level:number){
+ const species=battle.species[n];if(!species)return [];
+ const known=species.learn.filter(([lvl])=>lvl<=level).map(([,move])=>move).filter(move=>battle.moves[move]);
+ const mon:TeamMon={id:'',n,level,nature:'Hardy',ability:'',moves:[]};
+ const attacks=[...new Set(known)].filter(key=>battle.moves[key].power>0).map(key=>{
+  const move=battle.moves[key],hit=damageVs(battle,mon,move,PROFILE_TARGET,level);
+  return {key,type:move.type,score:hit?(hit.min+hit.max)/2*(move.accuracy||100)/100:0};
+ }).sort((a,b)=>b.score-a.score);
+ const picked:string[]=[],types=new Set<string>();
+ // Primero el mejor de cada tipo, que es lo que da cobertura.
+ for(const attack of attacks){
+  if(picked.length===4||types.has(attack.type))continue;
+  picked.push(attack.key);types.add(attack.type);
+ }
+ // Luego los siguientes mejores, aunque repitan tipo.
+ for(const attack of attacks){
+  if(picked.length===4)break;
+  if(!picked.includes(attack.key))picked.push(attack.key);
+ }
+ const status=[...new Set(known)].filter(key=>!battle.moves[key].power&&!picked.includes(key));
+ return [...picked,...status.slice(-(4-picked.length))].slice(0,4);
+}
+
 // Símbolos visuales inspirados en los iconos de categoría de los juegos:
 // ráfaga = físico, círculos = especial y yin-yang = estado.
 const categorySymbol=(kind:MoveKind)=>kind==='physical'?'✹':kind==='special'?'◎':'☯';
@@ -297,10 +329,9 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   // los gimnasios: se toma el del medio de los que confirmaste.
   const mine=team.filter(mon=>!mon.guess?.includes('level')).map(mon=>mon.level).sort((a,b)=>a-b);
   const level=Math.max(1,Math.min(100,mine.length?mine[Math.floor(mine.length/2)]:suggestedLevel));
-  const learn=s.learn.filter(([lvl])=>lvl<=level).map(([,m])=>m);
   const guess:Guess[]=['level','nature','moves',...(s.abilities.length>1?['ability' as const]:[])];
   save([...team,{id:`${n}-${Date.now()}`,n,level,nature:'Hardy',ability:s.abilities[0]??'',
-   moves:[...learn.slice(-4),null,null,null,null].slice(0,4),bench:party.length>=6,guess}]);
+   moves:[...assumedMoves(battle,n,level),null,null,null,null].slice(0,4),bench:party.length>=6,guess}]);
   setQuery('');
  };
  // Alta desde el lector de fichas: llega ya con nivel, naturaleza, ataques y

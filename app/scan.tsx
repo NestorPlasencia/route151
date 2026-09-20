@@ -11,7 +11,7 @@
 // en la ficha normal.
 import {useState} from 'react';
 import {Camera,Images,ScanLine,X} from 'lucide-react';
-import {STATS,genes,type Battle,type TeamMon} from './team';
+import {STATS,assumedMoves,genes,type Battle,type TeamMon} from './team';
 import type {T} from './i18n';
 import type {Dex} from './lists';
 
@@ -422,8 +422,7 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
  const add=()=>{
   if(!draft||species===null||!chosen)return;
   const useLevel=level??5;
-  const learned=chosen.learn.filter(([lvl])=>lvl<=useLevel).map(([,move])=>move);
-  const moves=(draft.moves.length?draft.moves:learned.slice(-4)).slice(0,4);
+  const moves=(draft.moves.length?draft.moves:assumedMoves(battle,species,useLevel)).slice(0,4);
   onAdd({n:species,level:useLevel,nature:nature??natures[0]??'Hardy',ability:draft.ability??chosen.abilities[0]??'',
    moves:[...moves,null,null,null,null].slice(0,4),stats:stats??undefined});
   clear();
