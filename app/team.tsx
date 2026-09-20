@@ -4,7 +4,7 @@
 // haces mas dano a un Pokemon concreto. Las cuentas son las del juego (tercera
 // generacion), suponiendo IVs de 15 y sin EVs, que es lo normal en una partida.
 import {useEffect,useMemo,useState} from 'react';
-import {ArrowDown,ArrowUp,Plus,Search,Swords,X} from 'lucide-react';
+import {ArrowDown,ArrowUp,HeartCrack,Plus,Search,Swords,X} from 'lucide-react';
 import {Figure} from './shared';
 import {ScanPanel} from './scan';
 import type {T} from './i18n';
@@ -22,7 +22,9 @@ export type Battle={
 // `guess`: lo que puso la app por ti y tu no has confirmado. Anadir un Pokemon
 // es un toque, y lo que no digas se supone; al tocar un campo deja de serlo.
 export type Guess='level'|'nature'|'ability'|'moves';
-export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[];bench?:boolean;stats?:number[];guess?:Guess[]};
+// `out`: debilitado o fuera de combate por lo que sea. Sigue en el equipo,
+// pero no se propone para pelear hasta que lo cures.
+export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[];bench?:boolean;out?:boolean;stats?:number[];guess?:Guess[]};
 
 export const STATS=['hp','atk','def','spa','spd','spe'] as const;
 const IV=15;
@@ -184,7 +186,7 @@ export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=tr
   const unique=[...new Map(opponents.map(foe=>[`${opponentName(foe.name)}-${foe.level}`,foe])).values()];
   return unique.flatMap(foe=>{
    const target=byName.get(opponentName(foe.name));if(!target||!battle.species[target.n])return [];
-   const best=team.filter(mon=>!mon.bench).flatMap(mon=>mon.moves.flatMap(key=>{
+   const best=team.filter(mon=>!mon.bench&&!mon.out).flatMap(mon=>mon.moves.flatMap(key=>{
     const move=key?battle.moves[key]:null,d=move?damage(battle,mon,move,target.n,foe.level):null;
     return move&&d?[{mon,move,d}]:[];
    })).sort((a,b)=>b.d.max-a.d.max)[0];
@@ -313,7 +315,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
  const party=team.filter(m=>!m.bench),bench=team.filter(m=>m.bench);
  const foe=target?battle.species[target]:null;
  // Mejor ataque de cada miembro contra el Pokemon elegido, de mas a menos dano.
- const advice=!foe||!target?[]:team.flatMap(mon=>{
+ const advice=!foe||!target?[]:team.filter(mon=>!mon.out).flatMap(mon=>{
   const best=mon.moves.flatMap(key=>{const move=key?battle.moves[key]:null;if(!move)return [];
    const d=damage(battle,mon,move,target,targetLevel);return d?[{mon,move,...d}]:[]})
    .sort((a,b)=>b.max-a.max)[0];
@@ -369,7 +371,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   const stats=mon.stats??estimate,own=!!mon.stats,profile=buildProfile(battle,mon);
   const known=mon.moves.filter(Boolean).length;
   // La ficha nace plegada: anadir un Pokemon no deberia abrir un formulario.
-  return <details key={mon.id} className="team-mon">
+  return <details key={mon.id} className={`team-mon ${mon.out?'out':''}`}>
    <summary>
     <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
     <div className="team-title">
@@ -378,13 +380,18 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
     </div>
     <span className="team-sum">
      <em>{t('levelShort',{n:mon.level})}</em>
-     <small>{known===0?t('movesNone'):known===1?t('movesCountOne'):t('movesCount',{n:known})}{mon.guess?.length?` · ${t('assumed')}`:''}</small>
+     <small>{mon.out?t('out'):known===0?t('movesNone'):known===1?t('movesCountOne'):t('movesCount',{n:known})}{!mon.out&&mon.guess?.length?` · ${t('assumed')}`:''}</small>
     </span>
+    {/* Dentro de un summary hay que frenar el clic: si no, ademas de marcarlo
+        se abriria la ficha. */}
+    <button className={`team-out ${mon.out?'on':''}`} title={mon.out?t('outBack'):t('outMark')} aria-label={mon.out?t('outBack'):t('outMark')}
+     onClick={e=>{e.preventDefault();e.stopPropagation();update(mon.id,{out:!mon.out})}}><HeartCrack/></button>
    </summary>
    <div className="team-open">
    <div className="team-actions">
     <button className="team-move" title={mon.bench?t('toParty'):t('toBench')} aria-label={mon.bench?t('toParty'):t('toBench')}
      disabled={!!mon.bench&&party.length>=6} onClick={()=>update(mon.id,{bench:!mon.bench})}>{mon.bench?<ArrowUp/>:<ArrowDown/>}{mon.bench?t('toParty'):t('toBench')}</button>
+    <button className={`team-move ${mon.out?'on':''}`} onClick={()=>update(mon.id,{out:!mon.out})}><HeartCrack/>{mon.out?t('outBack'):t('outMark')}</button>
     <button className="team-remove" aria-label={t('remove')} onClick={()=>save(team.filter(x=>x.id!==mon.id))}><X/></button>
    </div>
    <div className="team-fields">
@@ -503,7 +510,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
  };
  return <div className="listview">
   <div className="list-head">
-   <div className="list-title"><h2>{t('tabTeam')}</h2><span className="progress"><b>{party.length}/6</b>{bench.length>0&&<small> +{bench.length}</small>}</span></div>
+   <div className="list-title"><h2>{t('tabTeam')}</h2><span className="progress"><b>{party.length}/6</b>{bench.length>0&&<small> +{bench.length}</small>}{team.some(mon=>mon.out)&&(n=><small> · {n===1?t('outCountOne'):t('outCount',{n})}</small>)(team.filter(mon=>mon.out).length)}</span></div>
    <label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('addPokemon')}/></label>
    {results.length>0&&<div className="team-results">{results.map(s=><button key={s.n} onClick={()=>add(s.n)}><Figure m={{icon:s.icon,category:'Pokémon'}}/><b>{s.name}</b><Plus/></button>)}</div>}
    {party.length>=6&&query&&<p className="team-note">{t('partyFull')}</p>}
@@ -538,7 +545,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
       <span><b>{moveName(move.name)}</b><small>{label} · {typeName(move.type)} · {t(move.category==='physical'?'physicalShort':'specialShort')}{eff!==1&&` · ×${eff}`}</small></span>
       <em>{eff===0?t('noEffect'):`${min}–${max}%`}</em>
      </div>})}</div>}
-    {foe&&!advice.length&&<p className="list-empty">{t('noDamage')}</p>}
+    {foe&&!advice.length&&<p className="list-empty">{team.length&&team.every(mon=>mon.out)?t('outAll'):t('noDamage')}</p>}
    
    </section>
    <p className="list-source">{t('statsNote')}</p>

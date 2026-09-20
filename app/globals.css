@@ -295,6 +295,13 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .team-actions{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .team-actions .team-move{width:auto;margin:0;padding:0 10px;height:28px;gap:5px;display:inline-flex;align-items:center;font-size:11px}
 .team-actions .team-remove{margin-left:auto}
+.team-out{flex:none;width:30px;height:30px;margin-left:4px;border:1px solid var(--line);border-radius:8px;background:#f8fafc;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.team-out svg{width:15px}
+.team-out.on{background:#fdeaea;border-color:#f0bcbc;color:#b4232a}
+.team-mon.out{background:#fbfbfc}
+.team-mon.out>summary .fig,.team-mon.out>summary .team-title{opacity:.5}
+.team-mon.out>summary .team-sum small{color:#b4232a}
+.team-actions .team-move.on{background:#fdeaea;border-color:#f0bcbc;color:#b4232a}
 .team-guess{align-self:flex-start;width:fit-content;margin-left:6px;padding:1px 6px;border-radius:999px;background:#fff3d6;color:#8a5a00;font-style:normal;font-size:9px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
 .team-hint{text-align:center;max-width:420px;margin:0 auto}
 .team-moves-head{margin:12px 0 0;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center}
