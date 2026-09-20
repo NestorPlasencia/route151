@@ -175,7 +175,10 @@ export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=tr
  const rows=useMemo(()=>{
   if(!battle||!team.length)return [];
   const byName=new Map(dex.species.map(s=>[opponentName(s.name),s]));
-  return opponents.flatMap(foe=>{
+  // Un entrenador repite Pokemon ("Machoke Lv38, Machop Lv38, Machoke Lv38"):
+  // el consejo es el mismo, asi que cada pareja especie+nivel sale una vez.
+  const unique=[...new Map(opponents.map(foe=>[`${opponentName(foe.name)}-${foe.level}`,foe])).values()];
+  return unique.flatMap(foe=>{
    const target=byName.get(opponentName(foe.name));if(!target||!battle.species[target.n])return [];
    const best=team.filter(mon=>!mon.bench).flatMap(mon=>mon.moves.flatMap(key=>{
     const move=key?battle.moves[key]:null,d=move?damage(battle,mon,move,target.n,foe.level):null;
@@ -219,15 +222,18 @@ const profileMoveFit=(battle:Battle,mon:TeamMon,move:Move,profile:BuildProfile)=
  return profileMovePotential(battle,mon,move)*multiplier*natureMultiplier;
 };
 
-// Puntuacion del conjunto al probar un ataque nuevo. Solo cuenta el mejor
-// ataque de la categoria, para no premiar dos veces ataques equivalentes, y
-// reserva valor para conservar al menos un movimiento de estado.
+// Puntuacion del conjunto al probar un ataque nuevo. El segundo y el tercer
+// ataque pesan menos que el mejor (no se premian dos veces ataques
+// equivalentes) pero cuentan: si solo contase el mejor, quitar cualquier otro
+// hueco daria la misma nota y el consejo saldria por orden de hueco, no por
+// calidad. Se reserva valor para conservar al menos un movimiento de estado.
 const profileSetScore=(battle:Battle,mon:TeamMon,keys:(string|null)[],profile:BuildProfile)=>{
  const moves=keys.map(key=>key?battle.moves[key]:null).filter((move):move is Move=>!!move);
  const attacks=moves.filter(move=>move.power>0);
- const best=Math.max(0,...attacks.map(move=>profileMoveFit(battle,mon,move,profile)));
+ const fits=attacks.map(move=>profileMoveFit(battle,mon,move,profile)).sort((a,b)=>b-a);
+ const offence=(fits[0]??0)+(fits[1]??0)*.35+(fits[2]??0)*.15;
  const statuses=moves.filter(move=>!move.power).length;
- return best+(statuses>0?10:0);
+ return offence+(statuses>0?10:0);
 };
 
 // Decide si el ataque nuevo mejora el set actual. Las decisiones sobre
@@ -246,7 +252,10 @@ export function adviseMoveReplacement(battle:Battle,mon:TeamMon,newKey:string):M
   const next=mon.moves.map((key,i)=>i===empty?newKey:key);
   options.push({old:null,index:empty,delta:profileSetScore(battle,mon,next,profile)-current});
  }
- const best=options.sort((a,b)=>b.delta-a.delta)[0];
+ // Si dos huecos empatan, se suelta el que menos encaja con el perfil (el
+ // hueco vacio, con `old` nulo, va primero).
+ const fitOf=(key:string|null)=>{const move=key?battle.moves[key]:null;return move?profileMoveFit(battle,mon,move,profile):-1};
+ const best=options.sort((a,b)=>b.delta-a.delta||fitOf(a.old)-fitOf(b.old))[0];
  return best&&best.delta>=4?{kind:'replace',old:best.old,delta:Math.round(best.delta)}:{kind:'keep',old:null,delta:best?.delta??0};
 }
 
