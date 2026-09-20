@@ -47,6 +47,7 @@ def moves():
             'power': int(field('power').group(1)),
             'accuracy': int(field('accuracy').group(1)),
             'pp': int(field('pp').group(1)),
+            'effect': field('effect').group(1).removeprefix('EFFECT_'),
             'category': 'physical' if kind in PHYSICAL else 'special',
         }
     return out

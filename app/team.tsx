@@ -9,7 +9,8 @@ import {Figure} from './shared';
 import type {T} from './i18n';
 import type {Dex} from './lists';
 
-export type Move={name:string;type:string;power:number;accuracy:number;pp:number;category:'physical'|'special'};
+export type Move={name:string;type:string;power:number;accuracy:number;pp:number;effect?:string;category:'physical'|'special'};
+type MoveKind=Move['category']|'status';
 export type Battle={
  species:Record<string,{base:number[];types:string[];abilities:string[];learn:[number,string][];tms:string[]}>;
  moves:Record<string,Move>;abilities:Record<string,string>;natures:Record<string,[string|null,string|null]>;
@@ -51,6 +52,9 @@ export const effectiveness=(chart:Battle['chart'],type:string,against:string[])=
 export type Species=Battle['species'][string];
 // Rival medio con el que comparar ataques entre si, sin pensar en tipos.
 export const DUMMY:Species={base:[70,70,70,70,70,70],types:['normal'],abilities:[],learn:[],tms:[]};
+// Objetivo sin tipos: sirve para comparar el potencial de los ataques sin que
+// un tipo concreto (por ejemplo, Fantasma contra Normal) decida el perfil.
+const PROFILE_TARGET:Species={base:[70,70,70,70,70,70],types:[],abilities:[],learn:[],tms:[]};
 
 export function damage(battle:Battle,attacker:TeamMon,move:Move,target:number,targetLevel:number){
  const foe=battle.species[target];
@@ -77,13 +81,192 @@ export const movePool=(battle:Battle,mon:TeamMon)=>{
  return [...new Set([...byLevel,...s.tms])].filter(m=>battle.moves[m]);
 };
 
+// Símbolos visuales inspirados en los iconos de categoría de los juegos:
+// ráfaga = físico, círculos = especial y yin-yang = estado.
+const categorySymbol=(kind:MoveKind)=>kind==='physical'?'✹':kind==='special'?'◎':'☯';
+const moveKind=(move:Move):MoveKind=>move.power?move.category:'status';
+
+const EFFECT_SUMMARIES:Record<string,'effectLightScreen'|'effectReflect'|'effectParalyze'|'effectSleep'|'effectPoison'|'effectBadPoison'|'effectBurn'|'effectConfuse'|'effectProtect'|'effectRestoreHp'|'effectRest'|'effectWeatherRain'|'effectWeatherSun'|'effectWeatherSand'|'effectWeatherHail'|'effectHazards'>={
+ LIGHT_SCREEN:'effectLightScreen',REFLECT:'effectReflect',PARALYZE:'effectParalyze',SLEEP:'effectSleep',POISON:'effectPoison',TOXIC:'effectBadPoison',WILL_O_WISP:'effectBurn',CONFUSE:'effectConfuse',PROTECT:'effectProtect',RESTORE_HP:'effectRestoreHp',SOFTBOILED:'effectRestoreHp',SYNTHESIS:'effectRestoreHp',MORNING_SUN:'effectRestoreHp',MOONLIGHT:'effectRestoreHp',REST:'effectRest',RAIN_DANCE:'effectWeatherRain',SUNNY_DAY:'effectWeatherSun',SANDSTORM:'effectWeatherSand',HAIL:'effectWeatherHail',SPIKES:'effectHazards',
+};
+const effectStat=(effect:string|undefined)=>effect?.match(/^(ATTACK|DEFENSE|SPEED|SPECIAL_ATTACK|SPECIAL_DEFENSE|ACCURACY|EVASION)_(UP|DOWN)(?:_(2))?$/);
+
+type ProfileFocus='physical'|'special'|'mixed'|'support';
+type ProfileAbility='contact'|'physical'|'special'|'speed'|'accuracy'|'survival'|'none';
+export type BuildProfile={focus:ProfileFocus;fast:boolean;bulky:boolean;utility:boolean;ability:ProfileAbility;
+ physical:number;special:number;status:number;
+ titleKey:'profilePhysical'|'profileSpecial'|'profileMixed'|'profileSupport';
+ focusKey:'profilePhysicalTag'|'profileSpecialTag'|'profileMixedTag'|'profileSupportTag';
+ reasons:{key:'profileAttackReason'|'profileNatureReason'|'profileSpeedReason'|'profileUtilityReason'|'profileBulkReason'|'profileAbilityReason';value:Record<string,string|number>}[];
+};
+
+// Señales de habilidad que cambian el papel del Pokemon. No se intenta
+// modelar cada habilidad: solo las interacciones generales que son estables y
+// que se pueden explicar en la ficha sin simular un combate entero.
+const PROFILE_ABILITIES:Record<string,ProfileAbility>={
+ static:'contact',poison_point:'contact',flame_body:'contact',rough_skin:'contact',iron_barbs:'contact',
+ huge_power:'physical',pure_power:'physical',guts:'physical',hustle:'physical',
+ plus:'special',minus:'special',solar_power:'special',
+ chlorophyll:'speed',swift_swim:'speed',sand_rush:'speed',
+ compound_eyes:'accuracy',keen_eye:'accuracy',no_guard:'accuracy',
+ sturdy:'survival',wonder_guard:'survival',levitate:'survival',
+};
+
+const profileAbility=(ability:string):ProfileAbility=>PROFILE_ABILITIES[ability]??'none';
+
+const profileMovePotential=(battle:Battle,mon:TeamMon,move:Move)=>{
+ if(!move.power)return 0;
+ const damage=damageVs(battle,mon,move,PROFILE_TARGET,mon.level);
+ return damage?Math.round((damage.min+damage.max)/2*(move.accuracy||100)/100):0;
+};
+
+// Convierte la ficha en un perfil breve usando reglas fijas. Los valores de
+// daño se comparan contra un objetivo neutro, así que esta función describe la
+// orientación del set y no la eficacia contra un rival concreto.
+export function buildProfile(battle:Battle,mon:TeamMon):BuildProfile|null{
+ const species=battle.species[mon.n];if(!species)return null;
+ const nature=battle.natures[mon.nature]??[null,null];
+ const moves=mon.moves.map(key=>key?battle.moves[key]:null).filter((move):move is Move=>!!move);
+ const attacks=moves.filter(move=>move.power>0);
+ const status=moves.length-attacks.length;
+ const scores=(category:Move['category'])=>attacks.filter(move=>move.category===category).map(move=>{
+  return profileMovePotential(battle,mon,move);
+ }).sort((a,b)=>b-a);
+ const categoryScore=(values:number[])=>
+  (values[0]??0)+(values[1]??0)*.35+(values[2]??0)*.15;
+ const physical=categoryScore(scores('physical')),special=categoryScore(scores('special'));
+ const best=Math.max(physical,special),ratio=Math.max(physical,special)/Math.max(1,Math.min(physical||1,special||1));
+ const focus:ProfileFocus=best===0?'support':physical===0?'special':special===0?'physical':ratio>=1.18?(special>physical?'special':'physical'):'mixed';
+ const fast=species.base[5]>=75&&species.base[5]>=Math.max(...species.base.filter((_,i)=>i!==5))-5;
+ const bulky=species.base[0]+species.base[2]+species.base[4]>=220;
+ const utility=status>=2;
+ const ability=profileAbility(mon.ability);
+ const titleKey=focus==='physical'?'profilePhysical':focus==='special'?'profileSpecial':focus==='mixed'?'profileMixed':'profileSupport';
+ const focusKey=focus==='physical'?'profilePhysicalTag':focus==='special'?'profileSpecialTag':focus==='mixed'?'profileMixedTag':'profileSupportTag';
+ const reasons:BuildProfile['reasons']=[];
+ reasons.push({key:'profileAttackReason',value:{physical:Math.round(physical),special:Math.round(special),attacks:attacks.length}});
+ if(nature[0]||nature[1])reasons.push({key:'profileNatureReason',value:{up:nature[0]??'',down:nature[1]??''}});
+ if(fast)reasons.push({key:'profileSpeedReason',value:{n:species.base[5]}});
+ if(utility)reasons.push({key:'profileUtilityReason',value:{n:status}});
+ if(bulky)reasons.push({key:'profileBulkReason',value:{n:species.base[0]+species.base[2]+species.base[4]}});
+ if(ability!=='none')reasons.push({key:'profileAbilityReason',value:{ability:mon.ability,kind:ability}});
+ return {focus,fast,bulky,utility,ability,physical,special,status,titleKey,focusKey,reasons};
+}
+
+export type MoveAdvice={kind:'replace'|'keep'|'manual';old:string|null;delta:number};
+
+export type Opponent={name:string;level:number};
+const opponentName=(value:string)=>value.toLowerCase().replace(/♀/g,'f').replace(/♂/g,'m').replace(/[^a-z0-9]/g,'');
+// Los equipos de entrenadores llegan como texto del mapa: "Clefairy Lv14, ...".
+// Se transforma aquí para que el mapa y la ficha usen la misma fórmula de daño.
+export const trainerOpponents=(detail?:string|null):Opponent[]=>(detail??'').split(', ').flatMap(part=>{
+ const found=/^(.+?)\s+Lv\.?\s*(\d+)$/i.exec(part.trim());
+ return found?[{name:found[1],level:+found[2]}]:[];
+});
+
+// Recomendación junto a un entrenador o encuentro: solo mira el equipo activo.
+export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=true,inline=false,foeDetail}:{opponents:Opponent[];dex:Dex;battle:Battle|null;storageKey:string;tr:T;showOpponent?:boolean;inline?:boolean;foeDetail?:string|null}){
+ const [team,setTeam]=useState<TeamMon[]>([]);
+ useEffect(()=>{
+  const load=()=>{try{const saved=JSON.parse(localStorage.getItem(storageKey)||'[]');setTeam(Array.isArray(saved)?saved:[])}catch{setTeam([])}};
+  const changed=(event:Event)=>{if((event as CustomEvent<string>).detail===storageKey)load()};
+  load();addEventListener('route151-team-changed',changed);return()=>removeEventListener('route151-team-changed',changed);
+ },[storageKey]);
+ const rows=useMemo(()=>{
+  if(!battle||!team.length)return [];
+  const byName=new Map(dex.species.map(s=>[opponentName(s.name),s]));
+  return opponents.flatMap(foe=>{
+   const target=byName.get(opponentName(foe.name));if(!target||!battle.species[target.n])return [];
+   const best=team.filter(mon=>!mon.bench).flatMap(mon=>mon.moves.flatMap(key=>{
+    const move=key?battle.moves[key]:null,d=move?damage(battle,mon,move,target.n,foe.level):null;
+    return move&&d?[{mon,move,d}]:[];
+   })).sort((a,b)=>b.d.max-a.d.max)[0];
+   const attacker=best?dex.species.find(s=>s.n===best.mon.n):null;
+   // Una opción favorable aprovecha debilidad de tipo o deja al rival a un
+   // máximo de cuatro golpes incluso con la tirada baja de daño.
+   const good=!!best&&!!attacker&&(best.d.eff>1||best.d.min>=25);
+   return [{foe,target,best,attacker,good}];
+  });
+ },[battle,dex,opponents,team]);
+ const fallbackTarget=useMemo(()=>{
+  const foe=opponents[0];return foe?dex.species.find(s=>opponentName(s.name)===opponentName(foe.name))??null:null;
+ },[dex,opponents]);
+ // En el mapa un encuentro sigue siendo útil aunque aún no haya equipo: se
+ // enseña su ficha normal, pero no se inventa una recomendación ni una flecha.
+ if(!rows.length)return inline&&fallbackTarget?<div className="battle-advice inline"><div className="battle-match inline battle-match-empty">
+  <div className="battle-mon battle-foe"><Figure m={{icon:fallbackTarget.icon,category:'Pokémon'}}/><span><b>{tr.name(fallbackTarget.name)}</b><small>{foeDetail??tr.t('battleLevel',{level:opponents[0].level})}</small></span></div>
+ </div></div>:null;
+ return <div className={`battle-advice ${inline?'inline':showOpponent?'':'compact'}`}>{rows.map(({foe,target,best,attacker,good})=><div key={`${foe.name}-${foe.level}`}>
+  {best&&attacker&&<div className={`battle-match ${inline?'inline':showOpponent?'':'compact'}`}>
+   {showOpponent&&<><div className="battle-mon battle-foe"><Figure m={{icon:target.icon,category:'Pokémon'}}/><span><b>{tr.name(target.name)}</b><small>{inline&&foeDetail?foeDetail:tr.t('battleLevel',{level:foe.level})}</small></span></div>
+    <i className="battle-arrow" aria-hidden="true">→</i>
+   </>}
+   {!showOpponent&&<><b className={`battle-context ${good?'good':'poor'}`}>{tr.t(good?'battleGoodAgainst':'battlePoorAgainst',{pokemon:tr.name(target.name)})}</b><i className="battle-arrow" aria-hidden="true">→</i></>}
+   <div className="battle-mon"><Figure m={{icon:attacker.icon,category:'Pokémon'}}/><span><b>{tr.name(attacker.name)}</b><small>{tr.t('battleUse',{move:tr.move(best.move.name),min:best.d.min,max:best.d.max})}</small></span></div>
+  </div>}
+  {!good&&<p className="battle-warning">{tr.t('battleNoGood')}</p>}
+ </div>)}</div>;
+}
+
+// Cuanto aporta un ataque al perfil actual. Sirve tanto para ordenar la tabla
+// de decision como para decidir si el movimiento nuevo merece un hueco.
+const profileMoveFit=(battle:Battle,mon:TeamMon,move:Move,profile:BuildProfile)=>{
+ if(!move.power)return profile.focus==='support'?12:profile.utility?10:4;
+ const multiplier=profile.focus==='support'||profile.focus==='mixed'?1:move.category===profile.focus?1.25:.75;
+ const nature=battle.natures[mon.nature]??[null,null];
+ const stat=move.category==='physical'?'atk':'spa';
+ const natureMultiplier=nature[0]===stat ? 1.08 : (nature[1]===stat ? .92 : 1);
+ return profileMovePotential(battle,mon,move)*multiplier*natureMultiplier;
+};
+
+// Puntuacion del conjunto al probar un ataque nuevo. Solo cuenta el mejor
+// ataque de la categoria, para no premiar dos veces ataques equivalentes, y
+// reserva valor para conservar al menos un movimiento de estado.
+const profileSetScore=(battle:Battle,mon:TeamMon,keys:(string|null)[],profile:BuildProfile)=>{
+ const moves=keys.map(key=>key?battle.moves[key]:null).filter((move):move is Move=>!!move);
+ const attacks=moves.filter(move=>move.power>0);
+ const best=Math.max(0,...attacks.map(move=>profileMoveFit(battle,mon,move,profile)));
+ const statuses=moves.filter(move=>!move.power).length;
+ return best+(statuses>0?10:0);
+};
+
+// Decide si el ataque nuevo mejora el set actual. Las decisiones sobre
+// movimientos de estado se dejan manuales porque su efecto no se reduce a
+// potencia y precision.
+export function adviseMoveReplacement(battle:Battle,mon:TeamMon,newKey:string):MoveAdvice{
+ const profile=buildProfile(battle,mon),newMove=battle.moves[newKey];
+ if(!profile||!newMove||!newMove.power)return {kind:'manual',old:null,delta:0};
+ const current=profileSetScore(battle,mon,mon.moves,profile);
+ const options=mon.moves.map((old,index)=>{
+  const next=mon.moves.map((key,i)=>i===index?newKey:key);
+  return {old,index,delta:profileSetScore(battle,mon,next,profile)-current};
+ });
+ const empty=mon.moves.findIndex(key=>!key);
+ if(empty>=0){
+  const next=mon.moves.map((key,i)=>i===empty?newKey:key);
+  options.push({old:null,index:empty,delta:profileSetScore(battle,mon,next,profile)-current});
+ }
+ const best=options.sort((a,b)=>b.delta-a.delta)[0];
+ return best&&best.delta>=4?{kind:'replace',old:best.old,delta:Math.round(best.delta)}:{kind:'keep',old:null,delta:best?.delta??0};
+}
+
 export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Battle|null;moveText:Record<string,{en:string;es:string}>|null;storageKey:string;tr:T}){
  const {t,lang,type:typeName,move:moveName,ability:abilityName,nature:natureName}=tr;
  const describe=(key:string)=>moveText?.[key]?.[lang==='es'?'es':'en']??null;
+ const statusSummary=(key:string,move:Move)=>{
+  const stat=effectStat(move.effect);
+  if(stat){
+   const statName=stat[1]==='ACCURACY'?t('stat_accuracy'):stat[1]==='EVASION'?t('stat_evasion'):t(('stat_'+({ATTACK:'atk',DEFENSE:'def',SPEED:'spe',SPECIAL_ATTACK:'spa',SPECIAL_DEFENSE:'spd'}[stat[1]])) as never);
+   const summaryKey=stat[2]==='UP'?(stat[3]?'effectRaiseMuch':'effectRaise'):(stat[3]?'effectLowerMuch':'effectLower');
+   return t(summaryKey,{stat:statName});
+  }
+  const summary=EFFECT_SUMMARIES[move.effect??''];
+  return summary?t(summary):describe(key)??t('status');
+ };
  const [candidate,setCandidate]=useState<Record<string,string>>({});
  const [team,setTeam]=useState<TeamMon[]>([]),[query,setQuery]=useState(''),[target,setTarget]=useState<number|null>(null),[targetLevel,setTargetLevel]=useState(20);
  useEffect(()=>{try{setTeam(JSON.parse(localStorage.getItem(storageKey)||'[]'))}catch{setTeam([])}},[storageKey]);
- const save=(next:TeamMon[])=>{setTeam(next);try{localStorage.setItem(storageKey,JSON.stringify(next))}catch{}};
+ const save=(next:TeamMon[])=>{setTeam(next);try{localStorage.setItem(storageKey,JSON.stringify(next));dispatchEvent(new CustomEvent('route151-team-changed',{detail:storageKey}))}catch{}};
  const species=useMemo(()=>new Map(dex.species.map(s=>[s.n,s])),[dex]);
  const q=query.trim().toLowerCase();
  const results=useMemo(()=>!q?[]:dex.species.filter(s=>battle?.species[s.n]&&s.name.toLowerCase().includes(q)).slice(0,8),[dex,battle,q]);
@@ -119,9 +302,9 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
  // Ejes como en el juego: PS arriba y, girando a la derecha, Ataque, Defensa,
  // Velocidad, Def. Esp. y At. Esp.
  const AXES=[0,1,2,5,4,3];
- const hexagon=(values:number[],radius:number)=>AXES.map((stat,i)=>{
+ const hexagon=(values:number[],radius:number,cx=60,cy=60)=>AXES.map((stat,i)=>{
   const angle=Math.PI/2-i*Math.PI/3,r=radius*Math.max(.08,values[stat]/31);
-  return `${(60+r*Math.cos(angle)).toFixed(1)},${(60-r*Math.sin(angle)).toFixed(1)}`;
+  return `${(cx+r*Math.cos(angle)).toFixed(1)},${(cy-r*Math.sin(angle)).toFixed(1)}`;
  }).join(' ');
 
  // Naturalezas con las que cuadran todas las cifras escritas: si la elegida no
@@ -144,11 +327,11 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
  };
  const moveLabel=(key:string)=>{const m=battle.moves[key];
   const kind=m.power?t(m.category==='physical'?'physicalShort':'specialShort'):t('statusShort');
-  return `${moveName(m.name)} · ${typeName(m.type)} · ${kind}${m.power?` ${m.power}`:''}`};
+  return `${moveName(m.name)} · ${typeName(m.type)} · ${categorySymbol(moveKind(m))} ${kind}${m.power?` ${m.power}`:''}`};
  const card=(mon:TeamMon)=>{
-  const s=battle.species[mon.n],info=species.get(mon.n),pool=movePool(battle,mon);
-  const guess=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null]);
-  const stats=mon.stats??guess,own=!!mon.stats;
+ const s=battle.species[mon.n],info=species.get(mon.n),pool=movePool(battle,mon);
+ const guess=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null]);
+  const stats=mon.stats??guess,own=!!mon.stats,profile=buildProfile(battle,mon);
   return <article key={mon.id} className="team-mon">
    <header>
     <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
@@ -170,16 +353,65 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
     <small>{t('baseStat',{n:s.base[i]})}{own&&' · '}{own&&(fit=>fit?ivLabel(fit):<span title={t('ivNoFitHelp')}>{t('ivNoFit')}</span>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}</small>
    </div>)}</dl>
    <p className="team-note">{own&&<span className="team-iv">{t('ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
+   <div className={`team-analysis ${own?'':'solo'}`}>
+   {profile&&<div className="profile">
+    <h4>{t('profile')}<small>{t('profileDeterministic')}</small></h4>
+    <strong>{t(profile.titleKey)}</strong>
+    <div className="profile-tags">
+     <span>{t(profile.focusKey)}</span>
+     {profile.fast&&<span>{t('profileFastTag')}</span>}
+     {profile.bulky&&<span>{t('profileBulkTag')}</span>}
+     {profile.utility&&<span>{t('profileUtilityTag')}</span>}
+     {profile.ability!=='none'&&<span>{abilityName(battle.abilities[mon.ability]??mon.ability)}</span>}
+    </div>
+    <ul>{profile.reasons.map((reason,i)=>{
+     const value=reason.value;
+     const vars=reason.key==='profileNatureReason'
+      ?{...value,up:typeof value.up==='string'?t(('stat_'+value.up) as never):value.up,down:typeof value.down==='string'?t(('stat_'+value.down) as never):value.down}
+      :reason.key==='profileAbilityReason'
+       ?{...value,ability:abilityName(battle.abilities[mon.ability]??mon.ability),effect:t(('profileAbility_'+String(value.kind)) as never)}
+       :value;
+     return <li key={`${reason.key}-${i}`}>{t(reason.key,vars)}</li>;
+    })}</ul>
+    <p className="team-note">{t('profileNote')}</p>
+    {own&&(fits=>fits.length&&!fits.includes(mon.nature)?<p className="team-note team-natures">{t('natureFits')} {fits.map(n=>
+     <button key={n} className="team-reset" onClick={()=>update(mon.id,{nature:n})}>{natureName(n)}</button>)}</p>:null)(fittingNatures(mon))}
+   </div>}
+   {own&&(ivs=>ivs?<div className="judge">
+    <h4>{t('judge')}<small>{t('judgeTotal',{n:ivs.reduce((a,b)=>a+b,0)})}</small></h4>
+    <div className="judge-chart">
+     <svg viewBox="0 0 340 250" aria-labelledby={`judge-radar-${mon.id}`}>
+      <title id={`judge-radar-${mon.id}`}>{t('judge')}</title>
+      {[1,.66,.33].map(k=><polygon key={k} className="judge-grid" points={hexagon([31,31,31,31,31,31],60*k,170,125)}/>)}
+      {AXES.map((stat,i)=>{const angle=Math.PI/2-i*Math.PI/3;
+       return <line key={stat} className="judge-grid" x1="170" y1="125" x2={(170+60*Math.cos(angle)).toFixed(1)} y2={(125-60*Math.sin(angle)).toFixed(1)}/>})}
+      <polygon className="judge-shape" points={hexagon(ivs,60,170,125)}/>
+      {[
+       [0,170,20],[1,286,63],[2,290,166],
+       [5,170,232],[4,50,166],[3,54,63],
+      ].map(([stat,x,y])=><text key={String(stat)} className="judge-label" x={x} y={y} textAnchor="middle">
+       <tspan className="judge-stat" x={Number(x)}>{t(('stat_'+STATS[Number(stat)]) as never)}</tspan>
+       <tspan className="judge-rate" x={Number(x)} dy="17">{judgeLabel(ivs[Number(stat)])}</tspan>
+      </text>)}
+     </svg>
+    </div>
+    <p className="team-note">{t('judgeNote')}</p>
+   </div>:null)(judge(mon))}
+   </div>
    {(()=>{
-    // Al subir de nivel el juego ofrece un ataque nuevo: aqui se compara con los
-    // cuatro que lleva, usando sus estadisticas reales, contra un rival medio.
+    // Esta es la tabla de decision: mantiene los cuatro ataques actuales y
+    // anade el nuevo para que se pueda comparar antes de mirar las descripciones.
     const pick=candidate[mon.id],newMove=pick?battle.moves[pick]:null;
-    const score=(key:string|null)=>{const m=key?battle.moves[key]:null;if(!m)return null;
-     const d=damageVs(battle,mon,m,DUMMY,mon.level);
-     return d?{key:key!,move:m,hit:Math.round((d.min+d.max)/2*(m.accuracy||100)/100)}:{key:key!,move:m,hit:null}};
-    const rows=[...mon.moves.map(score).filter(Boolean),...(newMove?[score(pick)!]:[])] as {key:string;move:Move;hit:number|null}[];
-    const worst=rows.filter(r=>r.key!==pick&&r.hit!==null).sort((a,b)=>a.hit!-b.hit!)[0];
-    const fresh=rows.find(r=>r.key===pick);
+    const impactOf=(move:Move)=>move.power?damageVs(battle,mon,move,PROFILE_TARGET,mon.level):null;
+    const rows:{rowKey:string;moveKey:string;move:Move;isNew:boolean}[]=mon.moves.flatMap((key,index)=>{
+     const move=key?battle.moves[key]:null;
+     return move?[{rowKey:`slot-${index}`,moveKey:key!,move,isNew:false}]:[];
+    });
+    if(newMove)rows.push({rowKey:`new-${pick}`,moveKey:pick!,move:newMove,isNew:true});
+    // El mejor encaje con el perfil va primero: especial para un atacante
+    // especial, físico para uno físico y utilidad cuando el set la necesita.
+    if(profile)rows.sort((a,b)=>profileMoveFit(battle,mon,b.move,profile)-profileMoveFit(battle,mon,a.move,profile)||Number(b.isNew)-Number(a.isNew));
+    const advice=pick?adviseMoveReplacement(battle,mon,pick):null;
     return <details className="team-compare">
      <summary>{t('whichToDrop')}</summary>
      <label>{t('newMove')}<select value={pick??''} onChange={e=>setCandidate({...candidate,[mon.id]:e.target.value})}>
@@ -188,42 +420,32 @@ export function TeamView({dex,battle,moveText,storageKey,tr}:{dex:Dex;battle:Bat
        .filter(([m],i,all)=>battle.moves[m]&&all.findIndex(([x])=>x===m)===i)
        .map(([m,lvl])=><option key={m} value={m}>{lvl?`${t('level')} ${lvl} · `:'MT/MO · '}{moveLabel(m)}</option>)}
      </select></label>
-     {rows.length>0&&<ul className="compare-list">{[...rows].sort((a,b)=>(b.hit??-1)-(a.hit??-1)).map(r=>
-      <li key={r.key} className={r.key===pick?'new':''}>
-       <i className={`type t-${r.move.type}`}>{typeName(r.move.type)}</i>
-       <b>{moveName(r.move.name)}</b>
-       <span>{r.hit===null?t('status'):t('hitsFor',{n:r.hit})}</span>
-      </li>)}</ul>}
-     {fresh&&<p className="team-note">{fresh.hit===null?t('dropYouDecide'):worst&&fresh.hit>worst.hit!
-       ?t('dropThis',{move:moveName(worst.move.name)}):t('keepMoves',{move:moveName(fresh.move.name)})}</p>}
+     {rows.length>0&&<ul className="compare-list">{rows.map(({rowKey,moveKey,move,isNew})=>{
+      const impact=impactOf(move),statIndex=move.category==='physical'?1:3;
+      return <li key={rowKey} className={isNew?'new':''}>
+       <i className={`type t-${move.type}`}>{typeName(move.type)}</i>
+       <b><span className={`category-symbol category-${moveKind(move)}`} aria-hidden="true">{categorySymbol(moveKind(move))}</span>{moveName(move.name)}</b>
+       <span>{move.power?`${t('basePower',{n:move.power})} · ${impact?t('powerWithStats',{min:impact.min,max:impact.max,stat:t(('stat_'+(move.category==='physical'?'atk':'spa')) as never),n:stats[statIndex]}):''}`:statusSummary(moveKey,move)}</span>
+      </li>;
+     })}</ul>}
+     {newMove&&<p className="team-note">{newMove.power?advice?.kind==='replace'
+       ?advice.old?t('profileReplace',{move:moveName(battle.moves[advice.old].name),focus:t(profile?.focusKey??'profileMixedTag')})
+       :t('profileAdd',{move:moveName(newMove.name)})
+       :t('profileKeep',{move:moveName(newMove.name),focus:t(profile?.focusKey??'profileMixedTag')})
+       :t('dropYouDecide')}</p>}
      <p className="team-note">{t('compareNote')}</p>
     </details>;
    })()}
-   {own&&(ivs=>ivs?<div className="judge">
-    <h4>{t('judge')}<small>{t('judgeTotal',{n:ivs.reduce((a,b)=>a+b,0)})}</small></h4>
-    <div className="judge-chart">
-     <svg viewBox="0 0 120 120" aria-hidden="true">
-      {[1,.66,.33].map(k=><polygon key={k} className="judge-grid" points={hexagon([31,31,31,31,31,31],48*k)}/>)}
-      {AXES.map((stat,i)=>{const angle=Math.PI/2-i*Math.PI/3;
-       return <line key={stat} className="judge-grid" x1="60" y1="60" x2={(60+48*Math.cos(angle)).toFixed(1)} y2={(60-48*Math.sin(angle)).toFixed(1)}/>})}
-      <polygon className="judge-shape" points={hexagon(ivs,48)}/>
-     </svg>
-     <ul>{AXES.map(i=><li key={STATS[i]}><b>{t(('stat_'+STATS[i]) as never)}</b><span>{judgeLabel(ivs[i])}</span></li>)}</ul>
-    </div>
-    <p className="team-note">{t('judgeNote')}</p>
-   </div>:null)(judge(mon))}
-   {own&&(fits=>fits.length&&!fits.includes(mon.nature)?<p className="team-note team-natures">{t('natureFits')} {fits.map(n=>
-    <button key={n} className="team-reset" onClick={()=>update(mon.id,{nature:n})}>{natureName(n)}</button>)}</p>:null)(fittingNatures(mon))}
    <div className="team-moves">{[0,1,2,3].map(i=>{
     const move=mon.moves[i]?battle.moves[mon.moves[i]!]:null;
+    const impact=move&&move.power?damageVs(battle,mon,move,PROFILE_TARGET,mon.level):null;
     return <div key={i} className="move-slot" data-type={move?.type}>
      <select value={mon.moves[i]??''} onChange={e=>update(mon.id,{moves:mon.moves.map((m,j)=>j===i?(e.target.value||null):m)})}>
       <option value="">{t('noMove')}</option>
       {pool.map(key=><option key={key} value={key}>{moveLabel(key)}</option>)}
      </select>
-     {move&&<small><i className={`type t-${move.type}`}>{typeName(move.type)}</i>
-      <b>{move.power?t(move.category==='physical'?'physical':'special'):t('status')}</b>
-      {move.power>0&&<span>{t('power')} {move.power}</span>}
+     {move&&<small>
+      {move.power?impact&&<span>{t('powerWithStats',{min:impact.min,max:impact.max,stat:t(('stat_'+(move.category==='physical'?'atk':'spa')) as never),n:stats[move.category==='physical'?1:3]})}</span>:<span>{t('status')}</span>}
       <span>PP {move.pp}</span></small>}
      {move&&describe(mon.moves[i]!)&&<p className="move-desc">{describe(mon.moves[i]!)}</p>}
     </div>;

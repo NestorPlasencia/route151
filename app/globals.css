@@ -189,7 +189,7 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .local-encounter b{line-height:1.35}
 /* Ficha de un marcador: popup pequeno junto al pin. */
 .marker-pop .leaflet-popup-content-wrapper{border-radius:12px;padding:0;box-shadow:0 10px 30px #0006}
-.marker-pop .leaflet-popup-content{margin:0;width:auto!important;min-width:200px;max-width:280px}
+.marker-pop .leaflet-popup-content{margin:0;width:clamp(260px,calc(100vw - 24px),360px)!important;min-width:0;max-width:360px}
 .pop{padding:10px 12px;font-family:Arial,sans-serif;color:var(--ink)}
 .pop-head{display:flex;align-items:center;gap:8px}
 .pop-head .fig{width:32px;height:28px}
@@ -199,6 +199,31 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .pop-head small{font-size:9px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin-top:2px}
 .pop p{margin:7px 0 0;font-size:11px;line-height:1.4;color:#657389}
 .pop .tick{flex:none}
+.battle-advice{margin:6px 0 0;padding:6px 0 0;border-top:1px solid #dce6f3}
+.battle-match{display:grid;grid-template-columns:minmax(82px,1fr) auto minmax(120px,1.35fr);align-items:center;gap:6px;color:#315d9b}
+.battle-match+.battle-match{margin-top:5px}
+.battle-mon{display:flex;align-items:center;gap:4px;min-width:0;flex:1}
+.battle-mon .fig{width:26px;height:24px;flex:none;object-fit:contain}
+.battle-mon span{display:flex;min-width:0;flex-direction:column}
+.battle-mon b{font-size:11px;white-space:nowrap}
+.battle-mon small{font-size:10px;line-height:1.25;color:#315d9b;white-space:nowrap}
+.battle-arrow{font-style:normal;font-size:16px;color:#8b97aa}
+.battle-warning{margin:5px 0 0!important;color:#a34a29!important;font-size:10px!important;line-height:1.3!important;font-weight:600}
+.battle-advice.compact{margin-left:30px;padding-top:4px}
+.battle-match.compact{gap:4px}
+.battle-match.compact{display:flex}
+.battle-match.compact .battle-mon{flex:0 1 auto}
+.battle-match.compact .battle-mon span{flex-direction:row;align-items:baseline;gap:4px}
+.battle-match.compact .battle-mon small{font-size:9px}
+.battle-context{font-size:10px;white-space:nowrap}
+.battle-context.good{color:#218653}.battle-context.poor{color:#a34a29}
+.battle-wild-row{display:flex;align-items:center;gap:8px;padding:7px 0}
+.battle-wild-row .tick{margin-left:0}
+.battle-advice.inline{flex:1;min-width:0;margin:0;padding:0;border:0}
+.battle-match.inline{display:flex;gap:7px;min-width:0}
+.battle-match.inline .battle-mon{flex:0 1 auto;min-width:0}
+.battle-match.inline .battle-foe{max-width:145px}
+.battle-match.inline .battle-mon small{overflow:hidden;text-overflow:ellipsis}
 /* Grupo de marcadores en un mismo punto: lista en el popup. */
 .pop-list{max-height:min(340px,55vh);overflow-y:auto;padding-top:8px}
 .pop-title{display:block;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;color:#8b97aa;margin-bottom:4px}
@@ -264,8 +289,11 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .team-fields label{display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .team-fields input,.team-fields select,.team-moves select{height:34px;border:1px solid var(--line);border-radius:8px;background:#f8fafc;padding:0 8px;font:inherit;font-size:12px;color:var(--ink);text-transform:none;letter-spacing:0}
 .team-fields input{width:70px}
-.team-stats{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
-.team-stats div{flex:1;min-width:64px;background:#f4f7fb;border-radius:8px;padding:6px 8px}
+.team-mon>.team-fields{display:grid;grid-template-columns:70px minmax(210px,1fr) minmax(110px,.55fr);max-width:620px}
+.team-mon>.team-fields label{min-width:0}
+.team-mon>.team-fields select{width:100%}
+.team-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:10px 0 0}
+.team-stats div{min-width:0;background:#f4f7fb;border-radius:8px;padding:6px 8px}
 .team-stats dt{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .team-stats dd{margin:2px 0 0;font-size:14px;font-weight:bold}
 .team-moves{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
@@ -303,8 +331,27 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .team-stats small{display:block;margin-top:2px;font-size:9px;color:var(--muted)}
 .team-iv{color:var(--muted)}
 .team-natures button{margin-left:6px}
-/* Ataques: barra del color de su tipo, y debajo tipo, clase, potencia y PP. */
-.move-slot{border-left:4px solid var(--type,var(--line));border-radius:9px;background:#f8fafc;padding:6px 8px}
+.team-analysis{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(390px,.75fr);gap:10px;margin-top:10px;align-items:stretch}
+.team-analysis.solo{grid-template-columns:minmax(0,1fr)}
+.team-analysis .profile,.team-analysis .judge{height:100%;box-sizing:border-box;margin:0}
+/* Categoría de movimiento: ráfaga físico, objetivo especial, yin-yang estado. */
+.category-symbol{display:inline-grid;place-items:center;width:14px;margin-right:3px;font-size:14px;line-height:1;vertical-align:-1px;font-style:normal}
+.category-physical{color:#d96528}
+.category-special{color:#416fd0}
+.category-status{color:#7f8792}
+/* Perfil calculado con reglas fijas: deja visibles sus señales para que no parezca una prediccion opaca. */
+.profile{margin-top:10px;padding:10px;border:1px solid #c9d9f4;border-radius:10px;background:#f7faff}
+.profile h4{display:flex;align-items:center;gap:8px;margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.profile h4 small{margin-left:auto;text-transform:none;letter-spacing:0;font-size:10px;font-weight:normal}
+.profile>strong{display:block;font-size:15px;color:var(--ink)}
+.profile-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.profile-tags span{padding:3px 7px;border-radius:8px;background:#e5efff;color:#315d9b;font-size:10px;font-weight:bold}
+.profile ul{margin:8px 0 0;padding-left:17px;color:var(--muted);font-size:10px;line-height:1.45}
+.profile li+li{margin-top:2px}
+/* Ataques: el color de tipo ocupa la tarjeta, no solo un borde. */
+.move-slot{position:relative;isolation:isolate;overflow:hidden;border-left:7px solid var(--type,var(--line));border-radius:9px;background:#f8fafc;padding:6px 8px;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--type,var(--line)) 26%,transparent)}
+.move-slot::before{content:"";position:absolute;z-index:0;inset:0;background:linear-gradient(100deg,var(--type,var(--line)) 0%,color-mix(in srgb,var(--type,var(--line)) 46%,transparent) 35%,transparent 72%);opacity:.24;pointer-events:none}
+.move-slot>*{position:relative;z-index:1}
 .move-slot select{width:100%;height:28px;border:0;background:none;padding:0;font:inherit;font-size:12px;color:var(--ink)}
 .move-slot small{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:10px;color:var(--muted)}
 .move-slot small b{color:var(--ink);font-size:10px}
@@ -321,13 +368,12 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .judge{margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fbfcfe}
 .judge h4{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .judge h4 small{margin-left:auto;text-transform:none;letter-spacing:0;font-size:10px}
-.judge-chart{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.judge-chart svg{width:130px;height:130px;flex:none}
-.judge-grid{fill:none;stroke:#dbe3ed;stroke-width:1}
-.judge-shape{fill:#2d6df655;stroke:var(--blue);stroke-width:2}
-.judge-chart ul{flex:0 1 340px;min-width:180px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;margin:0;padding:0;list-style:none}
-.judge-chart li{display:flex;justify-content:space-between;gap:8px;font-size:11px}
-.judge-chart li b{color:var(--muted);font-weight:normal}
+.judge-chart{display:flex;justify-content:center;align-items:center}
+.judge-chart svg{width:min(100%,340px);height:auto;display:block}
+.judge-grid{fill:none;stroke:#cbd7ee;stroke-width:1}
+.judge-shape{fill:#168d3b99;stroke:#08742d;stroke-width:2}
+.judge-label{font-size:13px;font-weight:700;fill:#162234;paint-order:stroke;stroke:#fbfcfe;stroke-width:3px;stroke-linejoin:round}
+.judge-rate{font-weight:500;font-size:12px}
 /* Descripcion del ataque y comparador para decidir cual cambiar. */
 .move-desc{margin:4px 0 0;font-size:10px;line-height:1.35;color:var(--muted)}
 .team-compare{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fbfcfe;padding:8px 10px}
@@ -335,6 +381,20 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .team-compare label{display:flex;flex-direction:column;gap:3px;margin-top:8px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .team-compare select{height:34px;border:1px solid var(--line);border-radius:8px;background:#f8fafc;padding:0 8px;font:inherit;font-size:12px;color:var(--ink);text-transform:none;letter-spacing:0}
 .compare-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:5px}
-.compare-list li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:#f4f7fb;font-size:12px}
+.compare-list li{display:grid;grid-template-columns:auto minmax(120px,1fr) minmax(0,2fr);align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:#f4f7fb;font-size:12px}
 .compare-list li.new{background:#eaf3ff;outline:1px solid #c3d5f5}
-.compare-list span{font-size:11px;color:var(--muted)}
+.compare-list>li>span{font-size:11px;color:var(--muted)}
+.move-slot small{flex-wrap:wrap}
+@media (max-width:1100px){
+ .team-analysis{grid-template-columns:1fr}
+ .team-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:600px){
+ .team-mon{padding:10px}
+ .team-mon>.team-fields{grid-template-columns:1fr}
+ .team-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .team-analysis{gap:8px}
+ .judge-chart svg{width:100%}
+ .compare-list li{grid-template-columns:auto minmax(0,1fr);align-items:start}
+ .compare-list>li>span{grid-column:2}
+}

@@ -6,7 +6,7 @@ import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Map
 import {Credits,Figure,colorOf,groupsOf,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
-import {TeamView,type Battle} from './team';
+import {BattleAdvice,TeamView,trainerOpponents,type Battle,type Opponent} from './team';
 import {GAMES,METHODS,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
@@ -43,11 +43,14 @@ export default function Home(){
  const pickGame=(id:string)=>{setGameId(id);try{localStorage.setItem(GAME_KEY,id)}catch{}};
  const pickLang=(l:Lang)=>{setLang(l);try{localStorage.setItem(LANG_KEY,l)}catch{}};
  useEffect(()=>{document.documentElement.lang=lang},[lang]);
- // Los datos de combate (164 KB) solo se bajan al abrir la pestana de equipo.
- useEffect(()=>{if(tab!=='team'||battle||game.id==='yellow')return;
+ // Tambien se carga al abrir un entrenador o un Pokemon salvaje del mapa.
+ const needsBattle=tab==='team'||selected?.category==='Battle'||!!selected?.encounter||!!stack?.some(m=>m.category==='Battle'||m.encounter);
+ useEffect(()=>{if(!needsBattle||battle||game.id==='yellow')return;
   fetch('/frlg/data/battle.json').then(r=>r.json()).then(setBattle).catch(e=>console.error('No se pudieron cargar los datos de combate',e));
+ },[needsBattle,battle,game.id]);
+ useEffect(()=>{if(tab!=='team'||moveText||game.id==='yellow')return;
   fetch('/frlg/data/move-text.json').then(r=>r.json()).then(setMoveText).catch(e=>console.error('No se pudo cargar la descripcion de los ataques',e));
- },[tab,battle,game.id]);
+ },[tab,moveText,game.id]);
 
  const areaById=useMemo(()=>new Map((world?.areas??[]).map(a=>[a.id,a])),[world]);
  const regions=useMemo(()=>world?.areas.filter(a=>a.kind==='region')??[],[world]);
@@ -101,7 +104,7 @@ export default function Home(){
    m.on('zoomend',()=>{el.current?.classList.toggle('crisp',m.getZoom()>=0);el.current?.classList.toggle('far',m.getZoom()<-1)});
    // Ficha de un marcador: un popup junto al pin; React pinta su contenido.
    const box=document.createElement('div');L.DomEvent.disableClickPropagation(box);
-   popup.current=L.popup({closeButton:false,closeOnClick:false,autoClose:false,className:'marker-pop',offset:[0,-6],autoPan:false,maxWidth:300}).setContent(box);
+   popup.current=L.popup({closeButton:false,closeOnClick:false,autoClose:false,className:'marker-pop',offset:[0,-6],autoPan:false,maxWidth:390}).setContent(box);
    // Leaflet cierra los popups en el 'preclick' de cualquier clic, tambien sobre
    // un pin: al volver a pulsar el mismo pin se cerraba y no se reabria. Se
    // cierra solo con un clic en el mapa (fuera de los pines) o con Escape.
@@ -234,7 +237,7 @@ export default function Home(){
   const dx=r.left<stage.left+10?r.left-stage.left-10:r.right>stage.right-10?r.right-stage.right+10:0;
   const dy=r.bottom>stage.bottom-10?r.bottom-stage.bottom+10:0;
   if(dx||dy)m.panBy([dx,dy],{animate:true});
- },[selected,stack,done,area]);
+ },[selected,stack,done,area,battle]);
  const toggleGroup=(name:string)=>setActive(a=>a.includes(name)?a.filter(x=>x!==name):[...a,name]);
  const saveDone=(update:(old:number[])=>number[])=>setDone(old=>{const n=update(old);try{localStorage.setItem(game.storage.done,JSON.stringify(n))}catch{}return n});
  const toggleDone=(uid:number)=>saveDone(old=>old.includes(uid)?old.filter(x=>x!==uid):[...old,uid]);
@@ -257,11 +260,15 @@ export default function Home(){
  const info=(m:Marker)=>{const d=m.detail;if(!d)return null;
   return d.startsWith('Sells ')?t('sells',{list:d.slice(6).split(', ').map(name).join(', ')}):tDetail(d)};
  const shortPlace=(m:Marker)=>!!m.location&&m.location.length<=40;
+ const opponentsOf=(m:Marker):Opponent[]=>m.encounter?[{name:m.name,level:m.encounter.max}]:m.category==='Battle'?trainerOpponents(m.detail):[];
  // Linea de detalle: niveles y probabilidad, equipo, lo que vende, lo que pide un
  // intercambio, o el texto largo de Yellow.
  // En un grupo el lugar va una vez en el titulo; cada fila, sin subtitulo.
  const popRow=(m:Marker,compact=false)=><div className="pop-item"><div className="pop-head">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<Figure m={m}/><div><b>{name(m.name)}</b>{!compact&&<small>{m.encounter?`${category(m.category)} · ${place(m.encounter.zone)}`:shortPlace(m)?`${category(m.category)} · ${place(m.location)}`:category(m.category)}</small>}</div></div>{popLine(m)&&<p>{popLine(m)}</p>}</div>;
  const popLine=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):info(m)??(shortPlace(m)?null:place(m.location)||null)};
+ const popRowWithAdvice=(m:Marker,compact=false)=>{const opponents=opponentsOf(m);
+  if(m.encounter&&battle)return <div className="pop-item battle-wild-row">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<BattleAdvice opponents={opponents} dex={world!.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr} inline foeDetail={popLine(m)}/></div>;
+  return <div className="pop-advised">{popRow(m,compact)}{opponents.length>0&&<BattleAdvice opponents={opponents} dex={world!.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr}/>}</div>};
  const exitRegion=here?exitOf(here).region:null;
  const floors=here?zoneFloors.get(here.zone??here.label)??[here]:[];
  return <main><header><div className="brand"><i><MapIcon/></i><b>ROUTE 151<small>{t('companion',{game:game.title})}</small></b></div>
@@ -278,7 +285,7 @@ export default function Home(){
  {locations&&world&&<div className="locations">{here&&<button className="leave-inline" onClick={()=>{leave();setLocations(false)}}><ArrowLeft/>{t('backToMap',{region:place(areaById.get(exitRegion??'')?.label??'')})}</button>}
   {regions.map((r,i)=><Fragment key={r.id}><h3>{place(r.label).toUpperCase()}</h3><button className={area?.id===r.id?'current':''} onClick={()=>showRegion(r.id)}><MapIcon/>{t('wholeMap')}</button>{world.places.filter(p=>p.area===r.id||(i===0&&!isRegion(p.area))).map(loc=><button key={loc.name} onClick={()=>go(loc)}><MapPin/>{place(loc.name)}</button>)}</Fragment>)}
   <h3>{t('interiors')}</h3>{[...zoneFloors].map(([zone,list])=><div key={zone} className="dungeon"><h4>{place(zone)}</h4>{list.map(f=><button key={f.id} onClick={()=>enter(f.id)} className={here?.id===f.id?'current':''}><DoorOpen/>{place(f.label)}<b>{inArea.get(f.id)?.length??0}</b></button>)}</div>)}</div>}
- {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRow(selected)}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{stack!.map(m=><Fragment key={m.id}>{popRow(m,true)}</Fragment>)}</div>,popupBox)}
+ {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRowWithAdvice(selected)}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{stack!.map(m=><Fragment key={m.id}>{popRowWithAdvice(m,true)}</Fragment>)}</div>,popupBox)}
  {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={place(encounterZone.name)}><button className="close" onClick={()=>setEncounterZone(null)} aria-label={t('close')}><X/></button><small>{t(game.id==='yellow'?'encountersPokeapi':'encountersWild').toUpperCase()}</small><h2>{place(encounterZone.name)}</h2><p>{t('availableHere',{n:encounterZone.pokemon.length})}</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>{t('encounterRate',{levels:`${min}${max!==min?`–${max}`:''}`,chance,methods:[...new Set(variants.map(v=>method(METHODS[v.method]??v.method)))].join(' · ')})}</span></div></article>})}</div></dialog></div>}
  </div>
  {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} detail={detail} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
