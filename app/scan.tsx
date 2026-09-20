@@ -23,7 +23,7 @@ const LANG='/vendor/tesseract';
 
 export type Draft={
  species:number[];level:number|null;levels:number[];nature:string|null;natures:string[];
- ability:string|null;abilityText:string|null;stats:number[]|null;moves:string[];
+ ability:string|null;abilityText:string|null;stats:number[]|null;odd:number[]|null;moves:string[];
 };
 
  // Anchos con los que el lector acierta. Una foto del movil viene enorme y se
@@ -240,6 +240,9 @@ export function readDraft(battle:Battle,dex:Dex,texts:string[]):Draft{
   species:named!==null?[named]:speciesFrom(battle,moves,usable),
   level:null,levels:[],nature:reads.find(read=>read.nature)?.nature??null,natures:[],
   ability,abilityText:ability?battle.abilities[ability]??null:null,stats:usable,moves,
+  // Cifras que se leyeron pero no cuadran con ninguna especie posible: se
+  // ensenan igual, porque callarlas parece que la ficha no se leyo.
+  odd:usable?null:options[0]??null,
  };
  const only=draft.species.length===1?draft.species[0]:null;
  if(only!==null&&draft.stats){
@@ -265,18 +268,26 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
  const [draft,setDraft]=useState<Draft|null>(null);
  const [species,setSpecies]=useState<number|null>(null);
  const [picked,setPicked]=useState<number|null>(null);
+ // La camara del movil da una foto por vez, asi que las fichas se van
+ // sumando: cada lectura se guarda y el borrador se rehace con todas.
+ const [pages,setPages]=useState<string[]>([]);
  const names=new Map(dex.species.map(s=>[s.n,s.name]));
+
+ const clear=()=>{setPages([]);setDraft(null);setSpecies(null);setPicked(null);setError(null)};
 
  const run=async(files:File[])=>{
   if(!files.length)return;
-  setError(null);setDraft(null);setSpecies(null);setPicked(null);
+  setError(null);
   setBusy(t('scanReading',{done:1,total:files.length}));
   try{
-   const texts=await scanCards(files,(done,total)=>setBusy(t('scanReading',{done:Math.min(done+1,total),total})));
-   const read=readDraft(battle,dex,texts);
-   setDraft(read);
-   setSpecies(read.species.length===1?read.species[0]:null);
-   setPicked(read.level);
+   const fresh=await scanCards(files,(done,total)=>setBusy(t('scanReading',{done:Math.min(done+1,total),total})));
+   const all=[...pages,...fresh];
+   const read=readDraft(battle,dex,all);
+   setPages(all);setDraft(read);
+   // La especie elegida a mano se respeta si sigue entre las posibles.
+   setSpecies(old=>old!==null&&(!read.species.length||read.species.includes(old))?old
+    :read.species.length===1?read.species[0]:null);
+   setPicked(null);
    if(!read.stats&&!read.moves.length&&read.species.length!==1)setError(t('scanNothing'));
   }catch(e){
    console.error('No se pudo leer la ficha',e);
@@ -295,6 +306,11 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
  const nature=draft?.nature&&(!natures.length||natures.includes(draft.nature))?draft.nature
   :natures.length===1?natures[0]:null;
  const chosen=species!==null?battle.species[species]:null;
+ // Que ficha falta por pasar, para poder pedirla sin adivinar.
+ const missing=([
+  [!draft?.stats,'scanCardSkills'],[!draft?.moves.length,'scanCardMoves'],
+  [draft!==null&&draft.species.length!==1&&!draft.stats,'scanCardInfo'],
+ ] as const).flatMap(([need,card])=>need?[card]:[]);
 
  const add=()=>{
   if(!draft||species===null||!chosen)return;
@@ -303,7 +319,7 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
   const moves=(draft.moves.length?draft.moves:learned.slice(-4)).slice(0,4);
   onAdd({n:species,level:useLevel,nature:nature??natures[0]??'Hardy',ability:draft.ability??chosen.abilities[0]??'',
    moves:[...moves,null,null,null,null].slice(0,4),stats:draft.stats??undefined});
-  setDraft(null);setSpecies(null);setPicked(null);
+  clear();
  };
 
  return <details className="team-scan">
@@ -347,13 +363,18 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
      {!nature&&natures.length>1&&<small>{t('scanNatureGuess',{n:natures.length})}</small>}
     </dd></div>
     <div><dt>{t('ability')}</dt><dd><b>{draft.abilityText?abilityName(draft.abilityText):'—'}</b></dd></div>
-    <div><dt>{t('scanStats')}</dt><dd><b>{draft.stats?draft.stats.join(' · '):'—'}</b></dd></div>
+    <div><dt>{t('scanStats')}</dt><dd>
+     <b className={draft.stats?'':'odd'}>{(draft.stats??draft.odd)?.join(' · ')??'—'}</b>
+     {!draft.stats&&draft.odd&&<small className="scan-warn">{t('scanStatsOdd')}</small>}
+    </dd></div>
     <div><dt>{t('scanMoves')}</dt><dd><b>{draft.moves.length?draft.moves.map(m=>moveName(battle.moves[m].name)).join(' · '):'—'}</b></dd></div>
    </dl>
+   {missing.length>0&&<p className="team-note scan-more">{t('scanMore',{cards:missing.map(card=>t(card)).join(', ')})}</p>}
    {chosen&&draft.ability&&!chosen.abilities.includes(draft.ability)&&<p className="team-note scan-warn">{t('scanOtherGame')}</p>}
    <div className="scan-actions">
     <button className="scan-add" disabled={species===null} onClick={add}>{t('scanAdd')}</button>
-    <button className="team-reset" onClick={()=>{setDraft(null);setSpecies(null);setPicked(null)}}><X/>{t('scanDiscard')}</button>
+    <button className="team-reset" onClick={clear}><X/>{t('scanDiscard')}</button>
+    <small className="scan-count">{t('scanCards',{n:pages.length})}</small>
    </div>
    <p className="team-note">{t('scanNote')}</p>
   </div>}

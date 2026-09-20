@@ -400,6 +400,9 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .scan-actions .team-reset{display:inline-flex;align-items:center;gap:4px}
 .scan-actions .team-reset svg{width:12px}
 .scan-error,.scan-warn{color:#b4232a}
+.scan-more{color:var(--blue)}
+.scan-draft dd b.odd{color:var(--muted);text-decoration:line-through}
+.scan-count{margin-left:auto;font-size:11px;color:var(--muted)}
 .team-compare{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fbfcfe;padding:8px 10px}
 .team-compare summary{font-size:12px;font-weight:bold;cursor:pointer;color:var(--blue)}
 .team-compare label{display:flex;flex-direction:column;gap:3px;margin-top:8px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
