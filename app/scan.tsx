@@ -371,6 +371,7 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
    </dl>
    {missing.length>0&&<p className="team-note scan-more">{t('scanMore',{cards:missing.map(card=>t(card)).join(', ')})}</p>}
    {chosen&&draft.ability&&!chosen.abilities.includes(draft.ability)&&<p className="team-note scan-warn">{t('scanOtherGame')}</p>}
+   {species===null&&<p className="team-note scan-more">{t('scanChoose')}</p>}
    <div className="scan-actions">
     <button className="scan-add" disabled={species===null} onClick={add}>{t('scanAdd')}</button>
     <button className="team-reset" onClick={clear}><X/>{t('scanDiscard')}</button>

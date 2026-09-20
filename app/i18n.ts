@@ -37,6 +37,7 @@ const TEXT = {
  scanLevelOnly: ['only this level fits the stats', 'es el único nivel que cuadra con las estadísticas'],
  scanLevelType: ['write it: without the stats it cannot be worked out', 'escríbelo: sin las estadísticas no se puede deducir'],
  scanMore: ['Add a photo of {cards} to complete it: each scan adds to the one before.', 'Añade una foto de {cards} para completarlo: cada escaneo se suma al anterior.'],
+ scanChoose: ['Choose the Pokémon above to be able to add it.', 'Escoge arriba el Pokémon para poder añadirlo.'],
  scanCards: ['{n} card(s) read', '{n} ficha(s) leída(s)'],
  scanStatsOdd: ['They do not fit any level of this Pokémon: either a figure was misread or the card is from another one.', 'No cuadran con ningún nivel de este Pokémon: o se leyó mal una cifra, o la ficha es de otro.'],
  scanCardSkills: ['Skills', 'Datos'],
