@@ -29,6 +29,8 @@ const TEXT = {
  outBack: ['It is ready again', 'Ya está recuperado'],
  outCount: ['{n} fainted', '{n} debilitados'],
  outCountOne: ['1 fainted', '1 debilitado'],
+ expand: ['Show the details', 'Ver el detalle'],
+ collapse: ['Hide the details', 'Ocultar el detalle'],
  assumed: ['assumed', 'supuesto'],
  assumedHelp: ['The app filled this in for you: change it and it becomes yours.', 'Esto lo puso la app por ti: cámbialo y pasa a ser tuyo.'],
  levelShort: ['Lv. {n}', 'Nv. {n}'],

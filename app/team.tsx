@@ -4,7 +4,7 @@
 // haces mas dano a un Pokemon concreto. Las cuentas son las del juego (tercera
 // generacion), suponiendo IVs de 15 y sin EVs, que es lo normal en una partida.
 import {useEffect,useMemo,useState} from 'react';
-import {ArrowDown,ArrowUp,HeartCrack,Plus,Search,X} from 'lucide-react';
+import {ArrowDown,ArrowUp,ChevronDown,HeartCrack,Plus,Search,X} from 'lucide-react';
 import {Figure,Num} from './shared';
 import {ScanCard} from './scan';
 import type {T} from './i18n';
@@ -324,6 +324,11 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
  };
  const [candidate,setCandidate]=useState<Record<string,string>>({});
  const [team,setTeam]=useState<TeamMon[]>([]),[query,setQuery]=useState('');
+ // Que fichas estan abiertas. Antes era un <details> y se abria al tocar
+ // cualquier parte de la fila, que es justo lo que estorba cuando solo
+ // quieres mirar los ataques o cambiar el nivel.
+ const [open,setOpen]=useState<string[]>([]);
+ const toggle=(id:string)=>setOpen(ids=>ids.includes(id)?ids.filter(x=>x!==id):[...ids,id]);
  useEffect(()=>{try{setTeam(JSON.parse(localStorage.getItem(storageKey)||'[]'))}catch{setTeam([])}},[storageKey]);
  const save=(next:TeamMon[])=>{setTeam(next);try{localStorage.setItem(storageKey,JSON.stringify(next));dispatchEvent(new CustomEvent('route151-team-changed',{detail:storageKey}))}catch{}};
  const species=useMemo(()=>new Map(dex.species.map(s=>[s.n,s])),[dex]);
@@ -411,26 +416,37 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   const stats=mon.stats??estimate,own=!!mon.stats,profile=buildProfile(battle,mon);
   const known=mon.moves.filter(Boolean).length;
   // La ficha nace plegada: anadir un Pokemon no deberia abrir un formulario.
-  return <details key={mon.id} className={`team-mon ${mon.out?'out':''}`}>
-   <summary>
+  const shown=open.includes(mon.id);
+  return <article key={mon.id} className={`team-mon ${mon.out?'out':''}`}>
+   <div className="team-row">
     <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
     <div className="team-title">
      <span className="team-name"><b>{info?.name??mon.n}</b>
-      <span className="types">{s.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span></span>
-     <small>{mon.out?t('out'):known===0?t('movesNone'):known===1?t('movesCountOne'):t('movesCount',{n:known})}{!mon.out&&mon.guess?.length?` · ${t('assumed')}`:''}</small>
+      <span className="types">{s.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span>
+      {mon.out&&<i className="team-ko">{t('out')}</i>}
+      {!mon.out&&mon.guess?.length?<i className="team-guess">{t('assumed')}</i>:null}</span>
     </div>
-    {/* El nivel se toca mucho: se edita aqui sin abrir la ficha. Dentro de un
-        summary hay que frenar el clic, que si no la abre. */}
     <span className="team-level">
      <small>{t('levelShort',{n:''}).trim()}</small>
-     <Num stop value={mon.level} min={1} max={100} label={t('level')} onChange={n=>update(mon.id,{level:n})}/>
+     <Num value={mon.level} min={1} max={100} label={t('level')} onChange={n=>update(mon.id,{level:n})}/>
     </span>
     <button className={`team-out ${mon.out?'on':''}`} title={mon.out?t('outBack'):t('outMark')} aria-label={mon.out?t('outBack'):t('outMark')}
-     onClick={e=>{e.preventDefault();e.stopPropagation();update(mon.id,{out:!mon.out})}}><HeartCrack/></button>
+     onClick={()=>update(mon.id,{out:!mon.out})}><HeartCrack/></button>
     <button className="team-remove" aria-label={t('remove')} title={t('remove')}
-     onClick={e=>{e.preventDefault();e.stopPropagation();save(team.filter(x=>x.id!==mon.id))}}><X/></button>
-   </summary>
-   <div className="team-open">
+     onClick={()=>save(team.filter(x=>x.id!==mon.id))}><X/></button>
+    {/* Se abre solo con este boton: la fila entera ya no es un interruptor. */}
+    <button className={`team-open-toggle ${shown?'on':''}`} aria-expanded={shown} aria-label={t(shown?'collapse':'expand')} title={t(shown?'collapse':'expand')}
+     onClick={()=>toggle(mon.id)}><ChevronDown/></button>
+   </div>
+   {/* Los ataques a la vista, con su tipo y si pegan de fisico, de especial o
+       son de estado: es lo que se consulta en mitad de un combate. */}
+   <div className="team-set">{known===0?<small>{t('movesNone')}</small>:mon.moves.flatMap((key,i)=>{
+      const move=key?battle.moves[key]:null;
+      return move?[<i key={i} className={`type shot t-${move.type}`} title={`${typeName(move.type)} · ${t(move.power?(move.category==='physical'?'physical':'special'):'status')}`}>
+       <b>{categorySymbol(moveKind(move))}</b>{moveName(move.name)}</i>]:[];
+    })}</div>
+
+   {shown&&<div className="team-open">
    <div className="team-actions">
     <button className="team-move" title={mon.bench?t('toParty'):t('toBench')} aria-label={mon.bench?t('toParty'):t('toBench')}
      disabled={!!mon.bench&&party.length>=6} onClick={()=>update(mon.id,{bench:!mon.bench})}>{mon.bench?<ArrowUp/>:<ArrowDown/>}{mon.bench?t('toParty'):t('toBench')}</button>
@@ -550,8 +566,8 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
     </div>;
    })}
    </div>
-   </div>
-  </details>;
+   </div>}
+  </article>;
  };
  return <div className="listview">
   <div className="list-head">
