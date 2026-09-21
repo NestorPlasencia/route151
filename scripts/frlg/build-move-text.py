@@ -30,9 +30,16 @@ def slug(key):
     return re.sub(r'[^a-z0-9]+', '-', unicodedata.normalize('NFKD', key).encode('ascii', 'ignore').decode().lower()).strip('-')
 
 
+# PokeAPI rellena muchas entradas en espanol de los juegos de tercera
+# generacion con el aviso que sale al intentar usar un ataque inutilizable.
+# No describe nada, asi que esas se descartan.
+FILLER = 'no se puede usar'
+
+
 def text(entries, lang):
     """El texto del juego en ese idioma: el de FRLG si esta, y si no el mas nuevo."""
-    same = [e for e in entries if e['language']['name'] == lang]
+    same = [e for e in entries if e['language']['name'] == lang
+            and FILLER not in ' '.join(e['flavor_text'].split())]
     for version in VERSIONS:
         for e in same:
             if e['version_group']['name'] == version:
