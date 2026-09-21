@@ -91,32 +91,44 @@ export const movePool=(battle:Battle,mon:TeamMon)=>{
 // especie y el nivel. No son los ultimos que aprendio, que es lo que lleva uno
 // salvaje, sino los que mas sirven: un jugador va cambiando los flojos.
 //
+// Se reserva un hueco para un movimiento de estado, porque un set de solo
+// ataques es peor set: dormir, paralizar o bajarle el Ataque al rival gana
+// combates que la potencia bruta no gana. Asi el supuesto tambien ensena como
+// suele armarse un equipo.
+//
 // Solo se miran los que aprende subiendo de nivel, nunca las MT: no hay forma
-// de saber cuales le ensenaste. Se puntua por dano esperado contra el rival
-// neutro, contando la precision, y se prefiere variedad de tipos antes que dos
-// ataques que hacen lo mismo. Si no llega a cuatro ataques, completan los
-// ultimos movimientos de estado que aprendio.
+// de saber cuales le ensenaste. Los ataques se puntuan por dano esperado
+// contra el rival neutro, contando la precision, y se prefiere variedad de
+// tipos antes que dos que hacen lo mismo.
+const STATUS_FIRST=new Set(['SLEEP','PARALYZE','TOXIC','POISON','CONFUSE','WILL_O_WISP','LEECH_SEED']);
 export function assumedMoves(battle:Battle,n:number,level:number){
  const species=battle.species[n];if(!species)return [];
- const known=species.learn.filter(([lvl])=>lvl<=level).map(([,move])=>move).filter(move=>battle.moves[move]);
+ const known=[...new Set(species.learn.filter(([lvl])=>lvl<=level).map(([,move])=>move).filter(move=>battle.moves[move]))];
  const mon:TeamMon={id:'',n,level,nature:'Hardy',ability:'',moves:[]};
- const attacks=[...new Set(known)].filter(key=>battle.moves[key].power>0).map(key=>{
+ const attacks=known.filter(key=>battle.moves[key].power>0).map(key=>{
   const move=battle.moves[key],hit=damageVs(battle,mon,move,PROFILE_TARGET,level);
   return {key,type:move.type,score:hit?(hit.min+hit.max)/2*(move.accuracy||100)/100:0};
  }).sort((a,b)=>b.score-a.score);
- const picked:string[]=[],types=new Set<string>();
- // Primero el mejor de cada tipo, que es lo que da cobertura.
+ // El mejor de estado: primero los que dejan al rival tocado (dormido,
+ // paralizado, envenenado), luego los que cambian estadisticas, y entre
+ // iguales el mas reciente, que suele ser el mas fuerte.
+ const best=known.filter(key=>!battle.moves[key].power).map((key,i)=>{
+  const effect=battle.moves[key].effect??'';
+  return {key,rank:STATUS_FIRST.has(effect)?2:/^(ATTACK|DEFENSE|SPEED|SPECIAL_ATTACK|SPECIAL_DEFENSE|ACCURACY|EVASION)_/.test(effect)?1:0,order:i};
+ }).sort((a,b)=>b.rank-a.rank||b.order-a.order)[0]?.key;
+ // Tres ataques con cobertura y un hueco de estado; si no hay de estado, el
+ // hueco lo ocupa otro ataque.
+ const room=best?3:4,picked:string[]=[],types=new Set<string>();
  for(const attack of attacks){
-  if(picked.length===4||types.has(attack.type))continue;
+  if(picked.length===room||types.has(attack.type))continue;
   picked.push(attack.key);types.add(attack.type);
  }
- // Luego los siguientes mejores, aunque repitan tipo.
  for(const attack of attacks){
-  if(picked.length===4)break;
+  if(picked.length===room)break;
   if(!picked.includes(attack.key))picked.push(attack.key);
  }
- const status=[...new Set(known)].filter(key=>!battle.moves[key].power&&!picked.includes(key));
- return [...picked,...status.slice(-(4-picked.length))].slice(0,4);
+ const rest=known.filter(key=>!battle.moves[key].power&&key!==best);
+ return [...picked,...(best?[best]:[]),...rest.slice(-(4-picked.length-(best?1:0)))].slice(0,4);
 }
 
 // Símbolos visuales inspirados en los iconos de categoría de los juegos:
@@ -344,7 +356,12 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   const touched=Object.keys(change).flatMap(field=>field==='stats'?['level' as Guess]:
    (['level','nature','ability','moves'] as Guess[]).includes(field as Guess)?[field as Guess]:[]);
   const guess=mon.guess?.filter(field=>!touched.includes(field));
-  return {...mon,...change,guess:guess?.length?guess:undefined};
+  const next={...mon,...change,guess:guess?.length?guess:undefined};
+  // Si los ataques siguen siendo supuestos y cambias el nivel, se rehacen: a
+  // otro nivel el juego le habria ensenado otra cosa.
+  if(change.level!==undefined&&guess?.includes('moves'))
+   next.moves=[...assumedMoves(battle,next.n,next.level),null,null,null,null].slice(0,4);
+  return next;
  }));
  const party=team.filter(m=>!m.bench),bench=team.filter(m=>m.bench);
  const foe=target?battle.species[target]:null;
