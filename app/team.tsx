@@ -4,7 +4,7 @@
 // haces mas dano a un Pokemon concreto. Las cuentas son las del juego (tercera
 // generacion), suponiendo IVs de 15 y sin EVs, que es lo normal en una partida.
 import {useEffect,useMemo,useState} from 'react';
-import {ArrowDown,ArrowUp,HeartCrack,Plus,Search,Swords,X} from 'lucide-react';
+import {ArrowDown,ArrowUp,HeartCrack,Plus,Search,X} from 'lucide-react';
 import {Figure,Num} from './shared';
 import {ScanCard} from './scan';
 import type {T} from './i18n';
@@ -323,7 +323,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   return summary?t(summary):describe(key)??t('status');
  };
  const [candidate,setCandidate]=useState<Record<string,string>>({});
- const [team,setTeam]=useState<TeamMon[]>([]),[query,setQuery]=useState(''),[target,setTarget]=useState<number|null>(null),[targetLevel,setTargetLevel]=useState(20);
+ const [team,setTeam]=useState<TeamMon[]>([]),[query,setQuery]=useState('');
  useEffect(()=>{try{setTeam(JSON.parse(localStorage.getItem(storageKey)||'[]'))}catch{setTeam([])}},[storageKey]);
  const save=(next:TeamMon[])=>{setTeam(next);try{localStorage.setItem(storageKey,JSON.stringify(next));dispatchEvent(new CustomEvent('route151-team-changed',{detail:storageKey}))}catch{}};
  const species=useMemo(()=>new Map(dex.species.map(s=>[s.n,s])),[dex]);
@@ -361,14 +361,6 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   return next;
  }));
  const party=team.filter(m=>!m.bench),bench=team.filter(m=>m.bench);
- const foe=target?battle.species[target]:null;
- // Mejor ataque de cada miembro contra el Pokemon elegido, de mas a menos dano.
- const advice=!foe||!target?[]:team.filter(mon=>!mon.out).flatMap(mon=>{
-  const best=mon.moves.flatMap(key=>{const move=key?battle.moves[key]:null;if(!move)return [];
-   const d=damage(battle,mon,move,target,targetLevel);return d?[{mon,move,...d}]:[]})
-   .sort((a,b)=>b.max-a.max)[0];
-  return best?[best]:[];
- }).sort((a,b)=>b.max-a.max);
 
  // Grafico de juez: hexagono con la valoracion de cada IV, como en los juegos.
  const judgeLabel=(iv:number)=>t((iv>=31?'rate5':iv>=30?'rate4':iv>=21?'rate3':iv>=11?'rate2':iv>=1?'rate1':'rate0') as never);
@@ -577,27 +569,6 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
    {bench.map(card)}
    {!bench.length&&<p className="list-empty">{t('benchEmpty')}</p>}
 
-   <section className="team-vs">
-    <h3><Swords/>{t('bestAgainst')}</h3>
-    <div className="team-fields">
-     <label>{t('pokemon')}<select value={target??''} onChange={e=>setTarget(+e.target.value||null)}>
-      <option value="">—</option>
-      {dex.species.filter(s=>battle.species[s.n]).map(s=><option key={s.n} value={s.n}>{s.name}</option>)}
-     </select></label>
-     <label>{t('level')}<Num value={targetLevel} min={1} max={100} label={t('level')} onChange={setTargetLevel}/></label>
-    </div>
-    {foe&&<p className="team-foe"><span className="types">{foe.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span></p>}
-    {advice.length>0&&<div className="team-advice">{advice.map(({mon,move,eff,min,max})=>{
-     const info=species.get(mon.n);
-     const label=info?.name+(mon.bench?` · ${t('bench')}`:'');
-     return <div key={mon.id} className={`advice-row ${eff===0?'none':eff>1?'good':eff<1?'bad':''}`}>
-      <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
-      <span><b>{moveName(move.name)}</b><small>{label} · {typeName(move.type)} · {t(move.category==='physical'?'physicalShort':'specialShort')}{eff!==1&&` · ×${eff}`}</small></span>
-      <em>{eff===0?t('noEffect'):`${min}–${max}%`}</em>
-     </div>})}</div>}
-    {foe&&!advice.length&&<p className="list-empty">{team.length&&team.every(mon=>mon.out)?t('outAll'):t('noDamage')}</p>}
-   
-   </section>
    <p className="list-source">{t('statsNote')}</p>
   </div>
  </div>;

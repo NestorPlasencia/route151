@@ -326,18 +326,6 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .team-stats dt{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .team-stats dd{margin:2px 0 0;font-size:14px;font-weight:bold}
 .team-moves{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
-.team-vs{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:4px}
-.team-vs h3{display:flex;align-items:center;gap:8px;margin:0 0 4px;font-size:14px}
-.team-vs h3 svg{width:16px;color:var(--blue)}
-.team-foe{margin:8px 0 0}
-.team-advice{display:flex;flex-direction:column;gap:6px;margin-top:10px}
-.advice-row{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px;border-radius:9px;background:#f4f7fb}
-.advice-row b{display:block;font-size:13px}
-.advice-row small{color:var(--muted);font-size:10px}
-.advice-row em{font-style:normal;font-weight:bold;font-size:13px}
-.advice-row.good{background:#eaf7ef}.advice-row.good em{color:#23a66c}
-.advice-row.bad{background:#fdf1ef}.advice-row.bad em{color:#d2553d}
-.advice-row.none{opacity:.6}
 @media (max-width:1024px),(pointer:coarse) and (max-width:1366px){.team-moves{grid-template-columns:1fr}}
 /* La ficha de cada Pokemon usa <header>: no debe heredar la cabecera de la app. */
 .team-mon>header{height:auto;padding:0;gap:10px;background:none;color:var(--ink);border:0}
