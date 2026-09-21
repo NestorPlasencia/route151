@@ -6,7 +6,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {ArrowDown,ArrowUp,HeartCrack,Plus,Search,Swords,X} from 'lucide-react';
 import {Figure,Num} from './shared';
-import {ScanPanel} from './scan';
+import {ScanCard} from './scan';
 import type {T} from './i18n';
 import type {Dex} from './lists';
 
@@ -346,9 +346,6 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
    moves:[...assumedMoves(battle,n,level),null,null,null,null].slice(0,4),bench:party.length>=6,guess}]);
   setQuery('');
  };
- // Alta desde el lector de fichas: llega ya con nivel, naturaleza, ataques y
- // las cifras que pone el juego.
- const addScanned=(mon:Omit<TeamMon,'id'>)=>save([...team,{...mon,id:`${mon.n}-${Date.now()}`,bench:party.length>=6}]);
  const update=(id:string,change:Partial<TeamMon>)=>save(team.map(mon=>{
   if(mon.id!==id)return mon;
   // Lo que acabas de escribir ya no es un supuesto. Las estadisticas escritas
@@ -359,7 +356,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   const next={...mon,...change,guess:guess?.length?guess:undefined};
   // Si los ataques siguen siendo supuestos y cambias el nivel, se rehacen: a
   // otro nivel el juego le habria ensenado otra cosa.
-  if(change.level!==undefined&&guess?.includes('moves'))
+  if(change.level!==undefined&&change.moves===undefined&&guess?.includes('moves'))
    next.moves=[...assumedMoves(battle,next.n,next.level),null,null,null,null].slice(0,4);
   return next;
  }));
@@ -542,6 +539,9 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
      <p className="team-note">{t('compareNote')}</p>
     </details>;
    })()}
+   {/* El lector vive dentro de cada Pokemon: sirve para enriquecer el que ya
+       tienes, y sabiendo de que especie es acierta mucho mas. */}
+   <ScanCard battle={battle} dex={dex} mon={mon} tr={tr} onFill={change=>update(mon.id,change)}/>
    <h4 className="team-moves-head">{t('scanMoves')}{guessed(mon,'moves')}</h4>
    <div className="team-moves">{[0,1,2,3].map(i=>{
     const move=mon.moves[i]?battle.moves[mon.moves[i]!]:null;
@@ -569,9 +569,6 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
    {party.length>=6&&query&&<p className="team-note">{t('partyFull')}</p>}
   </div>
   <div className="list-body team">
-   {/* El lector va en el cuerpo, no en la cabecera: la cabecera no hace
-       scroll y su panel abierto dejaba el boton fuera de la pantalla. */}
-   <ScanPanel battle={battle} dex={dex} tr={tr} onAdd={addScanned}/>
    {party.map(card)}
    {!party.length&&<p className="list-empty">{t('teamEmpty')}</p>}
    {!team.length&&<p className="team-note team-hint">{t('quickAdd')}</p>}

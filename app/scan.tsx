@@ -11,7 +11,7 @@
 // en la ficha normal.
 import {useState} from 'react';
 import {Camera,Images,ScanLine,X} from 'lucide-react';
-import {STATS,assumedMoves,genes,type Battle,type TeamMon} from './team';
+import {STATS,genes,type Battle,type TeamMon} from './team';
 import {Num} from './shared';
 import type {T} from './i18n';
 import type {Dex} from './lists';
@@ -24,7 +24,7 @@ const LANG='/vendor/tesseract';
 
 export type Draft={
  species:number[];level:number|null;levels:number[];nature:string|null;natures:string[];
- ability:string|null;abilityText:string|null;stats:number[]|null;odd:number[]|null;moves:string[];
+ ability:string|null;abilityText:string|null;stats:number[]|null;odd:number[]|null;moves:string[];other:number|null;
 };
 
  // En una foto la pantalla del juego es una isla de luz en medio del negro del
@@ -303,7 +303,10 @@ export async function scanCards(files:File[],onStep:(done:number,total:number)=>
  return texts;
 }
 
-export function readDraft(battle:Battle,dex:Dex,texts:string[]):Draft{
+// `only`: la especie de la ficha que se esta rellenando. Sabiendola, los
+// ataques se buscan solo entre los suyos y las cifras se validan contra sus
+// niveles, que es mucho mas fiable que adivinar de quien es la foto.
+export function readDraft(battle:Battle,dex:Dex,texts:string[],only?:number):Draft{
  const tables:Tables={
   moves:Object.entries(battle.moves).map(([key,move])=>[move.name,key]),
   abilities:Object.entries(battle.abilities).map(([key,name])=>[name,key]),
@@ -312,7 +315,10 @@ export function readDraft(battle:Battle,dex:Dex,texts:string[]):Draft{
  };
  const reads=texts.map(text=>readOne(text,tables));
  let moves=reads.map(read=>read.moves).reduce((best,list)=>list.length>best.length?list:best,[] as string[]);
- const named=reads.find(read=>read.named!==null)?.named??null;
+ const read=reads.find(entry=>entry.named!==null)?.named??null;
+ const named=only??read;
+ // Si la foto es de otro Pokemon distinto del de la ficha, se avisa.
+ const other=only!==undefined&&read!==null&&read!==only?read:null;
  const ability=reads.find(read=>read.ability)?.ability??null;
  // Con la especie leida de la ficha de Informacion se descartan los ataques
  // que ese Pokemon no puede aprender: en una foto el lector confunde nombres
@@ -334,6 +340,7 @@ export function readDraft(battle:Battle,dex:Dex,texts:string[]):Draft{
   ?options.find(stats=>guesses.some(n=>fitLevels(battle,n,stats).length>0))??null
   :options[0]??null;
  const draft:Draft={
+  other,
   species:named!==null?[named]:speciesFrom(battle,moves,usable),
   level:null,levels:[],nature:reads.find(read=>read.nature)?.nature??null,natures:[],
   ability,abilityText:ability?battle.abilities[ability]??null:null,stats:usable,moves,
@@ -341,14 +348,14 @@ export function readDraft(battle:Battle,dex:Dex,texts:string[]):Draft{
   // ensenan igual, porque callarlas parece que la ficha no se leyo.
   odd:usable?null:options[0]??null,
  };
- const only=draft.species.length===1?draft.species[0]:null;
- if(only!==null&&draft.stats){
-  const fits=fitLevels(battle,only,draft.stats);
+ const single=draft.species.length===1?draft.species[0]:null;
+ if(single!==null&&draft.stats){
+  const fits=fitLevels(battle,single,draft.stats);
   draft.levels=fits.map(fit=>fit.level);
   // Si la naturaleza se leyo, manda ella y el nivel se elige entre los que la
   // admiten; si no, se ofrece el nivel del medio de los posibles.
-  const read=draft.nature;
-  const withNature=read?fits.filter(fit=>fit.natures.includes(read)):fits;
+  const got=draft.nature;
+  const withNature=got?fits.filter(fit=>fit.natures.includes(got)):fits;
   const list=withNature.length?withNature:fits;
   const chosen=list[Math.floor(list.length/2)];
   draft.level=chosen?.level??null;
@@ -358,12 +365,15 @@ export function readDraft(battle:Battle,dex:Dex,texts:string[]):Draft{
  return draft;
 }
 
-export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAdd:(mon:Omit<TeamMon,'id'>)=>void}){
+// Lector de una ficha concreta: vive dentro del Pokemon que ya tienes en el
+// equipo y sirve para enriquecerlo con lo que pone tu partida. Como la especie
+// ya se sabe, los ataques se buscan solo entre los suyos y las cifras se
+// validan contra sus niveles.
+export function ScanCard({battle,dex,mon,tr,onFill}:{battle:Battle;dex:Dex;mon:TeamMon;tr:T;onFill:(change:Partial<TeamMon>)=>void}){
  const {t,move:moveName,ability:abilityName,nature:natureName}=tr;
  const [busy,setBusy]=useState<string|null>(null);
  const [error,setError]=useState<string|null>(null);
  const [draft,setDraft]=useState<Draft|null>(null);
- const [species,setSpecies]=useState<number|null>(null);
  const [picked,setPicked]=useState<number|null>(null);
  // La camara del movil da una foto por vez, asi que las fichas se van
  // sumando: cada lectura se guarda y el borrador se rehace con todas.
@@ -373,7 +383,7 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
  const [fixed,setFixed]=useState<number[]|null>(null);
  const names=new Map(dex.species.map(s=>[s.n,s.name]));
 
- const clear=()=>{setPages([]);setDraft(null);setSpecies(null);setPicked(null);setFixed(null);setError(null)};
+ const clear=()=>{setPages([]);setDraft(null);setPicked(null);setFixed(null);setError(null)};
 
  const run=async(files:File[])=>{
   if(!files.length)return;
@@ -382,56 +392,49 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
   try{
    const fresh=await scanCards(files,(done,total)=>setBusy(t('scanReading',{done:Math.min(done+1,total),total})));
    const all=[...pages,...fresh];
-   const read=readDraft(battle,dex,all);
+   const read=readDraft(battle,dex,all,mon.n);
    // Lo escrito a mano no se toca: si el lector termina mientras corriges una
    // cifra, lo tuyo manda.
-   setPages(all);setDraft(read);
-   // La especie elegida a mano se respeta si sigue entre las posibles.
-   setSpecies(old=>old!==null&&(!read.species.length||read.species.includes(old))?old
-    :read.species.length===1?read.species[0]:null);
-   setPicked(null);
-   if(!read.stats&&!read.moves.length&&read.species.length!==1)setError(t('scanNothing'));
+   setPages(all);setDraft(read);setPicked(null);
+   if(!read.stats&&!read.moves.length&&!read.ability&&!read.nature)setError(t('scanNothing'));
   }catch(e){
    console.error('No se pudo leer la ficha',e);
    setError(t('scanFailed'));
   }finally{setBusy(null)}
  };
 
- // Con la especie ya elegida, las cifras dicen a que niveles pudo salir y con
- // que naturalezas. Se recalcula aqui porque la especie se puede cambiar a
- // mano despues de leer.
- // Lo que se ve en las casillas: lo corregido a mano, lo leido, o lo leido y
- // rechazado (que se ensena igual, para poder arreglar el digito que falle).
  const shown=fixed??draft?.stats??draft?.odd??[0,0,0,0,0,0];
  const full=shown.every(value=>value>0)?shown:null;
- const fits=full&&species!==null?fitLevels(battle,species,full):[];
- // Solo valen como estadisticas si cuadran con algun nivel de la especie.
- const stats=fits.length?full:null;
+ const fits=full?fitLevels(battle,mon.n,full):[];
  const levels=fits.map(fit=>fit.level);
  const level=picked!==null&&(!levels.length||levels.includes(picked))?picked
   :levels[Math.floor(levels.length/2)]??null;
  const natures=fits.find(fit=>fit.level===level)?.natures??[];
  const nature=draft?.nature&&(!natures.length||natures.includes(draft.nature))?draft.nature
   :natures.length===1?natures[0]:null;
- const chosen=species!==null?battle.species[species]:null;
- // Que ficha falta por pasar, para poder pedirla sin adivinar.
+ // Solo valen como estadisticas si cuadran con algun nivel de este Pokemon.
+ const stats=fits.length?full:null;
  const missing=([
-  [!stats,'scanCardSkills'],[!draft?.moves.length,'scanCardMoves'],
-  [draft!==null&&draft.species.length!==1&&!stats,'scanCardInfo'],
+  [!stats,'scanCardSkills'],[!draft?.moves.length,'scanCardMoves'],[!draft?.nature,'scanCardInfo'],
  ] as const).flatMap(([need,card])=>need?[card]:[]);
 
- const add=()=>{
-  if(!draft||species===null||!chosen)return;
-  const useLevel=level??5;
-  const moves=(draft.moves.length?draft.moves:assumedMoves(battle,species,useLevel)).slice(0,4);
-  onAdd({n:species,level:useLevel,nature:nature??natures[0]??'Hardy',ability:draft.ability??chosen.abilities[0]??'',
-   moves:[...moves,null,null,null,null].slice(0,4),stats:stats??undefined});
+ // Se rellena solo lo que la ficha haya dado: lo que no salga se queda como
+ // estaba, que puede ser tuyo de antes.
+ const fill=()=>{
+  if(!draft)return;
+  const change:Partial<TeamMon>={};
+  if(stats){change.stats=stats;if(level)change.level=level}
+  if(nature)change.nature=nature;
+  if(draft.ability)change.ability=draft.ability;
+  if(draft.moves.length)change.moves=[...draft.moves,null,null,null,null].slice(0,4);
+  if(Object.keys(change).length)onFill(change);
   clear();
  };
 
+ const something=!!draft&&(!!stats||!!nature||!!draft.ability||draft.moves.length>0);
  return <details className="team-scan">
   <summary><ScanLine/>{t('scan')}</summary>
-  <p className="team-note">{t('scanHelp')}</p>
+  <p className="team-note">{t('scanCardHelp',{pokemon:names.get(mon.n)??String(mon.n)})}</p>
   <div className="scan-picks">
    {/* `capture` abre la camara; sin el, el movil deja escoger de la galeria. */}
    <label className="scan-pick">
@@ -447,21 +450,12 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
   </div>
   {error&&<p className="team-note scan-error">{error}</p>}
   {draft&&<div className="scan-draft">
+   {draft.other!==null&&<p className="team-note scan-warn">{t('scanOther',{pokemon:names.get(draft.other)??String(draft.other)})}</p>}
    <dl>
-    <div><dt>{t('pokemon')}</dt><dd>
-     {draft.species.length===1
-      ?<b>{names.get(draft.species[0])??draft.species[0]}</b>
-      :<select value={species??''} onChange={e=>{setSpecies(+e.target.value||null);setPicked(null)}}>
-        <option value="">{t('scanPickSpecies')}</option>
-        {(draft.species.length?draft.species:dex.species.filter(s=>battle.species[s.n]).map(s=>s.n))
-         .map(n=><option key={n} value={n}>{names.get(n)??n}</option>)}
-       </select>}
-    </dd></div>
     <div><dt>{t('level')}</dt><dd>
      {levels.length>1
       ?<select value={level??''} onChange={e=>setPicked(+e.target.value||null)}>{levels.map(n=><option key={n} value={n}>{n}</option>)}</select>
-      :levels.length===1?<b>{levels[0]}</b>
-      :<Num value={picked??0} min={0} max={100} label={t('level')} onChange={n=>setPicked(n||null)}/>}
+      :<b>{level??'—'}</b>}
      <small>{levels.length>1?t('scanLevelGuess',{n:levels.length}):levels.length?t('scanLevelOnly'):t('scanLevelType')}</small>
     </dd></div>
     <div><dt>{t('nature')}</dt><dd>
@@ -469,22 +463,21 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
      {!nature&&natures.length>1&&<small>{t('scanNatureGuess',{n:natures.length})}</small>}
     </dd></div>
     <div><dt>{t('ability')}</dt><dd><b>{draft.abilityText?abilityName(draft.abilityText):'—'}</b></dd></div>
+    <div><dt>{t('scanMoves')}</dt><dd><b>{draft.moves.length?draft.moves.map(m=>moveName(battle.moves[m].name)).join(' · '):'—'}</b></dd></div>
     <div className="scan-stats"><dt>{t('scanStats')}</dt><dd>
      <div className="scan-numbers">{STATS.map((stat,i)=>
       <label key={stat}><small>{t(('stat_'+stat) as never)}</small>
        <Num value={shown[i]} min={0} max={999} label={t(('stat_'+stat) as never)}
         onChange={value=>setFixed(old=>(old??shown).map((was,j)=>j===i?value:was))}/>
       </label>)}</div>
-     {!stats&&species!==null&&full&&<small className="scan-warn">{t('scanStatsOdd')}</small>}
+     {!stats&&full&&<small className="scan-warn">{t('scanStatsOdd')}</small>}
      {!shown.some(value=>value>0)&&<small>{t('scanStatsType')}</small>}
     </dd></div>
-    <div><dt>{t('scanMoves')}</dt><dd><b>{draft.moves.length?draft.moves.map(m=>moveName(battle.moves[m].name)).join(' · '):'—'}</b></dd></div>
    </dl>
    {missing.length>0&&<p className="team-note scan-more">{t('scanMore',{cards:missing.map(card=>t(card)).join(', ')})}</p>}
-   {chosen&&draft.ability&&!chosen.abilities.includes(draft.ability)&&<p className="team-note scan-warn">{t('scanOtherGame')}</p>}
-   {species===null&&<p className="team-note scan-more">{t('scanChoose')}</p>}
+   {draft.ability&&!battle.species[mon.n]?.abilities.includes(draft.ability)&&<p className="team-note scan-warn">{t('scanOtherGame')}</p>}
    <div className="scan-actions">
-    <button className="scan-add" disabled={species===null} onClick={add}>{t('scanAdd')}</button>
+    <button className="scan-add" disabled={!something} onClick={fill}>{t('scanFill')}</button>
     <button className="team-reset" onClick={clear}><X/>{t('scanDiscard')}</button>
     <small className="scan-count">{t('scanCards',{n:pages.length})}</small>
    </div>
