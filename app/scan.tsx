@@ -12,6 +12,7 @@
 import {useState} from 'react';
 import {Camera,Images,ScanLine,X} from 'lucide-react';
 import {STATS,assumedMoves,genes,type Battle,type TeamMon} from './team';
+import {Num} from './shared';
 import type {T} from './i18n';
 import type {Dex} from './lists';
 
@@ -460,8 +461,7 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
      {levels.length>1
       ?<select value={level??''} onChange={e=>setPicked(+e.target.value||null)}>{levels.map(n=><option key={n} value={n}>{n}</option>)}</select>
       :levels.length===1?<b>{levels[0]}</b>
-      :<input type="number" min={1} max={100} value={picked??''} placeholder="—"
-        onChange={e=>setPicked(e.target.value?Math.max(1,Math.min(100,+e.target.value)):null)}/>}
+      :<Num value={picked??0} min={0} max={100} label={t('level')} onChange={n=>setPicked(n||null)}/>}
      <small>{levels.length>1?t('scanLevelGuess',{n:levels.length}):levels.length?t('scanLevelOnly'):t('scanLevelType')}</small>
     </dd></div>
     <div><dt>{t('nature')}</dt><dd>
@@ -472,11 +472,8 @@ export function ScanPanel({battle,dex,tr,onAdd}:{battle:Battle;dex:Dex;tr:T;onAd
     <div className="scan-stats"><dt>{t('scanStats')}</dt><dd>
      <div className="scan-numbers">{STATS.map((stat,i)=>
       <label key={stat}><small>{t(('stat_'+stat) as never)}</small>
-       <input type="number" min={0} max={999} value={shown[i]||''} placeholder="—" aria-label={t(('stat_'+stat) as never)}
-        onChange={e=>{const value=Math.max(0,Math.min(999,+e.target.value||0));
-         // Forma funcional: al escribir rapido dos casillas seguidas, la
-         // segunda pisaba a la primera si partia de la copia ya vieja.
-         setFixed(old=>(old??shown).map((was,j)=>j===i?value:was))}}/>
+       <Num value={shown[i]} min={0} max={999} label={t(('stat_'+stat) as never)}
+        onChange={value=>setFixed(old=>(old??shown).map((was,j)=>j===i?value:was))}/>
       </label>)}</div>
      {!stats&&species!==null&&full&&<small className="scan-warn">{t('scanStatsOdd')}</small>}
      {!shown.some(value=>value>0)&&<small>{t('scanStatsType')}</small>}

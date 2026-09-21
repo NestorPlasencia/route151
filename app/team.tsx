@@ -5,7 +5,7 @@
 // generacion), suponiendo IVs de 15 y sin EVs, que es lo normal en una partida.
 import {useEffect,useMemo,useState} from 'react';
 import {ArrowDown,ArrowUp,HeartCrack,Plus,Search,Swords,X} from 'lucide-react';
-import {Figure} from './shared';
+import {Figure,Num} from './shared';
 import {ScanPanel} from './scan';
 import type {T} from './i18n';
 import type {Dex} from './lists';
@@ -426,34 +426,36 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
    <summary>
     <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
     <div className="team-title">
-     <b>{info?.name??mon.n}</b>
-     <span className="types">{s.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span>
-    </div>
-    <span className="team-sum">
-     <em>{t('levelShort',{n:mon.level})}</em>
+     <span className="team-name"><b>{info?.name??mon.n}</b>
+      <span className="types">{s.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span></span>
      <small>{mon.out?t('out'):known===0?t('movesNone'):known===1?t('movesCountOne'):t('movesCount',{n:known})}{!mon.out&&mon.guess?.length?` · ${t('assumed')}`:''}</small>
+    </div>
+    {/* El nivel se toca mucho: se edita aqui sin abrir la ficha. Dentro de un
+        summary hay que frenar el clic, que si no la abre. */}
+    <span className="team-level">
+     <small>{t('levelShort',{n:''}).trim()}</small>
+     <Num stop value={mon.level} min={1} max={100} label={t('level')} onChange={n=>update(mon.id,{level:n})}/>
     </span>
-    {/* Dentro de un summary hay que frenar el clic: si no, ademas de marcarlo
-        se abriria la ficha. */}
     <button className={`team-out ${mon.out?'on':''}`} title={mon.out?t('outBack'):t('outMark')} aria-label={mon.out?t('outBack'):t('outMark')}
      onClick={e=>{e.preventDefault();e.stopPropagation();update(mon.id,{out:!mon.out})}}><HeartCrack/></button>
+    <button className="team-remove" aria-label={t('remove')} title={t('remove')}
+     onClick={e=>{e.preventDefault();e.stopPropagation();save(team.filter(x=>x.id!==mon.id))}}><X/></button>
    </summary>
    <div className="team-open">
    <div className="team-actions">
     <button className="team-move" title={mon.bench?t('toParty'):t('toBench')} aria-label={mon.bench?t('toParty'):t('toBench')}
      disabled={!!mon.bench&&party.length>=6} onClick={()=>update(mon.id,{bench:!mon.bench})}>{mon.bench?<ArrowUp/>:<ArrowDown/>}{mon.bench?t('toParty'):t('toBench')}</button>
     <button className={`team-move ${mon.out?'on':''}`} onClick={()=>update(mon.id,{out:!mon.out})}><HeartCrack/>{mon.out?t('outBack'):t('outMark')}</button>
-    <button className="team-remove" aria-label={t('remove')} onClick={()=>save(team.filter(x=>x.id!==mon.id))}><X/></button>
    </div>
    <div className="team-fields">
-    <label>{t('level')}{guessed(mon,'level')}<input type="number" min={1} max={100} value={mon.level} onChange={e=>update(mon.id,{level:Math.max(1,Math.min(100,+e.target.value||1))})}/></label>
+    <label>{t('level')}{guessed(mon,'level')}<Num value={mon.level} min={1} max={100} label={t('level')} onChange={n=>update(mon.id,{level:n})}/></label>
     <label>{t('nature')}{guessed(mon,'nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${t(('stat_'+up) as never)} −${t(('stat_'+down) as never)})`:''}</option>)}</select></label>
     <label>{t('ability')}{guessed(mon,'ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{[...new Set([...s.abilities,mon.ability].filter(Boolean))].map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>
    </div>
    <dl className={`team-stats ${own?'own':''}`}>{STATS.map((stat,i)=><div key={stat}>
     <dt>{t(('stat_'+stat) as never)}</dt>
-    <dd><input type="number" min={1} max={999} value={stats[i]} aria-label={t(('stat_'+stat) as never)}
-     onChange={e=>update(mon.id,{stats:stats.map((v,j)=>j===i?Math.max(1,Math.min(999,+e.target.value||1)):v)})}/></dd>
+    <dd><Num value={stats[i]} min={1} max={999} label={t(('stat_'+stat) as never)}
+     onChange={n=>update(mon.id,{stats:stats.map((v,j)=>j===i?n:v)})}/></dd>
     <small>{t('baseStat',{n:s.base[i]})}{own&&' · '}{own&&(fit=>fit?ivLabel(fit):<span title={t('ivNoFitHelp')}>{t('ivNoFit')}</span>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}</small>
    </div>)}</dl>
    <p className="team-note">{own&&<span className="team-iv">{t('ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
@@ -585,7 +587,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
       <option value="">—</option>
       {dex.species.filter(s=>battle.species[s.n]).map(s=><option key={s.n} value={s.n}>{s.name}</option>)}
      </select></label>
-     <label>{t('level')}<input type="number" min={1} max={100} value={targetLevel} onChange={e=>setTargetLevel(Math.max(1,Math.min(100,+e.target.value||1)))}/></label>
+     <label>{t('level')}<Num value={targetLevel} min={1} max={100} label={t('level')} onChange={setTargetLevel}/></label>
     </div>
     {foe&&<p className="team-foe"><span className="types">{foe.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span></p>}
     {advice.length>0&&<div className="team-advice">{advice.map(({mon,move,eff,min,max})=>{

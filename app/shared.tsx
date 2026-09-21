@@ -1,4 +1,6 @@
+'use client';
 // Piezas comunes al mapa, la checklist y la Pokedex.
+import {useEffect,useState} from 'react';
 import {Backpack,Gift,ListChecks,MapPin,Mountain,Search,Sparkles,Store,Swords} from 'lucide-react';
 import trainerIcons from '../public/data/trainer-icons.json';
 import type {T} from './i18n';
@@ -50,3 +52,34 @@ export function Credits({game,tr}:{game:string;tr:T}){return <div className="cre
  <ul>{(game==='yellow'?yellowCredits(tr):frlgCredits(tr)).map(c=><li key={c.what}><span>{c.what}</span><a href={c.href} target="_blank" rel="noreferrer">{c.who}</a>{c.note&&<small>{c.note}</small>}</li>)}</ul>
  <p>{tr.t('disclaimer')}</p>
 </div>}
+
+// Casilla de numeros que aguanta que la borres. Una casilla controlada con
+// type=number se pelea con el teclado de Android: al borrar la ultima cifra el
+// valor vuelve solo y queda un digito pegado. Aqui se guarda lo que escribes
+// tal cual, se avisa al padre solo cuando es un numero dentro del rango, y al
+// salir se ajusta. El teclado sigue siendo el numerico por `inputMode`.
+// `stop`: frena el clic para poder usarla dentro de un <summary> sin que este
+// abra o cierre la ficha.
+export function Num({value,min,max,onChange,label,className,stop}:{value:number;min:number;max:number;onChange:(n:number)=>void;label?:string;className?:string;stop?:boolean}){
+ const [text,setText]=useState(String(value));
+ const [typing,setTyping]=useState(false);
+ useEffect(()=>{if(!typing)setText(String(value))},[value,typing]);
+ const clamp=(n:number)=>Math.max(min,Math.min(max,n));
+ return <input type="text" inputMode="numeric" pattern="[0-9]*" className={className} aria-label={label} value={text}
+  onClick={stop?(e=>{e.preventDefault();e.stopPropagation();e.currentTarget.focus()}):undefined}
+  onFocus={()=>setTyping(true)}
+  onChange={e=>{
+   const raw=e.target.value.replace(/\D/g,'').slice(0,4);
+   setText(raw);
+   const n=Number(raw);
+   // Mientras escribes solo se confirma lo que ya vale: asi "1" camino de
+   // "15" no se convierte en otra cosa ni el campo se queda a medias.
+   if(raw&&n>=min&&n<=max)onChange(n);
+  }}
+  onBlur={()=>{
+   setTyping(false);
+   const n=Number(text);
+   if(!text||Number.isNaN(n)){setText(String(value));return}
+   onChange(clamp(n));setText(String(clamp(n)));
+  }}/>;
+}

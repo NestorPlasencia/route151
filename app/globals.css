@@ -286,9 +286,14 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .team-mon>summary::after{content:'⌄';margin-left:4px;color:var(--muted);font-size:15px;line-height:1}
 .team-mon[open]>summary::after{content:'⌃'}
 .team-mon>summary .fig{width:34px;height:30px;flex:none}
-.team-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.team-title{display:flex;flex-direction:column;gap:2px;min-width:0;margin-right:auto}
 .team-title b{font-size:15px}
-.team-sum{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:1px;text-align:right}
+.team-title small{font-size:10px;color:var(--muted)}
+.team-name{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.team-level{flex:none;display:flex;align-items:center;gap:5px}
+.team-level small{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.team-level input{width:46px;height:28px;border:1px solid var(--line);border-radius:7px;background:#f8fafc;padding:0 4px;font:inherit;font-size:13px;font-weight:bold;text-align:center;color:var(--ink)}
+.team-mon>summary .team-remove{margin-left:0}
 .team-sum em{font-style:normal;font-weight:bold;font-size:13px}
 .team-sum small{font-size:10px;color:var(--muted)}
 .team-open{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
@@ -299,8 +304,8 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .team-out svg{width:15px}
 .team-out.on{background:#fdeaea;border-color:#f0bcbc;color:#b4232a}
 .team-mon.out{background:#fbfbfc}
-.team-mon.out>summary .fig,.team-mon.out>summary .team-title{opacity:.5}
-.team-mon.out>summary .team-sum small{color:#b4232a}
+.team-mon.out>summary .fig,.team-mon.out>summary .team-name{opacity:.5}
+.team-mon.out>summary .team-title small{color:#b4232a}
 .team-actions .team-move.on{background:#fdeaea;border-color:#f0bcbc;color:#b4232a}
 .team-guess{align-self:flex-start;width:fit-content;margin-left:6px;padding:1px 6px;border-radius:999px;background:#fff3d6;color:#8a5a00;font-style:normal;font-size:9px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
 .team-hint{text-align:center;max-width:420px;margin:0 auto}
