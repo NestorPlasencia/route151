@@ -406,6 +406,26 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
  const moveLabel=(key:string)=>{const m=battle.moves[key];
   const kind=m.power?t(m.category==='physical'?'physicalShort':'specialShort'):t('statusShort');
   return `${moveName(m.name)} · ${typeName(m.type)} · ${categorySymbol(moveKind(m))} ${kind}${m.power?` ${m.power}`:''}`};
+ // La Pokedex guarda de quien viene cada especie y como; para saber en que
+ // evoluciona una se mira esa relacion al reves.
+ const evolutionsOf=(n:number)=>dex.species.filter(other=>other.from?.n===n&&battle.species[other.n]);
+ // Nivel al que evoluciona, si es por nivel: sirve para avisar de que ya toca.
+ const atLevel=(method:string|null)=>{const found=/^level (\d+)$/.exec(method??'');return found?+found[1]:null};
+
+ // Evolucionar conserva lo que el juego conserva: nivel, naturaleza y ataques.
+ // La habilidad cambia solo si la que tenia no existe en la nueva especie, y
+ // las estadisticas escritas se borran porque eran las del anterior: las bases
+ // son otras y el nivel que se dedujo de ellas ya no cuadraria.
+ const evolve=(mon:TeamMon,into:number)=>{
+  const next=battle.species[into];if(!next)return;
+  const ability=next.abilities.includes(mon.ability)?mon.ability:next.abilities[0]??'';
+  // Si los ataques eran supuestos siguen siendolo, pero los del que ahora es.
+  const moves=mon.guess?.includes('moves')
+   ?[...assumedMoves(battle,into,mon.level),null,null,null,null].slice(0,4)
+   :mon.moves;
+  save(team.map(other=>other.id===mon.id?{...other,n:into,ability,moves,stats:undefined}:other));
+ };
+
  // Un supuesto se marca junto al campo, para saber de un vistazo que viene de
  // tu partida y que lo puso la app.
  const guessed=(mon:TeamMon,field:Guess)=>mon.guess?.includes(field)
@@ -416,7 +436,9 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   const stats=mon.stats??estimate,own=!!mon.stats,profile=buildProfile(battle,mon);
   const known=mon.moves.filter(Boolean).length;
   // La ficha nace plegada: anadir un Pokemon no deberia abrir un formulario.
-  const shown=open.includes(mon.id);
+  const shown=open.includes(mon.id),evolutions=evolutionsOf(mon.n);
+  // Le toca cuando alguna de sus evoluciones es por nivel y ya lo alcanzo.
+  const ready=evolutions.some(evo=>(atLevel(evo.from?.method??null)??101)<=mon.level);
   return <article key={mon.id} className={`team-mon ${mon.out?'out':''}`}>
    <div className="team-row">
     <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
@@ -424,6 +446,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
      <span className="team-name"><b>{info?.name??mon.n}</b>
       <span className="types">{s.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span>
       {mon.out&&<i className="team-ko">{t('out')}</i>}
+      {ready&&<i className="team-ready">{t('canEvolve')}</i>}
       {!mon.out&&mon.guess?.length?<i className="team-guess">{t('assumed')}</i>:null}</span>
     </div>
     <span className="team-level">
@@ -547,6 +570,17 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
      <p className="team-note">{t('compareNote')}</p>
     </details>;
    })()}
+   {evolutions.length>0&&<div className="team-evo">
+    <h4>{t('evolve')}</h4>
+    <div className="evo-options">{evolutions.map(evo=>{
+     const level=atLevel(evo.from?.method??null);
+     return <button key={evo.n} className={level!==null&&level<=mon.level?'ready':''} onClick={()=>evolve(mon,evo.n)}>
+      <Figure m={{icon:evo.icon,category:'Pokémon'}}/>
+      <span><b>{evo.name}</b><small>{evo.from?.method?tr.evo(evo.from.method):t('evolveHow')}</small></span>
+     </button>;
+    })}</div>
+    <p className="team-note">{t('evolveNote')}</p>
+   </div>}
    {/* El lector vive dentro de cada Pokemon: sirve para enriquecer el que ya
        tienes, y sabiendo de que especie es acierta mucho mas. */}
    <ScanCard battle={battle} dex={dex} mon={mon} tr={tr} onFill={change=>update(mon.id,change)}/>

@@ -287,6 +287,16 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .team-open-toggle svg{width:16px;transition:transform .15s}
 .team-open-toggle.on{color:var(--blue);border-color:#c3d5f5;background:#eef4ff}
 .team-open-toggle.on svg{transform:rotate(180deg)}
+.team-ready{font-style:normal;font-size:9px;font-weight:bold;color:#1f7a4d;background:#e4f6ec;padding:1px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:.04em}
+.team-evo{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fbfcfe;padding:8px 10px}
+.team-evo h4{margin:0 0 8px;font-size:12px;font-weight:bold;color:var(--blue)}
+.evo-options{display:flex;flex-wrap:wrap;gap:6px}
+.evo-options button{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer;text-align:left;font:inherit}
+.evo-options button:hover{border-color:var(--blue)}
+.evo-options button.ready{border-color:#9fd9bb;background:#f2fbf6}
+.evo-options .fig{width:30px;height:26px;flex:none}
+.evo-options b{display:block;font-size:12px}
+.evo-options small{font-size:10px;color:var(--muted)}
 .team-ko{font-style:normal;font-size:9px;font-weight:bold;color:#b4232a;text-transform:uppercase;letter-spacing:.04em}
 /* Los ataques en la fila: el color dice el tipo y el simbolo si pega de
    fisico, de especial o si es de estado. */
