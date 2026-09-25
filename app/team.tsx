@@ -307,7 +307,7 @@ export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=tr
     <i className="battle-arrow" aria-hidden="true">→</i>
    </>}
    {!showOpponent&&<><b className={`battle-context ${good?'good':'poor'}`}>{tr.t(good?'battleGoodAgainst':'battlePoorAgainst',{pokemon:tr.name(target.name)})}</b><i className="battle-arrow" aria-hidden="true">→</i></>}
-   <div className="battle-mon"><Figure m={{icon:attacker.icon,category:'Pokémon'}}/><span><b>{tr.name(attacker.name)}</b><small>{tr.t('battleUse',{move:tr.move(best.move.name),min:best.d.min,max:best.d.max})}</small></span></div>
+   <div className="battle-mon"><Figure m={{icon:attacker.icon,category:'Pokémon'}}/><span><b>{tr.name(attacker.name)} <em className="battle-lv">{tr.t('levelShort',{n:best.mon.level})}</em></b><small>{tr.t('battleUse',{move:tr.move(best.move.name)})}</small><small>{tr.t('battleHit',{range:best.d.min===best.d.max?`${best.d.max}`:`${best.d.min}–${best.d.max}`})}</small></span></div>
   </div>}
   {!good&&<p className="battle-warning">{tr.t('battleNoGood')}</p>}
  </div>)}</div>;
