@@ -266,8 +266,18 @@ export const trainerOpponents=(detail?:string|null):Opponent[]=>(detail??'').spl
  return found?[{name:found[1],level:+found[2]}]:[];
 });
 
+// EVs que da un Pokemon al derrotarlo ("+1 At. Esp."), o la suma de varios.
+// En la tercera generacion no se reparten: cada Pokemon que participa en el
+// combate se los lleva enteros.
+export const evList=(evs:(number[]|undefined)[],tr:T)=>{
+ const total=STATS.map((_,i)=>evs.reduce((sum,ev)=>sum+(ev?.[i]??0),0));
+ // Espacios duros: si la lista baja de linea, no parte un "+1 Def. Esp.".
+ const got=total.flatMap((v,i)=>v?[`+${v} ${tr.t(('stat_'+STATS[i]) as never)}`.replace(/ /g,String.fromCharCode(160))]:[]);
+ return got.length?got.join(', '):null;
+};
+
 // Recomendación junto a un entrenador o encuentro: solo mira el equipo activo.
-export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=true,inline=false,foeDetail,foeEv}:{opponents:Opponent[];dex:Dex;battle:Battle|null;storageKey:string;tr:T;showOpponent?:boolean;inline?:boolean;foeDetail?:string|null;foeEv?:string|null}){
+export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=true,inline=false,foeDetail}:{opponents:Opponent[];dex:Dex;battle:Battle|null;storageKey:string;tr:T;showOpponent?:boolean;inline?:boolean;foeDetail?:string|null}){
  const [team,setTeam]=useState<TeamMon[]>([]);
  useEffect(()=>{
   const load=()=>{try{const saved=JSON.parse(localStorage.getItem(storageKey)||'[]');setTeam(Array.isArray(saved)?saved:[])}catch{setTeam([])}};
@@ -293,24 +303,32 @@ export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=tr
    return [{foe,target,best,attacker,good}];
   });
  },[battle,dex,opponents,team]);
+ const evsOf=(n:number)=>{const list=battle?evList([battle.species[n]?.ev],tr):null;return list?tr.t('evYield',{list}):null};
+ // Lo que suma todo el equipo del entrenador, repetidos incluidos: sale aunque
+ // aun no tengas equipo, porque sirve para decidir si merece la pena.
+ const total=useMemo(()=>{
+  if(!battle||inline||!showOpponent||opponents.length<2)return null;
+  const byName=new Map(dex.species.map(s=>[opponentName(s.name),s.n]));
+  return evList(opponents.map(foe=>battle.species[byName.get(opponentName(foe.name))??0]?.ev),tr);
+ },[battle,dex,opponents,inline,showOpponent,tr]);
  const fallbackTarget=useMemo(()=>{
   const foe=opponents[0];return foe?dex.species.find(s=>opponentName(s.name)===opponentName(foe.name))??null:null;
  },[dex,opponents]);
  // En el mapa un encuentro sigue siendo útil aunque aún no haya equipo: se
  // enseña su ficha normal, pero no se inventa una recomendación ni una flecha.
  if(!rows.length)return inline&&fallbackTarget?<div className="battle-advice inline"><div className="battle-match inline battle-match-empty">
-  <div className="battle-mon battle-foe"><Figure m={{icon:fallbackTarget.icon,category:'Pokémon'}}/><span><b>{tr.name(fallbackTarget.name)}</b><small>{foeDetail??tr.t('battleLevel',{level:opponents[0].level})}</small>{foeEv&&<small className="battle-ev">{foeEv}</small>}</span></div>
- </div></div>:null;
+  <div className="battle-mon battle-foe"><Figure m={{icon:fallbackTarget.icon,category:'Pokémon'}}/><span><b>{tr.name(fallbackTarget.name)}</b><small>{foeDetail??tr.t('battleLevel',{level:opponents[0].level})}</small>{(ev=>ev&&<small className="battle-ev">{ev}</small>)(evsOf(fallbackTarget.n))}</span></div>
+ </div></div>:total?<div className="battle-advice"><p className="battle-ev-total">{tr.t('evTotal',{list:total})}</p></div>:null;
  return <div className={`battle-advice ${inline?'inline':showOpponent?'':'compact'}`}>{rows.map(({foe,target,best,attacker,good})=><div key={`${foe.name}-${foe.level}`}>
   {best&&attacker&&<div className={`battle-match ${inline?'inline':showOpponent?'':'compact'}`}>
-   {showOpponent&&<><div className="battle-mon battle-foe"><Figure m={{icon:target.icon,category:'Pokémon'}}/><span><b>{tr.name(target.name)}</b><small>{inline&&foeDetail?foeDetail:tr.t('battleLevel',{level:foe.level})}</small>{inline&&foeEv&&<small className="battle-ev">{foeEv}</small>}</span></div>
+   {showOpponent&&<><div className="battle-mon battle-foe"><Figure m={{icon:target.icon,category:'Pokémon'}}/><span><b>{tr.name(target.name)}{!inline&&<> <em className="battle-lv">{tr.t('battleLevel',{level:foe.level})}</em></>}</b>{inline&&<small>{foeDetail??tr.t('battleLevel',{level:foe.level})}</small>}{(ev=>ev&&<small className="battle-ev">{ev}</small>)(evsOf(target.n))}</span></div>
     <i className="battle-arrow" aria-hidden="true">→</i>
    </>}
    {!showOpponent&&<><b className={`battle-context ${good?'good':'poor'}`}>{tr.t(good?'battleGoodAgainst':'battlePoorAgainst',{pokemon:tr.name(target.name)})}</b><i className="battle-arrow" aria-hidden="true">→</i></>}
    <div className="battle-mon"><Figure m={{icon:attacker.icon,category:'Pokémon'}}/><span><b>{tr.name(attacker.name)} <em className="battle-lv">{tr.t('levelShort',{n:best.mon.level})}</em></b><small>{tr.t('battleUse',{move:tr.move(best.move.name)})}</small><small>{tr.t('battleHit',{range:best.d.min===best.d.max?`${best.d.max}`:`${best.d.min}–${best.d.max}`})}</small></span></div>
   </div>}
   {!good&&<p className="battle-warning">{tr.t('battleNoGood')}</p>}
- </div>)}</div>;
+ </div>)}{total&&<p className="battle-ev-total">{tr.t('evTotal',{list:total})}</p>}</div>;
 }
 
 // Cuanto aporta un ataque al perfil actual. Sirve tanto para ordenar la tabla

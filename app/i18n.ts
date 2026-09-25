@@ -128,6 +128,7 @@ const TEXT = {
  judgeNote: ['Rating of each IV, like the judge in the games.', 'Valoración de cada IV, como el juez de los juegos.'],
  judgeTotal: ['Total {n} of 186', 'Total {n} de 186'],
  evYield: ['EVs: {list}', 'EVs: {list}'],
+ evTotal: ['EVs for the whole fight: {list}', 'EVs de todo el combate: {list}'],
  training: ['Worth training', 'Valor para entrenar'],
  trainingTop: ['best possible: {n}', 'máximo posible: {n}'],
  trainingAs: ['Scored as {name}, its final form, at level 100', 'Calculado como {name}, su evolución final, a nivel 100'],
