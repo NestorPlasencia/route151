@@ -29,9 +29,9 @@ export type TeamMon={id:string;n:number;level:number;nature:string;ability:strin
 export const STATS=['hp','atk','def','spa','spd','spe'] as const;
 const IV=15;
 // Gen 3: PS y las demas estadisticas con sus formulas, y la naturaleza al final.
-export function statsOf(base:number[],level:number,nature:[string|null,string|null]=[null,null]){
+export function statsOf(base:number[],level:number,nature:[string|null,string|null]=[null,null],ivs:number[]=STATS.map(()=>IV)){
  return STATS.map((key,i)=>{
-  const raw=Math.floor((2*base[i]+IV)*level/100);
+  const raw=Math.floor((2*base[i]+ivs[i])*level/100);
   if(key==='hp')return base[i]===1?1:raw+level+10; // Shedinja no existe aqui, pero por si acaso
   const mod=nature[0]===key?1.1:nature[1]===key?0.9:1;
   return Math.floor((raw+5)*mod);
@@ -202,6 +202,46 @@ export function buildProfile(battle:Battle,mon:TeamMon):BuildProfile|null{
  if(ability!=='none')reasons.push({key:'profileAbilityReason',value:{ability:mon.ability,kind:ability}});
  return {focus,fast,bulky,utility,ability,physical,special,status,titleKey,focusKey,reasons};
 }
+
+// Valor para entrenar, de 0 a 100: que tal sale este Pokemon en concreto si lo
+// subes hasta el final. Se mira a nivel 100 y en su ultima evolucion (un
+// Magikarp se entrena por el Gyarados que sera), con sus IVs y su naturaleza,
+// asi que especie, genes y naturaleza pesan lo que pesan de verdad en el juego:
+// la especie marca casi todo y los IVs y la naturaleza mueven unos 15 puntos.
+//
+// De los dos ataques solo cuenta el mayor: a un atacante fisico no le importa
+// el Ataque Especial, y una naturaleza que baja el que no usa es justo la buena.
+// Se decide con las cifras del propio ejemplar y no solo con las bases, porque
+// hay especies empatadas (Raichu, 90 y 90) donde la naturaleza elige. Pesos: ataque principal 30 %,
+// Velocidad 25 % y PS, Defensa y Def. Esp. 15 % cada una.
+//
+// Escala: 120 es un Pokemon final muy flojo con IVs a 0 y 280 un Mewtwo medio,
+// de modo que la mitad de las evoluciones finales quedan por debajo de 50.
+const TRAIN_WEIGHTS=[.15,.3,.15,.3,.15,.25];
+const TRAIN_FLOOR=120,TRAIN_TOP=280;
+const trainStats=(base:number[],ivs:number[],nature:[string|null,string|null])=>statsOf(base,100,nature,ivs);
+const mainAttack=(stats:number[])=>stats[1]>=stats[3]?1:3;
+const trainWeight=(base:number[],ivs:number[],nature:[string|null,string|null])=>{
+ const stats=trainStats(base,ivs,nature),main=mainAttack(stats);
+ return stats.reduce((sum,value,i)=>(i===1||i===3)&&i!==main?sum:sum+value*TRAIN_WEIGHTS[i],0);
+};
+const trainScore=(weight:number)=>Math.max(0,Math.min(100,Math.round((weight-TRAIN_FLOOR)/(TRAIN_TOP-TRAIN_FLOOR)*100)));
+// `species`, `ivs` y `nature` suman `score`: lo que da la especie con IVs de 15
+// y naturaleza neutra, y lo que suman o restan sus IVs y su naturaleza.
+// `top` es la nota del mejor ejemplar posible de esa especie.
+export type TrainingValue={score:number;into:number;main:'atk'|'spa';species:number;ivs:number;nature:number;top:number;known:boolean};
+export function trainingValue(battle:Battle,forms:number[],natureKey:string,ivs:number[]|null):TrainingValue|null{
+ const shown=forms.filter(n=>battle.species[n]);if(!shown.length)return null;
+ const nature=battle.natures[natureKey]??[null,null],neutral:[null,null]=[null,null];
+ const mid=STATS.map(()=>IV),own=ivs??mid;
+ const at=(n:number,iv:number[],mods:[string|null,string|null])=>trainWeight(battle.species[n].base,iv,mods);
+ // Si puede evolucionar de varias formas (Eevee), se toma la que mejor le sale.
+ const into=shown.reduce((a,b)=>at(b,own,nature)>at(a,own,nature)?b:a);
+ const score=trainScore(at(into,own,nature)),species=trainScore(at(into,mid,neutral)),withIvs=trainScore(at(into,own,neutral));
+ const top=Math.max(...Object.values(battle.natures).map(mods=>trainScore(at(into,STATS.map(()=>31),mods))));
+ return {score,into,main:mainAttack(trainStats(battle.species[into].base,own,nature))===1?'atk':'spa',species,ivs:withIvs-species,nature:score-withIvs,top,known:!!ivs};
+}
+export const trainingBand=(score:number)=>score>=85?'train5':score>=70?'train4':score>=55?'train3':score>=40?'train2':'train1';
 
 export type MoveAdvice={kind:'replace'|'keep'|'manual';old:string|null;delta:number};
 
@@ -411,6 +451,13 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
  const evolutionsOf=(n:number)=>dex.species.filter(other=>other.from?.n===n&&battle.species[other.n]);
  // Nivel al que evoluciona, si es por nivel: sirve para avisar de que ya toca.
  const atLevel=(method:string|null)=>{const found=/^level (\d+)$/.exec(method??'');return found?+found[1]:null};
+ // Las formas en las que acaba: las que ya no evolucionan (varias en Eevee).
+ const finalsOf=(n:number,seen:number[]=[]):number[]=>{
+  const next=evolutionsOf(n).filter(evo=>!seen.includes(evo.n));
+  return next.length?next.flatMap(evo=>finalsOf(evo.n,[...seen,n])):[n];
+ };
+ const valueOf=(mon:TeamMon)=>trainingValue(battle,finalsOf(mon.n),mon.nature,judge(mon));
+ const signed=(n:number)=>n>0?`+${n}`:n<0?`−${-n}`:'±0';
 
  // Evolucionar conserva lo que el juego conserva: nivel, naturaleza y ataques.
  // La habilidad cambia solo si la que tenia no existe en la nueva especie, y
@@ -439,6 +486,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   const shown=open.includes(mon.id),evolutions=evolutionsOf(mon.n);
   // Le toca cuando alguna de sus evoluciones es por nivel y ya lo alcanzo.
   const ready=evolutions.some(evo=>(atLevel(evo.from?.method??null)??101)<=mon.level);
+  const value=valueOf(mon),band=value?trainingBand(value.score):null;
   return <article key={mon.id} className={`team-mon ${mon.out?'out':''}`}>
    <div className="team-row">
     <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
@@ -449,6 +497,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
       {ready&&<i className="team-ready">{t('canEvolve')}</i>}
       {!mon.out&&mon.guess?.length?<i className="team-guess">{t('assumed')}</i>:null}</span>
     </div>
+    {value&&band&&<span className={`team-score ${band}`} title={`${t('training')}: ${t(band)}`}>{value.score}</span>}
     <span className="team-level">
      <small>{t('levelShort',{n:''}).trim()}</small>
      <Num value={mon.level} min={1} max={100} label={t('level')} onChange={n=>update(mon.id,{level:n})}/>
@@ -487,6 +536,20 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
     <small>{t('baseStat',{n:s.base[i]})}{own&&' · '}{own&&(fit=>fit?ivLabel(fit):<span title={t('ivNoFitHelp')}>{t('ivNoFit')}</span>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}</small>
    </div>)}</dl>
    <p className="team-note">{own&&<span className="team-iv">{t('ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
+   {value&&band&&<div className="training">
+    <h4>{t('training')}<small>{t('trainingTop',{n:value.top})}</small></h4>
+    <div className="training-head">
+     <b className={`team-score ${band}`}>{value.score}</b>
+     <span><strong>{t(band)}</strong>
+      <small>{value.into!==mon.n?t('trainingAs',{name:species.get(value.into)?.name??''}):t('trainingFinal')}</small></span>
+    </div>
+    <i className="training-bar"><em className={band} style={{width:`${value.score}%`}}/></i>
+    <ul>
+     <li>{t('trainingSpecies',{n:value.species,stat:t(('stat_'+value.main) as never)})}</li>
+     <li>{value.known?t('trainingIvs',{n:signed(value.ivs)}):t('trainingIvsAssumed')}</li>
+     <li>{t('trainingNature',{n:signed(value.nature)})}</li>
+    </ul>
+   </div>}
    <div className={`team-analysis ${own?'':'solo'}`}>
    {profile&&<div className="profile">
     <h4>{t('profile')}<small>{t('profileDeterministic')}</small></h4>
