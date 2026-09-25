@@ -286,15 +286,15 @@ export default function Home(){
  // Linea de detalle: niveles y probabilidad, equipo, lo que vende, lo que pide un
  // intercambio, o el texto largo de Yellow.
  // En un grupo el lugar va una vez en el titulo; cada fila, sin subtitulo.
- const popRow=(m:Marker,compact=false)=><div className="pop-item"><div className="pop-head">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<Figure m={m}/><div><b>{name(m.name)}</b>{!compact&&<small>{m.encounter?`${category(m.category)} · ${place(m.encounter.zone)}`:shortPlace(m)?`${category(m.category)} · ${place(m.location)}`:category(m.category)}</small>}</div></div>{popLine(m)&&<p>{popLine(m)}</p>}</div>;
+ const popRow=(m:Marker,compact=false)=><div className="pop-item"><div className="pop-head">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<Figure m={m}/><div><b>{name(m.name)}</b>{!compact&&<small>{m.encounter?`${category(m.category)} · ${place(m.encounter.zone)}`:shortPlace(m)?`${category(m.category)} · ${place(m.location)}`:category(m.category)}</small>}</div></div>{popLine(m)&&<p>{popLine(m)}</p>}{evs(m)&&<p className="pop-ev">{evs(m)}</p>}</div>;
  // Los EVs que gana tu Pokemon al derrotar a un salvaje: "+1 At. Esp." en un
  // Oddish. Salen de los datos de combate, asi que solo en FireRed/LeafGreen.
  const evs=(m:Marker)=>{const n=m.encounter&&battle?speciesByName.get(speciesKey(m.name)):undefined;
   const got=n?battle!.species[n]?.ev?.flatMap((v,i)=>v?[`+${v} ${t(('stat_'+STATS[i]) as never)}`]:[]):null;
   return got?.length?t('evYield',{list:got.join(', ')}):null};
- const popLine=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')})+(evs(m)?` · ${evs(m)}`:''):info(m)??(shortPlace(m)?null:place(m.location)||null)};
+ const popLine=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):info(m)??(shortPlace(m)?null:place(m.location)||null)};
  const popRowWithAdvice=(m:Marker,compact=false)=>{const opponents=opponentsOf(m);
-  if(m.encounter&&battle)return <div className="pop-item battle-wild-row">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<BattleAdvice opponents={opponents} dex={world!.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr} inline foeDetail={popLine(m)}/></div>;
+  if(m.encounter&&battle)return <div className="pop-item battle-wild-row">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<BattleAdvice opponents={opponents} dex={world!.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr} inline foeDetail={popLine(m)} foeEv={evs(m)}/></div>;
   return <div className="pop-advised">{popRow(m,compact)}{opponents.length>0&&<BattleAdvice opponents={opponents} dex={world!.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr}/>}</div>};
  const exitRegion=here?exitOf(here).region:null;
  const floors=here?zoneFloors.get(here.zone??here.label)??[here]:[];

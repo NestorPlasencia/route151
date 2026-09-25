@@ -207,6 +207,8 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .battle-mon span{display:flex;min-width:0;flex-direction:column}
 .battle-mon b{font-size:11px;white-space:nowrap}
 .battle-mon small{font-size:10px;line-height:1.25;color:#315d9b;white-space:nowrap}
+/* EVs que da el salvaje: en su propia linea para que no los corte la elipsis. */
+.battle-mon small.battle-ev,.pop-ev{color:#1f7a4d;font-weight:bold}
 .battle-arrow{font-style:normal;font-size:16px;color:#8b97aa}
 .battle-warning{margin:5px 0 0!important;color:#a34a29!important;font-size:10px!important;line-height:1.3!important;font-weight:600}
 .battle-advice.compact{margin-left:30px;padding-top:4px}
