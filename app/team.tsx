@@ -205,41 +205,53 @@ export function buildProfile(battle:Battle,mon:TeamMon):BuildProfile|null{
 
 // Valor para entrenar, de 0 a 100: que tal sale este Pokemon en concreto si lo
 // subes hasta el final. Se mira a nivel 100 y en su ultima evolucion (un
-// Magikarp se entrena por el Gyarados que sera), con sus IVs y su naturaleza,
-// asi que especie, genes y naturaleza pesan lo que pesan de verdad en el juego:
-// la especie marca casi todo y los IVs y la naturaleza mueven unos 15 puntos.
+// Magikarp se entrena por el Gyarados que sera), y junta dos notas:
+//
+// - La especie (60 %): sus bases, con IVs de 15 y naturaleza neutra. Pesos:
+//   ataque principal 30 %, Velocidad 25 % y PS, Defensa y Def. Esp. 15 % cada
+//   una. Escala: 120 es un Pokemon final muy flojo y 280 un Mewtwo medio, de
+//   modo que la mitad de las evoluciones finales quedan por debajo de 50.
+// - El ejemplar (40 %): donde cae entre el peor y el mejor de su especie por
+//   IVs y naturaleza. Aqui el ataque principal pesa la mitad, porque es lo que
+//   decide si pega o no: unos buenos IVs en Defensa no compensan un Ataque
+//   pobre, ni la Velocidad de Timid compensa que le baje el Ataque a un
+//   atacante fisico. A nivel 100 los IVs solo mueven unos 30 puntos de cada
+//   cifra, y mezclados con la especie se perdian.
 //
 // De los dos ataques solo cuenta el mayor: a un atacante fisico no le importa
 // el Ataque Especial, y una naturaleza que baja el que no usa es justo la buena.
 // Se decide con las cifras del propio ejemplar y no solo con las bases, porque
-// hay especies empatadas (Raichu, 90 y 90) donde la naturaleza elige. Pesos: ataque principal 30 %,
-// Velocidad 25 % y PS, Defensa y Def. Esp. 15 % cada una.
-//
-// Escala: 120 es un Pokemon final muy flojo con IVs a 0 y 280 un Mewtwo medio,
-// de modo que la mitad de las evoluciones finales quedan por debajo de 50.
-const TRAIN_WEIGHTS=[.15,.3,.15,.3,.15,.25];
-const TRAIN_FLOOR=120,TRAIN_TOP=280;
-const trainStats=(base:number[],ivs:number[],nature:[string|null,string|null])=>statsOf(base,100,nature,ivs);
+// hay especies empatadas (Raichu, 90 y 90) donde la naturaleza elige.
+const TRAIN_WEIGHTS=[.15,.3,.15,.3,.15,.25],SPECIMEN_WEIGHTS=[.1,.5,.1,.5,.1,.2];
+const TRAIN_FLOOR=120,TRAIN_TOP=280,SPECIES_SHARE=.6;
+type Mods=[string|null,string|null];
+const trainStats=(base:number[],ivs:number[],nature:Mods)=>statsOf(base,100,nature,ivs);
 const mainAttack=(stats:number[])=>stats[1]>=stats[3]?1:3;
-const trainWeight=(base:number[],ivs:number[],nature:[string|null,string|null])=>{
+const trainWeight=(base:number[],ivs:number[],nature:Mods,weights=TRAIN_WEIGHTS)=>{
  const stats=trainStats(base,ivs,nature),main=mainAttack(stats);
- return stats.reduce((sum,value,i)=>(i===1||i===3)&&i!==main?sum:sum+value*TRAIN_WEIGHTS[i],0);
+ return stats.reduce((sum,value,i)=>(i===1||i===3)&&i!==main?sum:sum+value*weights[i],0);
 };
 const trainScore=(weight:number)=>Math.max(0,Math.min(100,Math.round((weight-TRAIN_FLOOR)/(TRAIN_TOP-TRAIN_FLOOR)*100)));
-// `species`, `ivs` y `nature` suman `score`: lo que da la especie con IVs de 15
-// y naturaleza neutra, y lo que suman o restan sus IVs y su naturaleza.
-// `top` es la nota del mejor ejemplar posible de esa especie.
-export type TrainingValue={score:number;into:number;main:'atk'|'spa';species:number;ivs:number;nature:number;top:number;known:boolean};
+// `species` y `specimen` son las dos notas; `nature` es lo que la naturaleza
+// suma o resta a la del ejemplar, y `mainIv`/`speedIv` los IVs que mas pesan
+// (null si no escribiste sus estadisticas). `top` es la nota del mejor
+// ejemplar posible de esa especie.
+export type TrainingValue={score:number;into:number;main:'atk'|'spa';species:number;specimen:number;nature:number;
+ lowersMain:boolean;raisesMain:boolean;mainIv:number|null;speedIv:number|null;top:number};
 export function trainingValue(battle:Battle,forms:number[],natureKey:string,ivs:number[]|null):TrainingValue|null{
  const shown=forms.filter(n=>battle.species[n]);if(!shown.length)return null;
- const nature=battle.natures[natureKey]??[null,null],neutral:[null,null]=[null,null];
- const mid=STATS.map(()=>IV),own=ivs??mid;
- const at=(n:number,iv:number[],mods:[string|null,string|null])=>trainWeight(battle.species[n].base,iv,mods);
+ const nature=battle.natures[natureKey]??[null,null],neutral:Mods=[null,null],natures=Object.values(battle.natures);
+ const mid=STATS.map(()=>IV),own=ivs??mid,best=STATS.map(()=>31),worst=STATS.map(()=>0);
  // Si puede evolucionar de varias formas (Eevee), se toma la que mejor le sale.
- const into=shown.reduce((a,b)=>at(b,own,nature)>at(a,own,nature)?b:a);
- const score=trainScore(at(into,own,nature)),species=trainScore(at(into,mid,neutral)),withIvs=trainScore(at(into,own,neutral));
- const top=Math.max(...Object.values(battle.natures).map(mods=>trainScore(at(into,STATS.map(()=>31),mods))));
- return {score,into,main:mainAttack(trainStats(battle.species[into].base,own,nature))===1?'atk':'spa',species,ivs:withIvs-species,nature:score-withIvs,top,known:!!ivs};
+ const into=shown.reduce((a,b)=>trainWeight(battle.species[b].base,own,nature)>trainWeight(battle.species[a].base,own,nature)?b:a);
+ const base=battle.species[into].base,species=trainScore(trainWeight(base,mid,neutral));
+ const hi=Math.max(...natures.map(mods=>trainWeight(base,best,mods,SPECIMEN_WEIGHTS)));
+ const lo=Math.min(...natures.map(mods=>trainWeight(base,worst,mods,SPECIMEN_WEIGHTS)));
+ const quality=(iv:number[],mods:Mods)=>Math.round((trainWeight(base,iv,mods,SPECIMEN_WEIGHTS)-lo)/(hi-lo)*100);
+ const specimen=quality(own,nature),main=mainAttack(trainStats(base,own,nature)),key=STATS[main];
+ const mix=(q:number)=>Math.round(SPECIES_SHARE*species+(1-SPECIES_SHARE)*q);
+ return {score:mix(specimen),into,main:key==='atk'?'atk':'spa',species,specimen,nature:specimen-quality(own,neutral),
+  lowersMain:nature[1]===key,raisesMain:nature[0]===key,mainIv:ivs?ivs[main]:null,speedIv:ivs?ivs[5]:null,top:mix(100)};
 }
 export const trainingBand=(score:number)=>score>=85?'train5':score>=70?'train4':score>=55?'train3':score>=40?'train2':'train1';
 
@@ -487,6 +499,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   // Le toca cuando alguna de sus evoluciones es por nivel y ya lo alcanzo.
   const ready=evolutions.some(evo=>(atLevel(evo.from?.method??null)??101)<=mon.level);
   const value=valueOf(mon),band=value?trainingBand(value.score):null;
+  const mainStat=value?t(('stat_'+value.main) as never):'';
   return <article key={mon.id} className={`team-mon ${mon.out?'out':''}`}>
    <div className="team-row">
     <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
@@ -545,9 +558,12 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
     </div>
     <i className="training-bar"><em className={band} style={{width:`${value.score}%`}}/></i>
     <ul>
-     <li>{t('trainingSpecies',{n:value.species,stat:t(('stat_'+value.main) as never)})}</li>
-     <li>{value.known?t('trainingIvs',{n:signed(value.ivs)}):t('trainingIvsAssumed')}</li>
-     <li>{t('trainingNature',{n:signed(value.nature)})}</li>
+     <li>{t('trainingSpecies',{n:value.species,name:species.get(value.into)?.name??'',stat:mainStat})}</li>
+     <li>{t('trainingSpecimen',{n:value.specimen})}
+      <ul>
+       <li>{value.mainIv!==null?t('trainingIvs',{stat:mainStat,n:value.mainIv,spe:value.speedIv??0}):t('trainingIvsAssumed')}</li>
+       <li>{t(value.lowersMain?'trainingNatureDown':value.raisesMain?'trainingNatureUp':'trainingNature',{nature:natureName(mon.nature),stat:mainStat,n:signed(value.nature)})}</li>
+      </ul></li>
     </ul>
    </div>}
    <div className={`team-analysis ${own?'':'solo'}`}>
