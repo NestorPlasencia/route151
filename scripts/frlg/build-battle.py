@@ -87,8 +87,11 @@ def species():
         if not stat('HP') or not types:
             continue
         abilities = re.search(r'\.abilities = \{ABILITY_(\w+), ABILITY_(\w+)\}', body)
+        order = ('HP', 'Attack', 'Defense', 'SpAttack', 'SpDefense', 'Speed')
         out[key] = {
-            'base': [int(stat(s).group(1)) for s in ('HP', 'Attack', 'Defense', 'SpAttack', 'SpDefense', 'Speed')],
+            'base': [int(stat(s).group(1)) for s in order],
+            # EVs que da al derrotarlo, en el mismo orden que las bases.
+            'ev': [int(re.search(r'\.evYield_' + s + r' = (\d+)', body).group(1)) for s in order],
             'types': list(dict.fromkeys([types.group(1).lower(), types.group(2).lower()])),
             'abilities': [a.lower() for a in abilities.groups() if a != 'NONE'] if abilities else [],
         }

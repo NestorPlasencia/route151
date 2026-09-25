@@ -13,7 +13,7 @@ import type {Dex} from './lists';
 export type Move={name:string;type:string;power:number;accuracy:number;pp:number;effect?:string;category:'physical'|'special'};
 type MoveKind=Move['category']|'status';
 export type Battle={
- species:Record<string,{base:number[];types:string[];abilities:string[];learn:[number,string][];tms:string[]}>;
+ species:Record<string,{base:number[];ev?:number[];types:string[];abilities:string[];learn:[number,string][];tms:string[]}>;
  moves:Record<string,Move>;abilities:Record<string,string>;natures:Record<string,[string|null,string|null]>;
  chart:Record<string,Record<string,number>>;
 };

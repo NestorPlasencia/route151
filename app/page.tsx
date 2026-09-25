@@ -6,7 +6,7 @@ import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Map
 import {Credits,Figure,colorOf,groupsOf,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
-import {BattleAdvice,TeamView,trainerOpponents,type Battle,type Opponent} from './team';
+import {BattleAdvice,STATS,TeamView,trainerOpponents,type Battle,type Opponent} from './team';
 import {GAMES,METHODS,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
@@ -278,13 +278,21 @@ export default function Home(){
  // cambian el nivel ('Lv45' -> 'Nv. 45').
  const info=(m:Marker)=>{const d=m.detail;if(!d)return null;
   return d.startsWith('Sells ')?t('sells',{list:d.slice(6).split(', ').map(name).join(', ')}):tDetail(d)};
+ // Los nombres del mapa y de la Pokedex se comparan sin signos: "Nidoran♀", "Farfetch'd".
+ const speciesKey=(value:string)=>value.toLowerCase().replace(/♀/g,'f').replace(/♂/g,'m').replace(/[^a-z0-9]/g,'');
+ const speciesByName=useMemo(()=>new Map((world?.dex.species??[]).map(s=>[speciesKey(s.name),s.n])),[world]);
  const shortPlace=(m:Marker)=>!!m.location&&m.location.length<=40;
  const opponentsOf=(m:Marker):Opponent[]=>m.encounter?[{name:m.name,level:m.encounter.max}]:m.category==='Battle'?trainerOpponents(m.detail):[];
  // Linea de detalle: niveles y probabilidad, equipo, lo que vende, lo que pide un
  // intercambio, o el texto largo de Yellow.
  // En un grupo el lugar va una vez en el titulo; cada fila, sin subtitulo.
  const popRow=(m:Marker,compact=false)=><div className="pop-item"><div className="pop-head">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<Figure m={m}/><div><b>{name(m.name)}</b>{!compact&&<small>{m.encounter?`${category(m.category)} · ${place(m.encounter.zone)}`:shortPlace(m)?`${category(m.category)} · ${place(m.location)}`:category(m.category)}</small>}</div></div>{popLine(m)&&<p>{popLine(m)}</p>}</div>;
- const popLine=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):info(m)??(shortPlace(m)?null:place(m.location)||null)};
+ // Los EVs que gana tu Pokemon al derrotar a un salvaje: "+1 At. Esp." en un
+ // Oddish. Salen de los datos de combate, asi que solo en FireRed/LeafGreen.
+ const evs=(m:Marker)=>{const n=m.encounter&&battle?speciesByName.get(speciesKey(m.name)):undefined;
+  const got=n?battle!.species[n]?.ev?.flatMap((v,i)=>v?[`+${v} ${t(('stat_'+STATS[i]) as never)}`]:[]):null;
+  return got?.length?t('evYield',{list:got.join(', ')}):null};
+ const popLine=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')})+(evs(m)?` · ${evs(m)}`:''):info(m)??(shortPlace(m)?null:place(m.location)||null)};
  const popRowWithAdvice=(m:Marker,compact=false)=>{const opponents=opponentsOf(m);
   if(m.encounter&&battle)return <div className="pop-item battle-wild-row">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<BattleAdvice opponents={opponents} dex={world!.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr} inline foeDetail={popLine(m)}/></div>;
   return <div className="pop-advised">{popRow(m,compact)}{opponents.length>0&&<BattleAdvice opponents={opponents} dex={world!.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr}/>}</div>};
