@@ -219,6 +219,8 @@ const TEXT = {
  atThisSpot: ['{n} at this spot', '{n} en este punto'],
  markDone: ['Mark as completed', 'Marcar como completado'],
  encounterRate: ['Lv. {levels} · up to {chance}% · {methods}', 'Nv. {levels} · hasta {chance}% · {methods}'],
+ encounterChance: ['Up to {chance}% · {methods}', 'Hasta {chance}% · {methods}'],
+ encounterLevels: ['Lv. {levels}', 'Nv. {levels}'],
  levels: ['Lv. {levels}', 'Nv. {levels}'],
  availableHere: ['{n} Pokémon available in this area.', '{n} Pokémon disponibles en esta zona.'],
  encountersPokeapi: ['PokéAPI encounters', 'Encuentros de PokéAPI'],
