@@ -87,6 +87,18 @@ def check(game):
                 if not re.fullmatch(r'.+? Lv\d+', part):
                     err(f'equipo ilegible "{part}": {what}')
 
+    # Un pin de salvajes no comparte casilla con otro marcador: se juntarian en
+    # un grupo. Salvo las rocas de Golpe Roca, donde salen a proposito.
+    spots = {}
+    for m in markers:
+        if m.get('area'):
+            spots.setdefault((m['area'], tuple(m['at'])), []).append(m)
+    for group in spots.values():
+        wild = [m for m in group if ':wild:' in m['id']]
+        others = [m for m in group if m['category'] != 'Pokémon' and m['name'] != 'Rock Smash rock']
+        if wild and others:
+            err(f"salvajes de {wild[0]['location']} en la casilla de {others[0]['category']} {others[0]['name']}")
+
     # Puertas y lugares.
     for w in d['areas']['warps']:
         inside(w['area'], w['at'], f"puerta en {w['area']}")

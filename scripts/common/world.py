@@ -34,10 +34,15 @@ def uid_of(text):
     return h & 0x7FFFFFFF
 
 
-def spot(grid, kind, fallback):
+def spot(grid, kind, fallback, avoid=()):
     """Casilla de ese tipo (un valor o un conjunto) mas cercana al centro de
-    todas ellas: cae sobre hierba, agua o suelo real aunque la zona tenga forma de L."""
+    todas ellas: cae sobre hierba, agua o suelo real aunque la zona tenga forma de L.
+    `avoid`: casillas (x, y) ocupadas (un entrenador, un objeto), para que el pin
+    no se junte con otro marcador."""
     mask = np.isin(grid, list(kind)) if isinstance(kind, (set, frozenset)) else grid == kind
+    for x, y in avoid:
+        if 0 <= y < mask.shape[0] and 0 <= x < mask.shape[1]:
+            mask[y, x] = False
     ys, xs = np.nonzero(mask)
     if not len(xs):
         return fallback

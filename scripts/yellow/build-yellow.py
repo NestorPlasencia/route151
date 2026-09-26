@@ -631,10 +631,16 @@ def main():
             grid = tile_grid(m)
             center = (m['width'], m['height'])
             # Sin hierba (cuevas, Central Electrica): en el suelo por el que se camina.
-            floor = spot(grid, walkable.get(m['tileset'], set()), center)
-            land = spot(grid, grass[m['tileset']], floor) if m['tileset'] in grass else floor
-            water = spot(grid, WATER_TILE, land)
-            cave = m['indoor']
+            # Nunca sobre un personaje, un objeto o un cartel: se juntaria con el.
+            taken = {(o['x'], o['y']) for o in objs}
+            floor = spot(grid, walkable.get(m['tileset'], set()), center, taken)
+            land = spot(grid, grass[m['tileset']], floor, taken) if m['tileset'] in grass else floor
+            water = spot(grid, WATER_TILE, land, taken)
+            # "Cave" solo en cuevas de verdad (tileset de caverna), como FRLG con sus
+            # mapas subterraneos. El Bosque Verde y la Zona Safari son interiores en
+            # Gen 1 pero sus encuentros son en la hierba; la Torre, la Mansion y la
+            # Central Electrica cuentan como en FRLG.
+            cave = m['tileset'] == 'CAVERN'
             for sp in sorted({s for t in tables.values() for s in t}):
                 rows = [(method, t[sp]) for method, t in tables.items() if sp in t]
                 methods = ['Cave' if method == 'Grass' and cave else method for method, _ in rows]
