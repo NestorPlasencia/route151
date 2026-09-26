@@ -13,7 +13,7 @@ export type Dex={species:Species[]};
 const pad=(n:number)=>String(n).padStart(3,'0');
 function Progress({done,total}:{done:number;total:number}){const pct=total?Math.round(done/total*100):0;return <span className={`progress ${done===total&&total?'full':''}`}><i><em style={{width:`${pct}%`}}/></i><b>{done}/{total}</b></span>}
 
-export function ChecklistView({markers,checklist,done,toggleDone,onShow,detail,tr}:{markers:Marker[];checklist:Checklist;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;detail:(m:Marker)=>string|null;tr:T}){
+export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZone,detail,tr}:{markers:Marker[];checklist:Checklist;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;tr:T}){
  const {t,category,place,name}=tr;
  const [query,setQuery]=useState(''),[hideDone,setHideDone]=useState(false),[off,setOff]=useState<string[]>([]),[open,setOpen]=useState<string[]>([]);
  const isDone=(m:Marker)=>done.includes(m.uid);
@@ -47,7 +47,10 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,detail,t
       const expanded=!!q||open.includes(z.name);
       const order=['',...z.floors].filter(f=>floors.has(f));
       return <div key={z.name} className={`zone ${expanded?'open':''}`}>
-       <button className="zone-head" onClick={()=>toggle(z.name)} aria-expanded={expanded}><b>{place(z.name)}</b><Progress done={items.filter(isDone).length} total={items.length}/></button>
+       <div className="zone-top">
+        <button className="zone-head" onClick={()=>toggle(z.name)} aria-expanded={expanded}><b>{place(z.name)}</b><Progress done={items.filter(isDone).length} total={items.length}/></button>
+        <button className="show" onClick={()=>onShowZone(z.name)} aria-label={t('showOnMap',{name:place(z.name)})} title={t('showOnMap',{name:place(z.name)})}><MapPin/></button>
+       </div>
        {expanded&&order.map(f=>{const rows=floors.get(f)!.filter(keep);if(!rows.length)return null;return <div key={f||'_'} className="floor">
         {f&&<h4>{place(f.startsWith(z.name+' ')?f.slice(z.name.length+1):f)}</h4>}
         {rows.map(m=>{const d=detail(m);return <div key={m.id} className={`row ${isDone(m)?'done':''}`}>

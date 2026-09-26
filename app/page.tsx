@@ -186,8 +186,10 @@ export default function Home(){
  // Desde las listas solo se senala el objeto en el mapa, con el mismo anillo
  // parpadeante que marca por donde se entra; `open` abre ademas su ficha.
  const reveal=(m:Marker,open=true)=>{setStack(null);setArrival(null);setSelected(null);if(!m.area||!m.at)return;if(m.area!==area?.id)saveRegion();setView({area:m.area,focus:m.at,zoom:.5});if(open)setSelected(m);else setArrival({area:m.area,at:m.at,label:m.name})};
- const go=(loc:Place)=>{
-  setLocations(false);setSelected(null);setEncounterZone(world?.zones.find(z=>z.name===loc.name)??null);
+ // `encounters`: desde el menu de lugares se abre tambien la lista de salvajes
+ // de la zona; desde la checklist solo se lleva al sitio.
+ const go=(loc:Place,encounters=true)=>{
+  setLocations(false);setSelected(null);setEncounterZone(encounters?world?.zones.find(z=>z.name===loc.name)??null:null);
   if(!isRegion(loc.area)){saveRegion();setView({area:loc.area});setArrival(null);setToast(t('entered',{place:place(areaById.get(loc.area)?.label??'')}));return}
   saved.current=null;setArrival(null);setView(loc.at?{area:loc.area,focus:loc.at,zoom:-1}:{area:loc.area});
  };
@@ -251,6 +253,15 @@ export default function Home(){
  // El mapa sigue montado bajo las listas; al volver, Leaflet recalcula su tamaño.
  useEffect(()=>{if(tab==='mapa')setTimeout(()=>map.current?.invalidateSize(),0)},[tab]);
  const showOnMap=(m:Marker)=>{setTab('mapa');reveal(m,false)};
+ // Llevar a una zona de la checklist: a su lugar del mapa si lo tiene y, si no
+ // (cuevas y edificios de varios pisos), al piso del primer objeto que te falta.
+ const showZone=(zone:string)=>{
+  const spot=world?.places.find(p=>p.name===zone);
+  const items=listed.filter(m=>world?.checklist.markers[m.id]?.zone===zone&&m.area);
+  const next=items.find(m=>!done.includes(m.uid))??items[0];
+  const loc=spot??(next?{name:zone,area:next.area!,at:isRegion(next.area!)?next.at:undefined}:null);
+  if(loc){setTab('mapa');go(loc,false)}
+ };
  // Equipo y el ranking solo existen en FireRed/LeafGreen: al pasar a Yellow se
  // vuelve al mapa o a la Pokedex.
  useEffect(()=>{if(game.id!=='yellow')return;if(tab==='team')setTab('mapa');setDexView('dex')},[game.id,tab]);
@@ -319,7 +330,7 @@ export default function Home(){
  {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRowWithAdvice(selected)}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{stack!.map(m=><Fragment key={m.id}>{popRowWithAdvice(m,true)}</Fragment>)}</div>,popupBox)}
  {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={place(encounterZone.name)}><button className="close" onClick={()=>setEncounterZone(null)} aria-label={t('close')}><X/></button><small>{t(game.id==='yellow'?'encountersPokeapi':'encountersWild').toUpperCase()}</small><h2>{place(encounterZone.name)}</h2><p>{t('availableHere',{n:encounterZone.pokemon.length})}</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>{t('encounterRate',{levels:`${min}${max!==min?`–${max}`:''}`,chance,methods:[...new Set(variants.map(v=>method(METHODS[v.method]??v.method)))].join(' · ')})}</span></div></article>})}</div></dialog></div>}
  </div>
- {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} detail={detail} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
+ {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
  {/* La Pokedex y el ranking comparten pestana, cada uno con su lista: se
      cambia con el selector de arriba (el ranking solo en FireRed/LeafGreen). */}
  {tab==='pokedex'&&(()=>{
