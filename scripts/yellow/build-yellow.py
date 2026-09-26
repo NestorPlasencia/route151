@@ -113,7 +113,14 @@ def load_trainers(numbers, names):
     classes = re.findall(r'trainer_const (\w+)', asm('constants/trainer_constants.asm'))
     labels = re.findall(r'li "([^"]*)"', asm('data/trainers/names.asm'))
     class_name = {c: title(n) for c, n in zip(classes[1:], labels)}
-    class_name.update({'RIVAL1': 'Rival', 'RIVAL2': 'Rival', 'RIVAL3': 'Rival', 'ROCKET': 'Team Rocket Grunt'})
+    class_name.update({'RIVAL1': 'Rival', 'RIVAL2': 'Rival', 'RIVAL3': 'Champion', 'ROCKET': 'Team Rocket Grunt'})
+    # Lideres y Alto Mando como en FRLG ("Leader Brock"): la app mira sus combates
+    # para saber por que nivel va la partida.
+    for c, name in (('BROCK', 'Brock'), ('MISTY', 'Misty'), ('LT_SURGE', 'Lt. Surge'), ('ERIKA', 'Erika'), ('KOGA', 'Koga'),
+                    ('SABRINA', 'Sabrina'), ('BLAINE', 'Blaine'), ('GIOVANNI', 'Giovanni')):
+        class_name[c] = f'Leader {name}'
+    for c, name in (('LORELEI', 'Lorelei'), ('BRUNO', 'Bruno'), ('AGATHA', 'Agatha'), ('LANCE', 'Lance')):
+        class_name[c] = f'Elite Four {name}'
     text = asm('data/trainers/parties.asm')
     order = re.findall(r'dw (\w+)Data', text.split('\n\n')[0] + text[:text.find('YoungsterData:')])
     blocks = dict(re.findall(r'^(\w+)Data:\n(.*?)(?=^\w+Data:|\Z)', text, re.M | re.S))
@@ -338,6 +345,30 @@ def map_scripts(label):
     return '\n'.join(asm('scripts', n) for n in sorted(os.listdir(d.path('scripts'))) if n.split('.')[0].split('_')[0] == label)
 
 
+def scripted_battles(script):
+    """Combates que lanza un guion: [(clase, equipo)]. Tras poner el rival en
+    wCurOpponent, el equipo va en wTrainerNo: un numero fijo ('ld a, 2' o
+    'ld a, $1') o, con el rival, segun en que evoluciono su Eevee
+    ('ld a, [wRivalStarter]' + 'add 4'). De esos se pone el de Jolteon (el 1):
+    un solo combate para la checklist."""
+    out, lines = [], script.splitlines()
+    for i, line in enumerate(lines[:-1]):
+        opp = re.match(r'\s*ld a, OPP_(\w+)\s*$', line)
+        if not opp or 'wCurOpponent' not in lines[i + 1]:
+            continue
+        team, starter = None, False
+        for nxt in lines[i + 2:i + 9]:
+            if 'wTrainerNo' in nxt:
+                break
+            starter = starter or 'wRivalStarter' in nxt
+            value = re.match(r'\s*(?:ld a,|add) (\$[0-9A-Fa-f]+|\d+)\s*(?:;.*)?$', nxt)
+            if value:
+                team = int(value[1][1:], 16) if value[1].startswith('$') else int(value[1])
+        if team is not None:
+            out.append((opp[1], team + 1 if starter else team))
+    return out
+
+
 # Regalos que el juego da tras elegir (no con un GivePokemon fijo) y Pikachu, que
 # Oak entrega con su propia rutina. Mapa -> [(especie, nivel)].
 CHOICE_GIFTS = {'OAKS_LAB': [('PIKACHU', 5)], 'FIGHTING_DOJO': [('HITMONLEE', 30), ('HITMONCHAN', 30)],
@@ -474,6 +505,9 @@ def main():
             x, y, args = o['x'], o['y'], o['args']
             if args and args[0].startswith('OPP_'):
                 cls, n = args[0].removeprefix('OPP_'), int(args[1]) if len(args) > 1 else 1
+                # El rival del mapa lleva un equipo de relleno: el de verdad lo pone el guion.
+                if cls.startswith('RIVAL') and any(k.startswith('RIVAL') for k, _ in scripted_battles(script)):
+                    continue
                 add(c, 'Battle', class_name.get(cls, title(cls.replace('_', ' '))), x, y, icon=sprite_icon(o['sprite']),
                     detail=parties.get((cls, n)))
             elif args and args[0] in numbers and len(args) > 1:
@@ -512,7 +546,7 @@ def main():
                 px, py = (body['x'], body['y']) if body else (cx, cy)
                 add(c, 'Pokémon', mon(sp), px, py, key=f'static:{sp}', catch=sp, icon=mon_icon(sp),
                     encounter={'min': int(lv), 'max': int(lv), 'chance': 100, 'methods': ['Static encounter'], 'sprite': SPRITE.format(numbers[sp])})
-        for cls, n in re.findall(r'ld a, OPP_(\w+)\n\s*ld \[wCurOpponent\], a\n(?:[^\n]*\n){0,4}?\s*ld a, (\d+)\n\s*ld \[wTrainerNo\], a', script):
+        for cls, n in scripted_battles(script):
             rival = next((o for o in objs if o['sprite'] in ('SPRITE_BLUE', 'SPRITE_ROCKET', 'SPRITE_JESSIE', 'SPRITE_JAMES')), None)
             px, py = (rival['x'], rival['y']) if rival else (cx, cy)
             add(c, 'Battle', class_name.get(cls, title(cls)), px, py, key=f'scene:{cls}:{n}', detail=parties.get((cls, int(n))),

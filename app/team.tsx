@@ -12,7 +12,8 @@ import type {Dex} from './lists';
 
 export type Move={name:string;type:string;power:number;accuracy:number;pp:number;effect?:string;category:'physical'|'special'};
 type MoveKind=Move['category']|'status';
-export type Battle={
+// `gen`: 1 en Yellow (reglas de la primera generacion), sin nada en FRLG.
+export type Battle={gen?:1;
  species:Record<string,{base:number[];ev?:number[];types:string[];abilities:string[];learn:[number,string][];tms:string[]}>;
  moves:Record<string,Move>;abilities:Record<string,string>;natures:Record<string,[string|null,string|null]>;
  chart:Record<string,Record<string,number>>;
@@ -139,7 +140,8 @@ const moveKind=(move:Move):MoveKind=>move.power?move.category:'status';
 const EFFECT_SUMMARIES:Record<string,'effectLightScreen'|'effectReflect'|'effectParalyze'|'effectSleep'|'effectPoison'|'effectBadPoison'|'effectBurn'|'effectConfuse'|'effectProtect'|'effectRestoreHp'|'effectRest'|'effectWeatherRain'|'effectWeatherSun'|'effectWeatherSand'|'effectWeatherHail'|'effectHazards'>={
  LIGHT_SCREEN:'effectLightScreen',REFLECT:'effectReflect',PARALYZE:'effectParalyze',SLEEP:'effectSleep',POISON:'effectPoison',TOXIC:'effectBadPoison',WILL_O_WISP:'effectBurn',CONFUSE:'effectConfuse',PROTECT:'effectProtect',RESTORE_HP:'effectRestoreHp',SOFTBOILED:'effectRestoreHp',SYNTHESIS:'effectRestoreHp',MORNING_SUN:'effectRestoreHp',MOONLIGHT:'effectRestoreHp',REST:'effectRest',RAIN_DANCE:'effectWeatherRain',SUNNY_DAY:'effectWeatherSun',SANDSTORM:'effectWeatherSand',HAIL:'effectWeatherHail',SPIKES:'effectHazards',
 };
-const effectStat=(effect:string|undefined)=>effect?.match(/^(ATTACK|DEFENSE|SPEED|SPECIAL_ATTACK|SPECIAL_DEFENSE|ACCURACY|EVASION)_(UP|DOWN)(?:_(2))?$/);
+// SPECIAL: la Especial de Gen 1 (sube o baja a la vez el ataque y la defensa especial).
+const effectStat=(effect:string|undefined)=>effect?.match(/^(ATTACK|DEFENSE|SPEED|SPECIAL_ATTACK|SPECIAL_DEFENSE|SPECIAL|ACCURACY|EVASION)_(UP|DOWN)(?:_(2))?$/);
 
 type ProfileFocus='physical'|'special'|'mixed'|'support';
 type ProfileAbility='contact'|'physical'|'special'|'speed'|'accuracy'|'survival'|'none';
@@ -222,16 +224,26 @@ export function buildProfile(battle:Battle,mon:TeamMon):BuildProfile|null{
 // el Ataque Especial, y una naturaleza que baja el que no usa es justo la buena.
 // Se decide con las cifras del propio ejemplar y no solo con las bases, porque
 // hay especies empatadas (Raichu, 90 y 90) donde la naturaleza elige.
-const TRAIN_WEIGHTS=[.15,.3,.15,.3,.15,.25],SPECIMEN_WEIGHTS=[.1,.5,.1,.5,.1,.2];
-const TRAIN_FLOOR=120,TRAIN_TOP=280,SPECIES_SHARE=.6;
+//
+// Primera generacion (Yellow): la Especial es una sola cifra (ataca y defiende),
+// asi que pesa como ataque si es la principal y, ademas, un 10 % como defensa.
+// La Velocidad pesa mas (30 %) porque tambien decide los golpes criticos. No
+// hay naturalezas, y los genes son DVs de 0 a 15: en las cuentas van dobles
+// (0 a 30), que es como entran en la formula. Escala: de 125 a 300, con la
+// misma lectura (Mewtwo medio 98, la mitad de las formas finales bajo 50).
+const RULES={
+ 3:{weights:[.15,.3,.15,.3,.15,.25],specimen:[.1,.5,.1,.5,.1,.2],floor:120,top:280,max:31},
+ 1:{weights:[.15,.3,.15,.3,.1,.3],specimen:[.1,.5,.1,.5,.05,.25],floor:125,top:300,max:30},
+};
+const SPECIES_SHARE=.6;
+export const rulesOf=(battle:Battle)=>RULES[battle.gen??3];
 type Mods=[string|null,string|null];
 const trainStats=(base:number[],ivs:number[],nature:Mods)=>statsOf(base,100,nature,ivs);
 const mainAttack=(stats:number[])=>stats[1]>=stats[3]?1:3;
-const trainWeight=(base:number[],ivs:number[],nature:Mods,weights=TRAIN_WEIGHTS)=>{
+const trainWeight=(base:number[],ivs:number[],nature:Mods,weights:number[])=>{
  const stats=trainStats(base,ivs,nature),main=mainAttack(stats);
  return stats.reduce((sum,value,i)=>(i===1||i===3)&&i!==main?sum:sum+value*weights[i],0);
 };
-const trainScore=(weight:number)=>Math.max(0,Math.min(100,Math.round((weight-TRAIN_FLOOR)/(TRAIN_TOP-TRAIN_FLOOR)*100)));
 // `species` y `specimen` son las dos notas; `nature` es lo que la naturaleza
 // suma o resta a la del ejemplar, y `mainIv`/`speedIv` los IVs que mas pesan
 // (null si no escribiste sus estadisticas). `base` es la nota de un ejemplar
@@ -241,33 +253,37 @@ export type TrainingValue={score:number;into:number;main:'atk'|'spa';species:num
  lowersMain:boolean;raisesMain:boolean;mainIv:number|null;speedIv:number|null;base:number;top:number};
 export function trainingValue(battle:Battle,forms:number[],natureKey:string,ivs:number[]|null):TrainingValue|null{
  const shown=forms.filter(n=>battle.species[n]);if(!shown.length)return null;
+ const rules=rulesOf(battle),{weights,specimen:specimenWeights}=rules;
+ const trainScore=(weight:number)=>Math.max(0,Math.min(100,Math.round((weight-rules.floor)/(rules.top-rules.floor)*100)));
  const nature=battle.natures[natureKey]??[null,null],neutral:Mods=[null,null],natures=Object.values(battle.natures);
- const mid=STATS.map(()=>IV),own=ivs??mid,best=STATS.map(()=>31),worst=STATS.map(()=>0);
+ const mid=STATS.map(()=>IV),own=ivs??mid,best=STATS.map(()=>rules.max),worst=STATS.map(()=>0);
  // Si puede evolucionar de varias formas (Eevee), se toma la que mejor le sale.
- const into=shown.reduce((a,b)=>trainWeight(battle.species[b].base,own,nature)>trainWeight(battle.species[a].base,own,nature)?b:a);
- const base=battle.species[into].base,species=trainScore(trainWeight(base,mid,neutral));
- const hi=Math.max(...natures.map(mods=>trainWeight(base,best,mods,SPECIMEN_WEIGHTS)));
- const lo=Math.min(...natures.map(mods=>trainWeight(base,worst,mods,SPECIMEN_WEIGHTS)));
- const quality=(iv:number[],mods:Mods)=>Math.round((trainWeight(base,iv,mods,SPECIMEN_WEIGHTS)-lo)/(hi-lo)*100);
+ const into=shown.reduce((a,b)=>trainWeight(battle.species[b].base,own,nature,weights)>trainWeight(battle.species[a].base,own,nature,weights)?b:a);
+ const base=battle.species[into].base,species=trainScore(trainWeight(base,mid,neutral,weights));
+ const hi=Math.max(...natures.map(mods=>trainWeight(base,best,mods,specimenWeights)));
+ const lo=Math.min(...natures.map(mods=>trainWeight(base,worst,mods,specimenWeights)));
+ const quality=(iv:number[],mods:Mods)=>Math.round((trainWeight(base,iv,mods,specimenWeights)-lo)/(hi-lo)*100);
  const specimen=quality(own,nature),main=mainAttack(trainStats(base,own,nature)),key=STATS[main];
  const mix=(q:number)=>Math.round(SPECIES_SHARE*species+(1-SPECIES_SHARE)*q);
  return {score:mix(specimen),into,main:key==='atk'?'atk':'spa',species,specimen,nature:specimen-quality(own,neutral),
   lowersMain:nature[1]===key,raisesMain:nature[0]===key,mainIv:ivs?ivs[main]:null,speedIv:ivs?ivs[5]:null,base:mix(quality(mid,neutral)),top:mix(100)};
 }
 // IVs deducidos de las estadisticas escritas (los del juez), o null si no hay
-// o no cuadran. De un rango se toma su punto medio, sin pasar de 31 (lo de mas
-// son EVs).
+// o no cuadran. De un rango se toma su punto medio, sin pasar del maximo (31;
+// en Gen 1, 30 = DV 15 doblado): lo de mas son EVs o Stat Exp.
 export function ivsOf(battle:Battle,mon:TeamMon){
  const s=battle.species[mon.n],stats=mon.stats;if(!s||!stats)return null;
- const mods=battle.natures[mon.nature]??[null,null];
+ const mods=battle.natures[mon.nature]??[null,null],top=rulesOf(battle).max;
  const fits=STATS.map((stat,i)=>genes(s.base[i],mon.level,stats[i],stat,mods));
  if(fits.some(f=>!f))return null;
- return fits.map(f=>Math.min(31,Math.round((f!.min+Math.min(31,f!.max))/2)));
+ return fits.map(f=>Math.min(top,Math.round((f!.min+Math.min(top,f!.max))/2)));
 }
 // Las formas en las que acaba: las que ya no evolucionan (varias en Eevee).
-// Se sigue la Pokedex del juego, asi que solo cuentan las evoluciones que hay en el.
+// Se sigue la Pokedex del juego, asi que solo cuentan las evoluciones que hay en
+// el; las que no se consiguen alli tampoco (en Yellow, el Pikachu de Oak no
+// acepta la Piedra Trueno: se queda en Pikachu).
 export const finalForms=(dex:Dex,battle:Battle,n:number,seen:number[]=[]):number[]=>{
- const next=dex.species.filter(other=>other.from?.n===n&&battle.species[other.n]&&!seen.includes(other.n));
+ const next=dex.species.filter(other=>other.from?.n===n&&other.get!=='none'&&battle.species[other.n]&&!seen.includes(other.n));
  return next.length?next.flatMap(evo=>finalForms(dex,battle,evo.n,[...seen,n])):[n];
 };
 export const trainingBand=(score:number)=>score>=85?'train5':score>=70?'train4':score>=55?'train3':score>=40?'train2':'train1';
@@ -398,11 +414,15 @@ export function adviseMoveReplacement(battle:Battle,mon:TeamMon,newKey:string):M
 
 export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex:Dex;battle:Battle|null;moveText:Record<string,{en:string;es:string}>|null;storageKey:string;suggestedLevel:number;tr:T}){
  const {t,lang,type:typeName,move:moveName,ability:abilityName,nature:natureName}=tr;
+ // Gen 1 (Yellow): una sola Especial, sin naturalezas, habilidades ni juez, y
+ // genes como DVs de 0 a 15 (en las cuentas, dobles).
+ const gen1=battle?.gen===1;
+ const statLabel=(stat?:string|null)=>t((gen1&&stat==='spa'?'stat_spc':'stat_'+stat) as never);
  const describe=(key:string)=>moveText?.[key]?.[lang==='es'?'es':'en']??null;
  const statusSummary=(key:string,move:Move)=>{
   const stat=effectStat(move.effect);
   if(stat){
-   const statName=stat[1]==='ACCURACY'?t('stat_accuracy'):stat[1]==='EVASION'?t('stat_evasion'):t(('stat_'+({ATTACK:'atk',DEFENSE:'def',SPEED:'spe',SPECIAL_ATTACK:'spa',SPECIAL_DEFENSE:'spd'}[stat[1]])) as never);
+   const statName=stat[1]==='ACCURACY'?t('stat_accuracy'):stat[1]==='EVASION'?t('stat_evasion'):statLabel(({ATTACK:'atk',DEFENSE:'def',SPEED:'spe',SPECIAL_ATTACK:'spa',SPECIAL_DEFENSE:'spd',SPECIAL:'spa'}[stat[1]]));
    const summaryKey=stat[2]==='UP'?(stat[3]?'effectRaiseMuch':'effectRaise'):(stat[3]?'effectLowerMuch':'effectLower');
    return t(summaryKey,{stat:statName});
   }
@@ -479,6 +499,12 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
  // Texto del IV deducido: exacto, un rango, o con EVs si pasa de 31.
  const ivLabel=(fit:{min:number;max:number}|null)=>{
   if(!fit)return t('ivNoFit');
+  // Gen 1: el gen entra doble (DV x 2), y lo que pase de 30 es Stat Exp.
+  if(gen1){
+   if(fit.min>30)return t('dvWithExp');
+   const lo=Math.ceil(fit.min/2),hi=Math.floor(Math.min(30,fit.max)/2);
+   return t('dv',{range:lo>=hi?`${Math.min(lo,15)}`:`${lo}–${hi}`})+(fit.max>30?'+':'');
+  }
   if(fit.min>31)return t('ivWithEv',{n:fit.min});
   const max=Math.min(31,fit.max);
   return t('iv',{range:fit.min===max?`${fit.min}`:`${fit.min}–${max}`})+(fit.max>31?'+':'');
@@ -488,7 +514,8 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   return `${moveName(m.name)} · ${typeName(m.type)} · ${categorySymbol(moveKind(m))} ${kind}${m.power?` ${m.power}`:''}`};
  // La Pokedex guarda de quien viene cada especie y como; para saber en que
  // evoluciona una se mira esa relacion al reves.
- const evolutionsOf=(n:number)=>dex.species.filter(other=>other.from?.n===n&&battle.species[other.n]);
+ // Solo las que se consiguen en el juego: en Yellow, Pikachu no ofrece Raichu.
+ const evolutionsOf=(n:number)=>dex.species.filter(other=>other.from?.n===n&&other.get!=='none'&&battle.species[other.n]);
  // Nivel al que evoluciona, si es por nivel: sirve para avisar de que ya toca.
  const atLevel=(method:string|null)=>{const found=/^level (\d+)$/.exec(method??'');return found?+found[1]:null};
  const valueOf=(mon:TeamMon)=>trainingValue(battle,finalForms(dex,battle,mon.n),mon.nature,judge(mon));
@@ -522,7 +549,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   // Le toca cuando alguna de sus evoluciones es por nivel y ya lo alcanzo.
   const ready=evolutions.some(evo=>(atLevel(evo.from?.method??null)??101)<=mon.level);
   const value=valueOf(mon),band=value?trainingBand(value.score):null;
-  const mainStat=value?t(('stat_'+value.main) as never):'';
+  const mainStat=value?statLabel(value.main):'';
   return <article key={mon.id} className={`team-mon ${mon.out?'out':''}`}>
    <div className="team-row">
     <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
@@ -562,16 +589,17 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
    </div>
    <div className="team-fields">
     <label>{t('level')}{guessed(mon,'level')}<Num value={mon.level} min={1} max={100} label={t('level')} onChange={n=>update(mon.id,{level:n})}/></label>
-    <label>{t('nature')}{guessed(mon,'nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${t(('stat_'+up) as never)} −${t(('stat_'+down) as never)})`:''}</option>)}</select></label>
-    <label>{t('ability')}{guessed(mon,'ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{[...new Set([...s.abilities,mon.ability].filter(Boolean))].map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>
+    {!gen1&&<label>{t('nature')}{guessed(mon,'nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${statLabel(up)} −${statLabel(down)})`:''}</option>)}</select></label>}
+    {!gen1&&<label>{t('ability')}{guessed(mon,'ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{[...new Set([...s.abilities,mon.ability].filter(Boolean))].map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>}
    </div>
-   <dl className={`team-stats ${own?'own':''}`}>{STATS.map((stat,i)=><div key={stat}>
-    <dt>{t(('stat_'+stat) as never)}</dt>
-    <dd><Num value={stats[i]} min={1} max={999} label={t(('stat_'+stat) as never)}
-     onChange={n=>update(mon.id,{stats:stats.map((v,j)=>j===i?n:v)})}/></dd>
+   {/* En Gen 1 la Especial es una: se muestra una vez y se escribe en las dos casillas. */}
+   <dl className={`team-stats ${own?'own':''}`}>{STATS.flatMap((stat,i)=>gen1&&stat==='spd'?[]:[<div key={stat}>
+    <dt>{statLabel(stat)}</dt>
+    <dd><Num value={stats[i]} min={1} max={999} label={statLabel(stat)}
+     onChange={n=>update(mon.id,{stats:stats.map((v,j)=>j===i||(gen1&&i===3&&j===4)?n:v)})}/></dd>
     <small>{t('baseStat',{n:s.base[i]})}{own&&' · '}{own&&(fit=>fit?ivLabel(fit):<span title={t('ivNoFitHelp')}>{t('ivNoFit')}</span>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}</small>
-   </div>)}</dl>
-   <p className="team-note">{own&&<span className="team-iv">{t('ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
+   </div>])}</dl>
+   <p className="team-note">{own&&<span className="team-iv">{t(gen1?'dvNote':'ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
    {value&&band&&<div className="training">
     <h4>{t('training')}</h4>
     <div className="training-head">
@@ -591,8 +619,9 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
      <li>{t('trainingSpecies',{n:value.species,name:species.get(value.into)?.name??'',stat:mainStat})}</li>
      <li>{t('trainingSpecimen',{n:value.specimen})}
       <ul>
-       <li>{value.mainIv!==null?t('trainingIvs',{stat:mainStat,n:value.mainIv,spe:value.speedIv??0}):t('trainingIvsAssumed')}</li>
-       <li>{t(value.lowersMain?'trainingNatureDown':value.raisesMain?'trainingNatureUp':'trainingNature',{nature:natureName(mon.nature),stat:mainStat,n:signed(value.nature)})}</li>
+       <li>{value.mainIv!==null?gen1?t('trainingDvs',{stat:mainStat,n:Math.round(value.mainIv/2),spe:Math.round((value.speedIv??0)/2)})
+        :t('trainingIvs',{stat:mainStat,n:value.mainIv,spe:value.speedIv??0}):t(gen1?'trainingDvsAssumed':'trainingIvsAssumed')}</li>
+       {!gen1&&<li>{t(value.lowersMain?'trainingNatureDown':value.raisesMain?'trainingNatureUp':'trainingNature',{nature:natureName(mon.nature),stat:mainStat,n:signed(value.nature)})}</li>}
       </ul></li>
     </ul>
    </div>}
@@ -610,17 +639,17 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
     <ul>{profile.reasons.map((reason,i)=>{
      const value=reason.value;
      const vars=reason.key==='profileNatureReason'
-      ?{...value,up:typeof value.up==='string'?t(('stat_'+value.up) as never):value.up,down:typeof value.down==='string'?t(('stat_'+value.down) as never):value.down}
+      ?{...value,up:typeof value.up==='string'?statLabel(value.up):value.up,down:typeof value.down==='string'?statLabel(value.down):value.down}
       :reason.key==='profileAbilityReason'
        ?{...value,ability:abilityName(battle.abilities[mon.ability]??mon.ability),effect:t(('profileAbility_'+String(value.kind)) as never)}
        :value;
      return <li key={`${reason.key}-${i}`}>{t(reason.key,vars)}</li>;
     })}</ul>
     <p className="team-note">{t('profileNote')}</p>
-    {own&&(fits=>fits.length&&!fits.includes(mon.nature)?<p className="team-note team-natures">{t('natureFits')} {fits.map(n=>
+    {own&&!gen1&&(fits=>fits.length&&!fits.includes(mon.nature)?<p className="team-note team-natures">{t('natureFits')} {fits.map(n=>
      <button key={n} className="team-reset" onClick={()=>update(mon.id,{nature:n})}>{natureName(n)}</button>)}</p>:null)(fittingNatures(mon))}
    </div>}
-   {own&&(ivs=>ivs?<div className="judge">
+   {own&&!gen1&&(ivs=>ivs?<div className="judge">
     <h4>{t('judge')}<small>{t('judgeTotal',{n:ivs.reduce((a,b)=>a+b,0)})}</small></h4>
     <div className="judge-chart">
      <svg viewBox="0 0 340 250" aria-labelledby={`judge-radar-${mon.id}`}>
@@ -633,7 +662,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
        [0,170,20],[1,286,63],[2,290,166],
        [5,170,232],[4,50,166],[3,54,63],
       ].map(([stat,x,y])=><text key={String(stat)} className="judge-label" x={x} y={y} textAnchor="middle">
-       <tspan className="judge-stat" x={Number(x)}>{t(('stat_'+STATS[Number(stat)]) as never)}</tspan>
+       <tspan className="judge-stat" x={Number(x)}>{statLabel(STATS[Number(stat)])}</tspan>
        <tspan className="judge-rate" x={Number(x)} dy="17">{judgeLabel(ivs[Number(stat)])}</tspan>
       </text>)}
      </svg>
@@ -668,7 +697,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
       return <li key={rowKey} className={isNew?'new':''}>
        <i className={`type t-${move.type}`}>{typeName(move.type)}</i>
        <b><span className={`category-symbol category-${moveKind(move)}`} aria-hidden="true">{categorySymbol(moveKind(move))}</span>{moveName(move.name)}</b>
-       <span>{move.power?`${t('basePower',{n:move.power})} · ${impact?t('powerWithStats',{min:impact.min,max:impact.max,stat:t(('stat_'+(move.category==='physical'?'atk':'spa')) as never),n:stats[statIndex]}):''}`:statusSummary(moveKey,move)}</span>
+       <span>{move.power?`${t('basePower',{n:move.power})} · ${impact?t('powerWithStats',{min:impact.min,max:impact.max,stat:statLabel((move.category==='physical'?'atk':'spa')),n:stats[statIndex]}):''}`:statusSummary(moveKey,move)}</span>
       </li>;
      })}</ul>}
      {newMove&&<p className="team-note">{newMove.power?advice?.kind==='replace'
@@ -692,7 +721,8 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
    </div>}
    {/* El lector vive dentro de cada Pokemon: sirve para enriquecer el que ya
        tienes, y sabiendo de que especie es acierta mucho mas. */}
-   <ScanCard battle={battle} dex={dex} mon={mon} tr={tr} onFill={change=>update(mon.id,change)}/>
+   {/* El lector de fichas conoce la pantalla de FRLG, no la de Yellow. */}
+   {!gen1&&<ScanCard battle={battle} dex={dex} mon={mon} tr={tr} onFill={change=>update(mon.id,change)}/>}
    <h4 className="team-moves-head">{t('scanMoves')}{guessed(mon,'moves')}</h4>
    <div className="team-moves">{[0,1,2,3].map(i=>{
     const move=mon.moves[i]?battle.moves[mon.moves[i]!]:null;
@@ -703,7 +733,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
       {pool.map(key=><option key={key} value={key}>{moveLabel(key)}</option>)}
      </select>
      {move&&<small>
-      {move.power?impact&&<span>{t('powerWithStats',{min:impact.min,max:impact.max,stat:t(('stat_'+(move.category==='physical'?'atk':'spa')) as never),n:stats[move.category==='physical'?1:3]})}</span>:<span>{t('status')}</span>}
+      {move.power?impact&&<span>{t('powerWithStats',{min:impact.min,max:impact.max,stat:statLabel((move.category==='physical'?'atk':'spa')),n:stats[move.category==='physical'?1:3]})}</span>:<span>{t('status')}</span>}
       <span>PP {move.pp}</span></small>}
      {move&&describe(mon.moves[i]!)&&<p className="move-desc">{describe(mon.moves[i]!)}</p>}
     </div>;

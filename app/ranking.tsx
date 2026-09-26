@@ -33,7 +33,8 @@ export function RankingView({dex,battle,byId,done,dexKey,storageKey,switcher,tr}
   const family=(n:number)=>{const chain=[];for(let at:number|undefined=n;at&&byN.has(at);at=byN.get(at)!.from?.n)chain.unshift(at);return chain};
   // Sin intercambiar con otra consola: se encuentra en el juego (los cambios con
   // gente del juego valen) o sale de uno que si, sin evolucionar por intercambio.
-  const alone=(n:number):boolean=>{const s=byN.get(n);if(!s)return false;
+  // Lo que la Pokedex da por no disponible tampoco cuenta (Raichu en Yellow).
+  const alone=(n:number):boolean=>{const s=byN.get(n);if(!s||s.get==='none')return false;
    return s.get==='found'||(!!s.from&&s.from.method!=='trade'&&alone(s.from.n))};
   const finals=new Set(dex.species.filter(s=>battle.species[s.n]).flatMap(s=>finalForms(dex,battle,s.n)));
   return [...finals].flatMap(n=>{
@@ -67,7 +68,7 @@ export function RankingView({dex,battle,byId,done,dexKey,storageKey,switcher,tr}
   <div className="list-body rank">
    {/* Mientras cargan los datos de combate el selector sigue arriba, para poder volver. */}
    {!battle&&<p className="list-empty">{t('loadingTeam')}</p>}
-   {battle&&<p className="list-source rank-note">{t('rankingNote')}</p>}
+   {battle&&<p className="list-source rank-note">{t(battle.gen===1?'rankingNoteGen1':'rankingNote')}</p>}
    {/* El puesto es el de la lista que ves: con filtros, el mejor de lo que queda es el 1. */}
    {shown.map((row,i)=>{
     // Tu nota, calculada como esta forma final (un Abra tuyo cuenta como

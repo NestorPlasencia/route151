@@ -20,7 +20,7 @@ const read=(key:string)=>{try{const list=JSON.parse(localStorage.getItem(key)||'
 export function GameHome({current,last,lang,onLang,onPick,tr}:{current:string;last:string|null;lang:Lang;onLang:(l:Lang)=>void;onPick:(id:string)=>void;tr:T}){
  const {t}=tr;
  const [saved,setSaved]=useState<Record<string,Saved>>({});
- useEffect(()=>{setSaved(Object.fromEntries(GAMES.map(g=>[g.id,{done:read(g.storage.done),team:g.id==='yellow'?0:read(`${g.storage.done}-team`)}])))},[]);
+ useEffect(()=>{setSaved(Object.fromEntries(GAMES.map(g=>[g.id,{done:read(g.storage.done),team:read(`${g.storage.done}-team`)}])))},[]);
  return <section className="home" aria-label={t('homeChoose')}>
   <div className="home-inner">
    <div className="home-brand"><i><MapIcon/></i><b>ROUTE 151</b></div>

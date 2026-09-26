@@ -16,6 +16,8 @@ export type Game={
  id:string;short:string;title:string;
  // Claves de localStorage con el progreso (las de Yellow son las de siempre).
  storage:{done:string;dex:string};
+ // Datos de combate (equipo, ranking, consejos) y, si los hay, textos de los ataques.
+ battle:string;moveText?:string;
  // Capas que empiezan ocultas y categorias que no cuentan como progreso (en FRLG,
  // obstaculos y tiendas: comprar no es coleccionar).
  hidden:string[];untracked:string[];
@@ -52,7 +54,7 @@ async function loadFrlg(version:'firered'|'leafgreen'):Promise<World>{
 export const GAMES:Game[]=[
  // Yellow empieza de cero con los datos del juego: sus marcadores son otros, asi
  // que el progreso tiene claves nuevas (las de antes, 'ruta151-full', no casan).
- {id:'yellow',short:'Yellow',title:'Pokémon Yellow',storage:{done:'ruta151-yellow',dex:'ruta151-yellow-dex'},hidden:['Obstacle'],untracked:['Obstacle','Shop'],load:loadYellow},
- {id:'firered',short:'FireRed',title:'Pokémon FireRed',storage:{done:'ruta151-firered',dex:'ruta151-firered-dex'},hidden:['Obstacle'],untracked:['Obstacle','Shop'],load:()=>loadFrlg('firered')},
- {id:'leafgreen',short:'LeafGreen',title:'Pokémon LeafGreen',storage:{done:'ruta151-leafgreen',dex:'ruta151-leafgreen-dex'},hidden:['Obstacle'],untracked:['Obstacle','Shop'],load:()=>loadFrlg('leafgreen')},
+ {id:'yellow',short:'Yellow',title:'Pokémon Yellow',storage:{done:'ruta151-yellow',dex:'ruta151-yellow-dex'},battle:'/yellow/data/battle.json',hidden:['Obstacle'],untracked:['Obstacle','Shop'],load:loadYellow},
+ {id:'firered',short:'FireRed',title:'Pokémon FireRed',storage:{done:'ruta151-firered',dex:'ruta151-firered-dex'},battle:'/frlg/data/battle.json',moveText:'/frlg/data/move-text.json',hidden:['Obstacle'],untracked:['Obstacle','Shop'],load:()=>loadFrlg('firered')},
+ {id:'leafgreen',short:'LeafGreen',title:'Pokémon LeafGreen',storage:{done:'ruta151-leafgreen',dex:'ruta151-leafgreen-dex'},battle:'/frlg/data/battle.json',moveText:'/frlg/data/move-text.json',hidden:['Obstacle'],untracked:['Obstacle','Shop'],load:()=>loadFrlg('leafgreen')},
 ];

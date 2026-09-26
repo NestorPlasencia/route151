@@ -28,7 +28,9 @@ export default function Home(){
  // Los nombres en espanol de los objetos (de PokeAPI) solo se bajan si hacen falta.
  useEffect(()=>{if(lang!=='es'||names)return;fetch('/data/names-es.json').then(r=>r.json()).then(setNames).catch(e=>console.error('No se pudieron cargar los nombres',e))},[lang,names]);
  const game=GAMES.find(g=>g.id===gameId)??GAMES[0],groups=groupsOf(game.id);
- const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'|'team'>('mapa'),[dexView,setDexView]=useState<'dex'|'ranking'>('dex'),[battle,setBattle]=useState<Battle|null>(null),[moveText,setMoveText]=useState<Record<string,{en:string;es:string}>|null>(null),[view,setView]=useState<View>({area:''});
+ const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'|'team'>('mapa'),[dexView,setDexView]=useState<'dex'|'ranking'>('dex'),[battles,setBattles]=useState<Record<string,Battle>>({}),[moveText,setMoveText]=useState<Record<string,{en:string;es:string}>|null>(null),[view,setView]=useState<View>({area:''});
+ // Cada juego tiene sus datos de combate (Yellow, los de Gen 1): se guardan por archivo.
+ const battle=battles[game.battle]??null;
  const [active,setActive]=useState<string[]>(groups.map(g=>g[0])),[selected,setSelected]=useState<Marker|null>(null),[stack,setStack]=useState<Marker[]|null>(null),[done,setDone]=useState<number[]>([]),[locations,setLocations]=useState(false),[about,setAbout]=useState(false),[layersOpen,setLayersOpen]=useState(false);
  const [encounterZone,setEncounterZone]=useState<EncounterZone|null>(null);
  // Inicio para elegir juego, y el ultimo que se jugo (se marca en su tarjeta).
@@ -52,12 +54,13 @@ export default function Home(){
  useEffect(()=>{document.documentElement.lang=lang},[lang]);
  // Tambien se carga al abrir un entrenador o un Pokemon salvaje del mapa.
  const needsBattle=tab==='team'||(tab==='pokedex'&&dexView==='ranking')||selected?.category==='Battle'||!!selected?.encounter||!!stack?.some(m=>m.category==='Battle'||m.encounter);
- useEffect(()=>{if(!needsBattle||battle||game.id==='yellow')return;
-  fetch('/frlg/data/battle.json').then(r=>r.json()).then(setBattle).catch(e=>console.error('No se pudieron cargar los datos de combate',e));
- },[needsBattle,battle,game.id]);
- useEffect(()=>{if(tab!=='team'||moveText||game.id==='yellow')return;
-  fetch('/frlg/data/move-text.json').then(r=>r.json()).then(setMoveText).catch(e=>console.error('No se pudo cargar la descripcion de los ataques',e));
- },[tab,moveText,game.id]);
+ useEffect(()=>{if(!needsBattle||battle)return;const url=game.battle;
+  fetch(url).then(r=>r.json()).then((b:Battle)=>setBattles(all=>({...all,[url]:b}))).catch(e=>console.error('No se pudieron cargar los datos de combate',e));
+ },[needsBattle,battle,game.battle]);
+ // Yellow no tiene textos de ataques (en Gen 1 no hay descripciones).
+ useEffect(()=>{if(tab!=='team'||moveText||!game.moveText)return;
+  fetch(game.moveText).then(r=>r.json()).then(setMoveText).catch(e=>console.error('No se pudo cargar la descripcion de los ataques',e));
+ },[tab,moveText,game.moveText]);
 
  const areaById=useMemo(()=>new Map((world?.areas??[]).map(a=>[a.id,a])),[world]);
  const regions=useMemo(()=>world?.areas.filter(a=>a.kind==='region')??[],[world]);
@@ -266,9 +269,6 @@ export default function Home(){
   const loc=spot??(next?{name:zone,area:next.area!,at:isRegion(next.area!)?next.at:undefined}:null);
   if(loc){setTab('mapa');go(loc,false)}
  };
- // Equipo y el ranking solo existen en FireRed/LeafGreen: al pasar a Yellow se
- // vuelve al mapa o a la Pokedex.
- useEffect(()=>{if(game.id!=='yellow')return;if(tab==='team')setTab('mapa');setDexView('dex')},[game.id,tab]);
  const detail=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):info(m)??null};
  const listed=useMemo(()=>world?world.markers.filter(m=>world.checklist.markers[m.id]):[],[world]);
  // Por que nivel va la partida, mirando los gimnasios marcados en la lista.
@@ -290,7 +290,7 @@ export default function Home(){
   // prometer mas dano del que vas a hacer.
   return last?Math.floor(last+(next-last)*.25):Math.max(5,next-5);
  },[world,done]);
- const tabs=([['mapa',t('tabMap'),MapIcon],['checklist',t('tabChecklist'),ListChecks],['pokedex',t('tabDex'),BookOpen],...(game.id==='yellow'?[]:[['team',t('tabTeam'),Swords] as const])] as const);
+ const tabs=([['mapa',t('tabMap'),MapIcon],['checklist',t('tabChecklist'),ListChecks],['pokedex',t('tabDex'),BookOpen],['team',t('tabTeam'),Swords]] as const);
  const areaName=(id?:string)=>id?place(areaById.get(id)?.label??'—'):'—';
  // Ficha de un marcador: el lugar junto a la categoria si es corto.
  // Lo que vende una tienda, con los objetos traducidos; los demas detalles solo
@@ -338,14 +338,14 @@ export default function Home(){
  {/* La Pokedex y el ranking comparten pestana, cada uno con su lista: se
      cambia con el selector de arriba (el ranking solo en FireRed/LeafGreen). */}
  {tab==='pokedex'&&(()=>{
-  const switcher=game.id==='yellow'?null:<div className="list-switch">{([['dex',t('tabDex')],['ranking',t('tabRanking')]] as const).map(([k,label])=>
+  const switcher=<div className="list-switch">{([['dex',t('tabDex')],['ranking',t('tabRanking')]] as const).map(([k,label])=>
    <button key={k} className={`chip ${dexView===k?'on':''}`} aria-pressed={dexView===k} onClick={()=>setDexView(k)}>{label}</button>)}</div>;
   if(!world)return <div className="listview loading-list">{t('loadingDex')}</div>;
   return dexView==='ranking'&&switcher
    ?<RankingView dex={world.dex} battle={battle} byId={byId} done={done} dexKey={game.storage.dex} storageKey={`${game.storage.done}-team`} switcher={switcher} tr={tr}/>
    :<PokedexView dex={world.dex} byId={byId} done={done} setMany={setMany} onShow={showOnMap} game={game.short} storageKey={game.storage.dex} switcher={switcher} tr={tr}/>;
  })()}
- {tab==='team'&&(world?<TeamView dex={world.dex} battle={battle} moveText={moveText} storageKey={`${game.storage.done}-team`} suggestedLevel={suggestedLevel} tr={tr}/>:<div className="listview loading-list">{t('loadingTeam')}</div>)}
+ {tab==='team'&&(world?<TeamView dex={world.dex} battle={battle} moveText={game.moveText?moveText:null} storageKey={`${game.storage.done}-team`} suggestedLevel={suggestedLevel} tr={tr}/>:<div className="listview loading-list">{t('loadingTeam')}</div>)}
  {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label={t('credits')}><button className="close" onClick={()=>setAbout(false)} aria-label={t('close')}><X/></button><small>{t('about')}</small><h2>{t('credits')}</h2><Credits game={game.id} tr={tr}/></dialog></div>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>
  {home&&<GameHome current={game.id} last={last} lang={lang} onLang={pickLang} onPick={choose} tr={tr}/>}
