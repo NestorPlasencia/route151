@@ -8,7 +8,7 @@
 import {useEffect,useMemo,useState,type ReactNode} from 'react';
 import {Search} from 'lucide-react';
 import {Figure,type Marker} from './shared';
-import {finalForms,trainingBand,trainingValue,type Battle,type TeamMon} from './team';
+import {finalForms,ivsOf,trainingBand,trainingValue,type Battle,type TeamMon} from './team';
 import type {T} from './i18n';
 import {caughtSpecies,type Dex} from './lists';
 
@@ -20,9 +20,9 @@ type Filter='caught'|'noLegendary'|'noTrade';
 
 export function RankingView({dex,battle,byId,done,dexKey,storageKey,switcher,tr}:{dex:Dex;battle:Battle|null;byId:Map<string,Marker>;done:number[];dexKey:string;storageKey:string;switcher?:ReactNode;tr:T}){
  const {t,type}=tr;
- const [query,setQuery]=useState(''),[team,setTeam]=useState<number[]>([]),[manual,setManual]=useState<number[]>([]),[on,setOn]=useState<Filter[]>([]);
+ const [query,setQuery]=useState(''),[team,setTeam]=useState<TeamMon[]>([]),[manual,setManual]=useState<number[]>([]),[on,setOn]=useState<Filter[]>([]);
  // Las familias que ya llevas se marcan, para ver de un vistazo donde quedan.
- useEffect(()=>{try{const saved:TeamMon[]=JSON.parse(localStorage.getItem(storageKey)||'[]');setTeam(Array.isArray(saved)?saved.map(mon=>mon.n):[])}catch{setTeam([])}},[storageKey]);
+ useEffect(()=>{try{const saved:TeamMon[]=JSON.parse(localStorage.getItem(storageKey)||'[]');setTeam(Array.isArray(saved)?saved:[])}catch{setTeam([])}},[storageKey]);
  // Lo registrado a mano en la Pokedex (las especies sin entradas en la checklist).
  useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem(dexKey)||'[]');setManual(Array.isArray(saved)?saved:[])}catch{setManual([])}},[dexKey]);
  const caught=useMemo(()=>caughtSpecies(dex,byId,done,manual),[dex,byId,done,manual]);
@@ -63,7 +63,11 @@ export function RankingView({dex,battle,byId,done,dexKey,storageKey,switcher,tr}
    {battle&&<p className="list-source rank-note">{t('rankingNote')}</p>}
    {/* El puesto es el de la lista que ves: con filtros, el mejor de lo que queda es el 1. */}
    {shown.map((row,i)=>{
-    const mine=row.family.some(n=>team.includes(n));
+    // Tu nota, calculada como esta forma final (un Abra tuyo cuenta como
+    // Alakazam). Con varios de la misma familia se muestra el mejor.
+    const yours=battle?Math.max(-1,...team.filter(mon=>row.family.includes(mon.n))
+     .map(mon=>trainingValue(battle,[row.into],mon.nature,ivsOf(battle,mon))?.score??-1)):-1;
+    const mine=yours>=0;
     return <div key={row.into} className={`rank-row ${mine?'mine':''}`}>
      <b className="rank-n">{i+1}</b>
      <Figure m={{icon:row.species.icon,category:'Pokémon'}}/>
@@ -75,6 +79,7 @@ export function RankingView({dex,battle,byId,done,dexKey,storageKey,switcher,tr}
      <span className="rank-score">
       <span className={`team-score ${trainingBand(row.score)}`}>{row.score}</span>
       <small>{t('rankingTop',{n:row.top})}</small>
+      {mine&&<small className="rank-yours">{t('rankingYours',{n:yours})}</small>}
      </span>
     </div>;
    })}

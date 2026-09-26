@@ -234,10 +234,11 @@ const trainWeight=(base:number[],ivs:number[],nature:Mods,weights=TRAIN_WEIGHTS)
 const trainScore=(weight:number)=>Math.max(0,Math.min(100,Math.round((weight-TRAIN_FLOOR)/(TRAIN_TOP-TRAIN_FLOOR)*100)));
 // `species` y `specimen` son las dos notas; `nature` es lo que la naturaleza
 // suma o resta a la del ejemplar, y `mainIv`/`speedIv` los IVs que mas pesan
-// (null si no escribiste sus estadisticas). `top` es la nota del mejor
-// ejemplar posible de esa especie.
+// (null si no escribiste sus estadisticas). `base` es la nota de un ejemplar
+// medio de esa especie (IVs de 15 y naturaleza neutra, la del ranking) y `top`
+// la del mejor posible: entre las dos se ve donde cae el tuyo.
 export type TrainingValue={score:number;into:number;main:'atk'|'spa';species:number;specimen:number;nature:number;
- lowersMain:boolean;raisesMain:boolean;mainIv:number|null;speedIv:number|null;top:number};
+ lowersMain:boolean;raisesMain:boolean;mainIv:number|null;speedIv:number|null;base:number;top:number};
 export function trainingValue(battle:Battle,forms:number[],natureKey:string,ivs:number[]|null):TrainingValue|null{
  const shown=forms.filter(n=>battle.species[n]);if(!shown.length)return null;
  const nature=battle.natures[natureKey]??[null,null],neutral:Mods=[null,null],natures=Object.values(battle.natures);
@@ -251,7 +252,17 @@ export function trainingValue(battle:Battle,forms:number[],natureKey:string,ivs:
  const specimen=quality(own,nature),main=mainAttack(trainStats(base,own,nature)),key=STATS[main];
  const mix=(q:number)=>Math.round(SPECIES_SHARE*species+(1-SPECIES_SHARE)*q);
  return {score:mix(specimen),into,main:key==='atk'?'atk':'spa',species,specimen,nature:specimen-quality(own,neutral),
-  lowersMain:nature[1]===key,raisesMain:nature[0]===key,mainIv:ivs?ivs[main]:null,speedIv:ivs?ivs[5]:null,top:mix(100)};
+  lowersMain:nature[1]===key,raisesMain:nature[0]===key,mainIv:ivs?ivs[main]:null,speedIv:ivs?ivs[5]:null,base:mix(quality(mid,neutral)),top:mix(100)};
+}
+// IVs deducidos de las estadisticas escritas (los del juez), o null si no hay
+// o no cuadran. De un rango se toma su punto medio, sin pasar de 31 (lo de mas
+// son EVs).
+export function ivsOf(battle:Battle,mon:TeamMon){
+ const s=battle.species[mon.n],stats=mon.stats;if(!s||!stats)return null;
+ const mods=battle.natures[mon.nature]??[null,null];
+ const fits=STATS.map((stat,i)=>genes(s.base[i],mon.level,stats[i],stat,mods));
+ if(fits.some(f=>!f))return null;
+ return fits.map(f=>Math.min(31,Math.round((f!.min+Math.min(31,f!.max))/2)));
 }
 // Las formas en las que acaba: las que ya no evolucionan (varias en Eevee).
 // Se sigue la Pokedex del juego, asi que solo cuentan las evoluciones que hay en el.
@@ -445,14 +456,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
 
  // Grafico de juez: hexagono con la valoracion de cada IV, como en los juegos.
  const judgeLabel=(iv:number)=>t((iv>=31?'rate5':iv>=30?'rate4':iv>=21?'rate3':iv>=11?'rate2':iv>=1?'rate1':'rate0') as never);
- const judge=(mon:TeamMon)=>{
-  const s=battle.species[mon.n],stats=mon.stats;if(!stats)return null;
-  const mods=battle.natures[mon.nature]??[null,null];
-  const fits=STATS.map((stat,i)=>genes(s.base[i],mon.level,stats[i],stat,mods));
-  if(fits.some(f=>!f))return null;
-  // De un rango se toma su punto medio, sin pasar de 31 (lo de mas son EVs).
-  return fits.map(f=>Math.min(31,Math.round((f!.min+Math.min(31,f!.max))/2)));
- };
+ const judge=(mon:TeamMon)=>ivsOf(battle,mon);
  // Ejes como en el juego: PS arriba y, girando a la derecha, Ataque, Defensa,
  // Velocidad, Def. Esp. y At. Esp.
  const AXES=[0,1,2,5,4,3];
@@ -569,13 +573,20 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
    </div>)}</dl>
    <p className="team-note">{own&&<span className="team-iv">{t('ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
    {value&&band&&<div className="training">
-    <h4>{t('training')}<small>{t('trainingTop',{n:value.top})}</small></h4>
+    <h4>{t('training')}</h4>
     <div className="training-head">
      <b className={`team-score ${band}`}>{value.score}</b>
      <span><strong>{t(band)}</strong>
       <small>{value.into!==mon.n?t('trainingAs',{name:species.get(value.into)?.name??''}):t('trainingFinal')}</small></span>
     </div>
-    <i className="training-bar"><em className={band} style={{width:`${value.score}%`}}/></i>
+    {/* La barra marca la media de la especie y el maximo: el tuyo cae entre las dos o por debajo. */}
+    <i className="training-bar"><em className={band} style={{width:`${value.score}%`}}/>
+     <b className="training-mark" style={{left:`${value.base}%`}}/><b className="training-mark top" style={{left:`${value.top}%`}}/></i>
+    <dl className="training-compare">
+     <div title={t('trainingBaseHelp')}><dt>{t('trainingBase')}</dt><dd>{value.base}</dd></div>
+     <div className="yours"><dt>{t('trainingYours')}</dt><dd>{value.score}{value.score!==value.base&&<small> ({signed(value.score-value.base)})</small>}</dd></div>
+     <div><dt>{t('trainingBest')}</dt><dd>{value.top}</dd></div>
+    </dl>
     <ul>
      <li>{t('trainingSpecies',{n:value.species,name:species.get(value.into)?.name??'',stat:mainStat})}</li>
      <li>{t('trainingSpecimen',{n:value.specimen})}
