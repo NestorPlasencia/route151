@@ -213,7 +213,12 @@ def place_kanto(maps):
 def parse_objects(label):
     """Warps, carteles y objetos de un mapa (data/maps/objects)."""
     path = d.path('data/maps/objects', f'{label}.asm')
-    text = open(path, encoding='utf-8').read() if os.path.exists(path) else ''
+    text = d.read('data/maps/objects', f'{label}.asm') if os.path.exists(path) else ''
+    # Puertas que el propio juego marca como inaccesibles (en Azulona, Silph...):
+    # siguen en la lista, porque otras puertas llegan a ellas por su numero, pero
+    # con un destino que no existe, asi que no se dibujan.
+    text = '\n'.join(re.sub(r'(warp_event\s+\d+,\s*\d+,\s*)\w+', r'\1INACCESSIBLE', line) if 'warp_event' in line and 'inaccessible' in line else line
+                     for line in text.splitlines())
     warps = [(int(x), int(y), dest, int(n)) for x, y, dest, n in re.findall(r'^[ 	]*warp_event[ 	]+(\d+),[ 	]*(\d+),[ 	]*(\w+),[ 	]*(\d+)', text, re.M)]
     objects = []
     for line in re.findall(r'^[ 	]*object_event[ 	]+(.+)$', text, re.M):

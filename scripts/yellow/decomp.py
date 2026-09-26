@@ -25,7 +25,33 @@ def path(*parts):
 
 
 def read(*parts):
-    return open(path(*parts), encoding='utf-8').read()
+    """Un archivo del juego tal como entra en la version normal: sin los bloques
+    IF DEF(_DEBUG) (en el 2F de la casa de Red hay cuatro puertas de depuracion a
+    Mt. Moon, el Escondite, la Torre y Silph), y con su ELSE si lo tienen."""
+    return release(open(path(*parts), encoding='utf-8').read())
+
+
+def release(text):
+    """Quita las ramas IF DEF(_DEBUG) y deja su ELSE; los demas IF/ELSE/ENDC
+    (condiciones que aqui no se evaluan) pasan tal cual."""
+    out, stack = [], []  # por cada IF abierto: 'debug' (en su rama IF), 'kept' (su ELSE) u 'other'
+    for line in text.splitlines(keepends=True):
+        word = line.split(';')[0].strip()
+        if word.startswith('IF '):
+            stack.append('debug' if word == 'IF DEF(_DEBUG)' else 'other')
+            if stack[-1] == 'other' and 'debug' not in stack:
+                out.append(line)
+            continue
+        if word in ('ELSE', 'ENDC') and stack:
+            frame = stack[-1] if word == 'ELSE' else stack.pop()
+            if word == 'ELSE' and frame == 'debug':
+                stack[-1] = 'kept'
+            elif frame == 'other' and 'debug' not in stack:
+                out.append(line)
+            continue
+        if 'debug' not in stack:
+            out.append(line)
+    return ''.join(out)
 
 
 @lru_cache(None)
