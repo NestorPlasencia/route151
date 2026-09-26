@@ -1,6 +1,6 @@
 'use client';
 // Pestanas de lista: la checklist por zonas (en orden de juego) y la Pokedex.
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useState,type ReactNode} from 'react';
 import {Check,MapPin,Search} from 'lucide-react';
 import {Figure,colorOf,type Marker} from './shared';
 import type {T} from './i18n';
@@ -67,8 +67,13 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,detail,t
 
 // uid de las entradas de la checklist de una especie (salvaje, regalo, intercambio).
 const uidsOf=(byId:Map<string,Marker>,s:Species)=>[...new Set(s.found.flatMap(f=>f.ids.flatMap(id=>{const m=byId.get(id);return m?[m.uid]:[]})))];
+// Especies registradas: las que tienen entradas en la checklist cuentan si
+// alguna esta completa; las demas, si se marcaron a mano en la Pokedex.
+export const caughtSpecies=(dex:Dex,byId:Map<string,Marker>,done:number[],manual:number[])=>new Set(dex.species.filter(s=>{
+ const uids=uidsOf(byId,s);return uids.length?uids.some(uid=>done.includes(uid)):manual.includes(s.n);
+}).map(s=>s.n));
 
-export function PokedexView({dex,byId,done,setMany,onShow,game,storageKey,tr}:{dex:Dex;byId:Map<string,Marker>;done:number[];setMany:(uids:number[],on:boolean)=>void;onShow:(m:Marker)=>void;game:string;storageKey:string;tr:T}){
+export function PokedexView({dex,byId,done,setMany,onShow,game,storageKey,switcher,tr}:{dex:Dex;byId:Map<string,Marker>;done:number[];setMany:(uids:number[],on:boolean)=>void;onShow:(m:Marker)=>void;game:string;storageKey:string;switcher?:ReactNode;tr:T}){
  const {t,how,type,note,evo,place}=tr;
  // Sincronizada con la checklist: una especie con entradas alli esta registrada
  // si alguna esta completa, y marcarla aqui marca (o desmarca) todas. Las que no
@@ -82,8 +87,8 @@ export function PokedexView({dex,byId,done,setMany,onShow,game,storageKey,tr}:{d
   if(linked.length){setMany(linked.flatMap(s=>uidsOf(byId,s)),true);list=list.filter(n=>!linked.some(s=>s.n===n));try{localStorage.setItem(storageKey,JSON.stringify(list))}catch{}}
   setManual(list);
  },[storageKey,dex,byId,setMany]);
- const viaList=(s:Species)=>uidsOf(byId,s).some(uid=>done.includes(uid));
- const caught=(s:Species)=>uidsOf(byId,s).length?viaList(s):manual.includes(s.n);
+ const caughtSet=useMemo(()=>caughtSpecies(dex,byId,done,manual),[dex,byId,done,manual]);
+ const caught=(s:Species)=>caughtSet.has(s.n);
  const toggle=(s:Species)=>{const uids=uidsOf(byId,s);if(uids.length)setMany(uids,!caught(s));else saveManual(manual.includes(s.n)?manual.filter(x=>x!==s.n):[...manual,s.n])};
  const names=useMemo(()=>new Map(dex.species.map(s=>[s.n,s.name])),[dex]);
  const q=query.trim().toLowerCase();
@@ -92,6 +97,7 @@ export function PokedexView({dex,byId,done,setMany,onShow,game,storageKey,tr}:{d
  return <div className="listview">
   <div className="list-head">
    <div className="list-title"><h2>{t('tabDex')}</h2><Progress done={count} total={dex.species.length}/></div>
+   {switcher}
    <label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('searchDex')}/></label>
    <div className="list-filters">{([['all',t('filterAll')],['missing',t('filterMissing')],['caught',t('filterCaught')]] as const).map(([k,t])=><button key={k} className={`chip ${filter===k?'on':''}`} onClick={()=>setFilter(k)}>{t}</button>)}</div>
   </div>

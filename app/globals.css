@@ -422,6 +422,20 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .judge-shape{fill:#168d3b99;stroke:#08742d;stroke-width:2}
 .judge-label{font-size:13px;font-weight:700;fill:#162234;paint-order:stroke;stroke:#fbfcfe;stroke-width:3px;stroke-linejoin:round}
 .judge-rate{font-weight:500;font-size:12px}
+/* Selector entre la Pokedex y el ranking, en la misma pestana. */
+.list-switch{display:flex;gap:6px;margin-top:10px}
+/* Ranking: una fila por forma final, de mayor a menor valor para entrenar. */
+.rank-note{margin:0 0 10px!important;text-align:left!important;line-height:1.45}
+.rank-row{display:grid;grid-template-columns:26px 40px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 12px;background:#fff;border:1px solid var(--line);border-radius:11px;margin-bottom:6px}
+.rank-row.mine{border-color:#9fd3b6;background:#f6fcf8}
+.rank-n{font-size:12px;color:var(--muted);text-align:right}
+.rank-text{display:flex;flex-direction:column;gap:3px;min-width:0}
+.rank-text>b{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px}
+.rank-text small{font-size:10px;color:var(--muted)}
+.rank-mine{font-style:normal;font-size:9px;font-weight:bold;color:#1f7a4d;background:#e4f6ec;padding:1px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:.04em}
+.rank-trade{font-style:normal;font-size:9px;font-weight:bold;color:#8a5a08;background:#fdf1dc;padding:1px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:.04em}
+.rank-score{display:flex;flex-direction:column;align-items:center;gap:3px}
+.rank-score small{font-size:9px;color:var(--muted);white-space:nowrap}
 /* Valor para entrenar: nota de 0 a 100 en la fila y su desglose en la ficha. */
 .team-score{flex:none;min-width:30px;height:24px;padding:0 6px;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:bold;font-style:normal}
 .train1{background:#fde8e8;color:#a3302f}.train2{background:#fdf1dc;color:#8a5a08}.train3{background:#eef3fb;color:#2c5aa0}.train4{background:#e4f6ec;color:#1f7a4d}.train5{background:#d8f1e3;color:#0f5c36;box-shadow:inset 0 0 0 1px #7fcca3}

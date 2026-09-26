@@ -253,6 +253,12 @@ export function trainingValue(battle:Battle,forms:number[],natureKey:string,ivs:
  return {score:mix(specimen),into,main:key==='atk'?'atk':'spa',species,specimen,nature:specimen-quality(own,neutral),
   lowersMain:nature[1]===key,raisesMain:nature[0]===key,mainIv:ivs?ivs[main]:null,speedIv:ivs?ivs[5]:null,top:mix(100)};
 }
+// Las formas en las que acaba: las que ya no evolucionan (varias en Eevee).
+// Se sigue la Pokedex del juego, asi que solo cuentan las evoluciones que hay en el.
+export const finalForms=(dex:Dex,battle:Battle,n:number,seen:number[]=[]):number[]=>{
+ const next=dex.species.filter(other=>other.from?.n===n&&battle.species[other.n]&&!seen.includes(other.n));
+ return next.length?next.flatMap(evo=>finalForms(dex,battle,evo.n,[...seen,n])):[n];
+};
 export const trainingBand=(score:number)=>score>=85?'train5':score>=70?'train4':score>=55?'train3':score>=40?'train2':'train1';
 
 export type MoveAdvice={kind:'replace'|'keep'|'manual';old:string|null;delta:number};
@@ -481,12 +487,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
  const evolutionsOf=(n:number)=>dex.species.filter(other=>other.from?.n===n&&battle.species[other.n]);
  // Nivel al que evoluciona, si es por nivel: sirve para avisar de que ya toca.
  const atLevel=(method:string|null)=>{const found=/^level (\d+)$/.exec(method??'');return found?+found[1]:null};
- // Las formas en las que acaba: las que ya no evolucionan (varias en Eevee).
- const finalsOf=(n:number,seen:number[]=[]):number[]=>{
-  const next=evolutionsOf(n).filter(evo=>!seen.includes(evo.n));
-  return next.length?next.flatMap(evo=>finalsOf(evo.n,[...seen,n])):[n];
- };
- const valueOf=(mon:TeamMon)=>trainingValue(battle,finalsOf(mon.n),mon.nature,judge(mon));
+ const valueOf=(mon:TeamMon)=>trainingValue(battle,finalForms(dex,battle,mon.n),mon.nature,judge(mon));
  const signed=(n:number)=>n>0?`+${n}`:n<0?`−${-n}`:'±0';
 
  // Evolucionar conserva lo que el juego conserva: nivel, naturaleza y ataques.
