@@ -327,6 +327,8 @@ export function effortText(battle:Battle,ns:number[],tr:T,total=false){
 }
 
 // Recomendación junto a un entrenador o encuentro: solo mira el equipo activo.
+// Sin equipo sigue enseñando a los rivales (figurita, nivel y lo que dan), que es
+// lo que sirve para prepararse; la flecha y el ataque aparecen al tener equipo.
 export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=true,inline=false,foeDetail,foeLevel}:{opponents:Opponent[];dex:Dex;battle:Battle|null;storageKey:string;tr:T;showOpponent?:boolean;inline?:boolean;foeDetail?:string|null;foeLevel?:string|null}){
  const [team,setTeam]=useState<TeamMon[]>([]);
  useEffect(()=>{
@@ -335,7 +337,7 @@ export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=tr
   load();addEventListener('route151-team-changed',changed);return()=>removeEventListener('route151-team-changed',changed);
  },[storageKey]);
  const rows=useMemo(()=>{
-  if(!battle||!team.length)return [];
+  if(!battle)return [];
   const byName=new Map(dex.species.map(s=>[opponentName(s.name),s]));
   // Un entrenador repite Pokemon ("Machoke Lv38, Machop Lv38, Machoke Lv38"):
   // el consejo es el mismo, asi que cada pareja especie+nivel sale una vez.
@@ -349,7 +351,7 @@ export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=tr
    const attacker=best?dex.species.find(s=>s.n===best.mon.n):null;
    // Una opción favorable aprovecha debilidad de tipo o deja al rival a un
    // máximo de cuatro golpes incluso con la tirada baja de daño.
-   const good=!!best&&!!attacker&&(best.d.eff>1||best.d.min>=25);
+   const good=!team.length||(!!best&&!!attacker&&(best.d.eff>1||best.d.min>=25));
    return [{foe,target,best,attacker,good}];
   });
  },[battle,dex,opponents,team]);
@@ -370,13 +372,16 @@ export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=tr
   <div className="battle-mon battle-foe"><Figure m={{icon:fallbackTarget.icon,category:'Pokémon'}}/><span><b>{tr.name(fallbackTarget.name)} <em className="battle-lv">{foeLevel??tr.t('battleLevel',{level:opponents[0].level})}</em></b>{foeDetail&&<small>{foeDetail}</small>}{(ev=>ev&&<small className="battle-ev">{ev}</small>)(evsOf(fallbackTarget.n))}</span></div>
  </div></div>:total?<div className="battle-advice"><p className="battle-ev-total">{total}</p></div>:null;
  return <div className={`battle-advice ${inline?'inline':showOpponent?'':'compact'}`}>{rows.map(({foe,target,best,attacker,good})=><div key={`${foe.name}-${foe.level}`}>
-  {best&&attacker&&<div className={`battle-match ${inline?'inline':showOpponent?'':'compact'}`}>
-   {showOpponent&&<><div className="battle-mon battle-foe"><Figure m={{icon:target.icon,category:'Pokémon'}}/><span><b>{tr.name(target.name)} <em className="battle-lv">{inline&&foeLevel?foeLevel:tr.t('battleLevel',{level:foe.level})}</em></b>{inline&&foeDetail&&<small>{foeDetail}</small>}{(ev=>ev&&<small className="battle-ev">{ev}</small>)(evsOf(target.n))}</span></div>
+  {(()=>{const foeCard=<div className="battle-mon battle-foe"><Figure m={{icon:target.icon,category:'Pokémon'}}/><span><b>{tr.name(target.name)} <em className="battle-lv">{inline&&foeLevel?foeLevel:tr.t('battleLevel',{level:foe.level})}</em></b>{inline&&foeDetail&&<small>{foeDetail}</small>}{(ev=>ev&&<small className="battle-ev">{ev}</small>)(evsOf(target.n))}</span></div>;
+   // Sin ataque que recomendar (aun no hay equipo): solo el rival.
+   if(!(best&&attacker))return showOpponent?<div className={`battle-match ${inline?'inline battle-match-empty':''} battle-foe-only`}>{foeCard}</div>:null;
+   return <div className={`battle-match ${inline?'inline':showOpponent?'':'compact'}`}>
+   {showOpponent&&<>{foeCard}
     <i className="battle-arrow" aria-hidden="true">→</i>
    </>}
    {!showOpponent&&<><b className={`battle-context ${good?'good':'poor'}`}>{tr.t(good?'battleGoodAgainst':'battlePoorAgainst',{pokemon:tr.name(target.name)})}</b><i className="battle-arrow" aria-hidden="true">→</i></>}
    <div className="battle-mon"><Figure m={{icon:attacker.icon,category:'Pokémon'}}/><span><b>{tr.name(attacker.name)} <em className="battle-lv">{tr.t('levelShort',{n:best.mon.level})}</em></b><small>{tr.t('battleUse',{move:tr.move(best.move.name)})}</small><small>{tr.t('battleHit',{range:best.d.min===best.d.max?`${best.d.max}`:`${best.d.min}–${best.d.max}`})}</small></span></div>
-  </div>}
+  </div>})()}
   {!good&&<p className="battle-warning">{tr.t('battleNoGood')}</p>}
  </div>)}{total&&<p className="battle-ev-total">{total}</p>}</div>;
 }

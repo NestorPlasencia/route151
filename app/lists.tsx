@@ -1,9 +1,10 @@
 'use client';
 // Pestanas de lista: la checklist por zonas (en orden de juego) y la Pokedex.
-import {useEffect,useMemo,useState,type ReactNode} from 'react';
+import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
 import {Check,MapPin,Search} from 'lucide-react';
-import {Figure,colorOf,type Marker} from './shared';
+import {Figure,type Marker} from './shared';
 import type {T} from './i18n';
+import {BattleAdvice,trainerOpponents,type Battle} from './team';
 
 type Zone={name:string;part:number;count:number;floors:string[]};
 export type Checklist={source:string;note?:string;parts:{n:number;title:string}[];zones:Zone[];markers:Record<string,{zone:string;floor?:string}>};
@@ -13,16 +14,33 @@ export type Dex={species:Species[]};
 const pad=(n:number)=>String(n).padStart(3,'0');
 function Progress({done,total}:{done:number;total:number}){const pct=total?Math.round(done/total*100):0;return <span className={`progress ${done===total&&total?'full':''}`}><i><em style={{width:`${pct}%`}}/></i><b>{done}/{total}</b></span>}
 
-export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZone,detail,tr}:{markers:Marker[];checklist:Checklist;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;tr:T}){
+// Filtros de la checklist por lo que se busca, no por categoria interna: los
+// lideres (gimnasios, Alto Mando y Campeon) aparte del resto de entrenadores.
+type Focus='all'|'leaders'|'trainers'|'items'|'pokemon'|'gifts';
+const LEADER=/^(Leader|Elite Four|Champion)\b/;
+const focusOf=(m:Marker):Focus[]=>m.category==='Battle'?[LEADER.test(m.name)?'leaders':'trainers']
+ :['Item In Map','Hidden Item'].includes(m.category)?['items']:m.category==='Pokémon'?['pokemon']
+ :m.category==='Item Gift'?['items','gifts']:['pokemon','gifts'];
+const FOCUS:[Focus,'filterAll'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'][]=[
+ ['all','filterAll'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts']];
+
+export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZone,detail,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
  const {t,category,place,name}=tr;
- const [query,setQuery]=useState(''),[hideDone,setHideDone]=useState(false),[off,setOff]=useState<string[]>([]),[open,setOpen]=useState<string[]>([]);
  const isDone=(m:Marker)=>done.includes(m.uid);
- const categories=useMemo(()=>{const c=new Map<string,number>();markers.forEach(m=>c.set(m.category,(c.get(m.category)??0)+1));return [...c]},[markers]);
+ // Se abre sola la primera zona con algo pendiente: Pueblo Paleta si empiezas,
+ // o donde te quedaste. Es la ruta para quien no conoce el mapa.
+ const [query,setQuery]=useState(''),[hideDone,setHideDone]=useState(false),[focus,setFocus]=useState<Focus>('all'),[open,setOpen]=useState<string[]>(()=>{
+  const next=checklist.zones.find(z=>markers.some(m=>checklist.markers[m.id]?.zone===z.name&&!isDone(m)));
+  return next?[next.name]:[];
+ });
+ const first=useRef(open[0]);
+ useEffect(()=>{if(first.current)document.getElementById(`zone-${first.current}`)?.scrollIntoView({block:'start'})},[]);
+ const counts=useMemo(()=>{const c=new Map<Focus,number>([['all',markers.length]]);markers.forEach(m=>focusOf(m).forEach(f=>c.set(f,(c.get(f)??0)+1)));return c},[markers]);
  // Zona -> (lista suelta de Kanto, pisos en orden de visita).
  const byZone=useMemo(()=>{const out=new Map<string,Map<string,Marker[]>>();for(const m of markers){const z=checklist.markers[m.id];if(!z)continue;const floors=out.get(z.zone)??out.set(z.zone,new Map()).get(z.zone)!;const k=z.floor??'';(floors.get(k)??floors.set(k,[]).get(k)!).push(m)}return out},[markers,checklist]);
  const q=query.trim().toLowerCase();
  // Se busca por el nombre que se ve y por el original en ingles.
- const keep=(m:Marker)=>!off.includes(m.category)&&(!hideDone||!isDone(m))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
+ const keep=(m:Marker)=>(focus==='all'||focusOf(m).includes(focus))&&(!hideDone||!isDone(m))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
  const total=markers.length,completed=markers.filter(isDone).length;
  const toggle=(z:string)=>setOpen(o=>o.includes(z)?o.filter(x=>x!==z):[...o,z]);
  return <div className="listview">
@@ -31,7 +49,7 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
    <label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('searchChecklist')}/></label>
    <div className="list-filters">
     <button className={`chip ${hideDone?'on':''}`} onClick={()=>setHideDone(v=>!v)}><Check/>{t('hideCompleted')}</button>
-    {categories.map(([c,n])=><button key={c} className={`chip ${off.includes(c)?'':'on'}`} style={{'--c':colorOf(c)} as React.CSSProperties} onClick={()=>setOff(o=>o.includes(c)?o.filter(x=>x!==c):[...o,c])}><i/>{category(c)}<b>{n}</b></button>)}
+    {FOCUS.filter(([f])=>counts.get(f)).map(([f,label])=><button key={f} className={`chip ${focus===f?'on':''}`} aria-pressed={focus===f} onClick={()=>setFocus(f)}>{t(label)}<b>{counts.get(f)}</b></button>)}
    </div>
   </div>
   <div className="list-body">
@@ -44,20 +62,23 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
      {zones.map(z=>{
       const floors=byZone.get(z.name)!,items=[...floors.values()].flat();
       if(!items.some(keep))return null;
-      const expanded=!!q||open.includes(z.name);
+      // Buscando o filtrando se abre todo: lo que queda es justo lo que se busca.
+      const expanded=!!q||focus!=='all'||open.includes(z.name);
       const order=['',...z.floors].filter(f=>floors.has(f));
-      return <div key={z.name} className={`zone ${expanded?'open':''}`}>
+      return <div key={z.name} id={`zone-${z.name}`} className={`zone ${expanded?'open':''}`}>
        <div className="zone-top">
         <button className="zone-head" onClick={()=>toggle(z.name)} aria-expanded={expanded}><b>{place(z.name)}</b><Progress done={items.filter(isDone).length} total={items.length}/></button>
         <button className="show" onClick={()=>onShowZone(z.name)} aria-label={t('showOnMap',{name:place(z.name)})} title={t('showOnMap',{name:place(z.name)})}><MapPin/></button>
        </div>
        {expanded&&order.map(f=>{const rows=floors.get(f)!.filter(keep);if(!rows.length)return null;return <div key={f||'_'} className="floor">
         {f&&<h4>{place(f.startsWith(z.name+' ')?f.slice(z.name.length+1):f)}</h4>}
-        {rows.map(m=>{const d=detail(m);return <div key={m.id} className={`row ${isDone(m)?'done':''}`}>
+        {rows.map(m=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[];return <div key={m.id} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''}`}>
          <button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{isDone(m)&&<Check/>}</button>
          <Figure m={m}/>
-         <span className="row-text"><b>{name(m.name)}</b><small>{d??category(m.category)}</small></span>
+         <span className="row-text"><b>{name(m.name)}</b><small>{foes.length?category(m.category):d??category(m.category)}</small></span>
          <button className="show" onClick={()=>onShow(m)} aria-label={t('showOnMap',{name:name(m.name)})}><MapPin/></button>
+         {/* Su equipo como en el mapa: cada Pokemon con su nivel, lo que da y con que atacarle. */}
+         {foes.length>0&&battle&&<div className="row-team"><BattleAdvice opponents={foes} dex={dex} battle={battle} storageKey={teamKey} tr={tr}/></div>}
         </div>})}
        </div>})}
       </div>})}

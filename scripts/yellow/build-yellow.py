@@ -551,7 +551,10 @@ def main():
                 # El rival del mapa lleva un equipo de relleno: el de verdad lo pone el guion.
                 if cls.startswith('RIVAL') and any(k.startswith('RIVAL') for k, _ in scripted_battles(script)):
                     continue
-                add(c, 'Battle', class_name.get(cls, title(cls.replace('_', ' '))), x, y, icon=sprite_icon(o['sprite']),
+                # Giovanni solo es lider en su gimnasio; en el Escondite y en Silph es
+                # el jefe del Team Rocket ("Boss Giovanni", como en FRLG).
+                who = 'Boss Giovanni' if cls == 'GIOVANNI' and c != 'VIRIDIAN_GYM' else class_name.get(cls, title(cls.replace('_', ' ')))
+                add(c, 'Battle', who, x, y, icon=sprite_icon(o['sprite']),
                     detail=parties.get((cls, n)))
             elif args and args[0] in numbers and len(args) > 1:
                 sp, lv = args[0], int(args[1])

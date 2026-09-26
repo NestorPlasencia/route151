@@ -28,7 +28,7 @@ export default function Home(){
  // Los nombres en espanol de los objetos (de PokeAPI) solo se bajan si hacen falta.
  useEffect(()=>{if(lang!=='es'||names)return;fetch('/data/names-es.json').then(r=>r.json()).then(setNames).catch(e=>console.error('No se pudieron cargar los nombres',e))},[lang,names]);
  const game=GAMES.find(g=>g.id===gameId)??GAMES[0],groups=groupsOf(game.id);
- const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'|'team'>('mapa'),[dexView,setDexView]=useState<'dex'|'ranking'>('dex'),[battles,setBattles]=useState<Record<string,Battle>>({}),[moveText,setMoveText]=useState<Record<string,{en:string;es:string}>|null>(null),[view,setView]=useState<View>({area:''});
+ const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'|'team'>('checklist'),[dexView,setDexView]=useState<'dex'|'ranking'>('dex'),[battles,setBattles]=useState<Record<string,Battle>>({}),[moveText,setMoveText]=useState<Record<string,{en:string;es:string}>|null>(null),[view,setView]=useState<View>({area:''});
  // Cada juego tiene sus datos de combate (Yellow, los de Gen 1): se guardan por archivo.
  const battle=battles[battleUrl(game)]??null,moveTextSrc=moveTextUrl(game);
  const [active,setActive]=useState<string[]>(groups.map(g=>g[0])),[selected,setSelected]=useState<Marker|null>(null),[stack,setStack]=useState<Marker[]|null>(null),[done,setDone]=useState<number[]>([]),[locations,setLocations]=useState(false),[about,setAbout]=useState(false),[layersOpen,setLayersOpen]=useState(false);
@@ -49,11 +49,13 @@ export default function Home(){
  },[game]);
  const pickGame=(id:string)=>{setGameId(id);setLast(id);try{localStorage.setItem(GAME_KEY,id)}catch{}};
  // Desde el inicio se entra siempre al mapa del juego elegido.
- const choose=(id:string)=>{pickGame(id);setHome(false);setTab('mapa')};
+ // Desde el inicio se entra a la checklist: la ruta, con la primera zona abierta y
+ // su boton de mapa para ver donde esta.
+ const choose=(id:string)=>{pickGame(id);setHome(false);setTab('checklist')};
  const pickLang=(l:Lang)=>{setLang(l);try{localStorage.setItem(LANG_KEY,l)}catch{}};
  useEffect(()=>{document.documentElement.lang=lang},[lang]);
  // Tambien se carga al abrir un entrenador o un Pokemon salvaje del mapa.
- const needsBattle=tab==='team'||(tab==='pokedex'&&dexView==='ranking')||selected?.category==='Battle'||!!selected?.encounter||!!stack?.some(m=>m.category==='Battle'||m.encounter);
+ const needsBattle=tab==='team'||tab==='checklist'||(tab==='pokedex'&&dexView==='ranking')||selected?.category==='Battle'||!!selected?.encounter||!!stack?.some(m=>m.category==='Battle'||m.encounter);
  useEffect(()=>{if(!needsBattle||battle)return;const url=battleUrl(game);
   fetch(url).then(r=>r.json()).then((b:Battle)=>setBattles(all=>({...all,[url]:b}))).catch(e=>console.error('No se pudieron cargar los datos de combate',e));
  },[needsBattle,battle,game]);
@@ -290,7 +292,7 @@ export default function Home(){
   // prometer mas dano del que vas a hacer.
   return last?Math.floor(last+(next-last)*.25):Math.max(5,next-5);
  },[world,done]);
- const tabs=([['mapa',t('tabMap'),MapIcon],['checklist',t('tabChecklist'),ListChecks],['pokedex',t('tabDex'),BookOpen],['team',t('tabTeam'),Swords]] as const);
+ const tabs=([['checklist',t('tabChecklist'),ListChecks],['mapa',t('tabMap'),MapIcon],['pokedex',t('tabDex'),BookOpen],['team',t('tabTeam'),Swords]] as const);
  const areaName=(id?:string)=>id?place(areaById.get(id)?.label??'—'):'—';
  // Ficha de un marcador: el lugar junto a la categoria si es corto.
  // Lo que vende una tienda, con los objetos traducidos; los demas detalles solo
@@ -333,7 +335,7 @@ export default function Home(){
  {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRowWithAdvice(selected)}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{stack!.map(m=><Fragment key={m.id}>{popRowWithAdvice(m,true)}</Fragment>)}</div>,popupBox)}
  {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={place(encounterZone.name)}><button className="close" onClick={()=>setEncounterZone(null)} aria-label={t('close')}><X/></button><small>{t('encountersWild').toUpperCase()}</small><h2>{place(encounterZone.name)}</h2><p>{t('availableHere',{n:encounterZone.pokemon.length})}</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>{t('encounterRate',{levels:`${min}${max!==min?`–${max}`:''}`,chance,methods:[...new Set(variants.map(v=>method(METHODS[v.method]??v.method)))].join(' · ')})}</span></div></article>})}</div></dialog></div>}
  </div>
- {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
+ {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} battle={battle} dex={world.dex} teamKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
  {/* La Pokedex y el ranking comparten pestana, cada uno con su lista: se
      cambia con el selector de arriba (el ranking solo en FireRed/LeafGreen). */}
  {tab==='pokedex'&&(()=>{
