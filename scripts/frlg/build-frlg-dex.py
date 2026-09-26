@@ -12,8 +12,11 @@ Yellow); tambien se descargan las figuritas que falten.
 Uso:  python scripts/frlg/build-frlg-dex.py   (despues de build-frlg.py)
 Salida: public/frlg/data/pokedex-{firered,leafgreen}.json y public/icons/pokemon/p{n}.png
 """
-import io, json, os, urllib.request
+import io, json, os, sys, urllib.request
 from concurrent.futures import ThreadPoolExecutor
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from common.dex import found_by_species, number, settle
 
 API = 'https://pokeapi.co/api/v2'
 ICON = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-vii/icons/{}.png'
@@ -21,14 +24,6 @@ DATA = 'public/frlg/data'
 VERSIONS = {'firered': 'FireRed', 'leafgreen': 'LeafGreen'}
 ITEMS = {'moon-stone': 'Moon Stone', 'fire-stone': 'Fire Stone', 'water-stone': 'Water Stone',
          'thunder-stone': 'Thunder Stone', 'leaf-stone': 'Leaf Stone', 'sun-stone': 'Sun Stone'}
-
-
-def how(m):
-    if m['category'] == 'In-Game Trade':
-        return 'Trade'
-    if m['category'] == 'In-Game Gift Pokémon':
-        return 'Gift'
-    return 'Static' if 'Static encounter' in m['encounter']['methods'] else 'Wild'
 
 
 def get(url):
@@ -40,15 +35,9 @@ def num(url):
     return int(url.rstrip('/').rsplit('/', 1)[1])
 
 
-def number(m):
-    icon = m.get('icon') or ''
-    return int(icon[len('pokemon/p'):-4]) if icon.startswith('pokemon/p') else None
-
-
 def main():
     markers = json.load(io.open(f'{DATA}/markers.json', encoding='utf-8'))
     check = json.load(io.open(f'{DATA}/checklist.json', encoding='utf-8'))
-    rank = {z['name']: i for i, z in enumerate(check['zones'])}
     mons = [m for m in markers if m['category'] in ('Pokémon', 'In-Game Gift Pokémon', 'In-Game Trade') and number(m)]
 
     # Kanto completo mas lo que se atrapa en las Islas Sete (Johto).
@@ -87,33 +76,18 @@ def main():
         species.update({s['id']: s for s in pool.map(lambda n: get(f'{API}/pokemon-species/{n}'), missing)})
         types = dict(zip(sorted(wanted), pool.map(lambda n: [t['type']['name'] for t in get(f'{API}/pokemon/{n}')['types']], sorted(wanted))))
 
-    found_in = {v: {} for v in VERSIONS}
-    for m in mons:
-        for v in VERSIONS:
-            if m.get('version') in (None, v):
-                found_in[v].setdefault(number(m), []).append(m)
-
+    # Donde se encuentra y si se consigue: comun a todos los juegos (common/dex.py).
     def build(v):
-        entries = {}
+        entries, found = {}, found_by_species(markers, check, v)
         for n in sorted(wanted):
             s = species[n]
-            found = {}
-            for m in found_in[v].get(n, []):
-                zone = check['markers'].get(m['id'], {}).get('zone', m['zone'])
-                found.setdefault((zone, how(m)), []).append(m['id'])
             prev = s['evolves_from_species']
             prev = num(prev['url']) if prev else None
             entries[n] = {'n': n, 'name': next(x['name'] for x in s['names'] if x['language']['name'] == 'en'),
                           'icon': f'pokemon/p{n}.png', 'types': types[n],
-                          'found': [{'zone': z, 'how': h, 'ids': ids} for (z, h), ids in sorted(found.items(), key=lambda kv: rank.get(kv[0][0], 999))],
+                          'found': found.get(n, []),
                           'from': {'n': prev, 'method': method.get(n)} if prev in wanted else None}
-
-        def available(n):
-            e = entries[n]
-            return bool(e['found']) or bool(e['from'] and available(e['from']['n']))
-        for e in entries.values():
-            e['get'] = 'found' if e['found'] else 'evo' if available(e['n']) else 'none'
-        return entries
+        return settle(entries)
 
     dex = {v: build(v) for v in VERSIONS}
     for v, label in VERSIONS.items():

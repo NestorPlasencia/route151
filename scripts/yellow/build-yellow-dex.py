@@ -16,26 +16,15 @@ Salida: public/yellow/data/pokedex-yellow.json
 import io, json, os, re, sys
 
 sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import decomp as d
+from common.dex import found_by_species, settle
 
 DATA = 'public/yellow/data'
 STONES = {'MOON_STONE': 'Moon Stone', 'FIRE_STONE': 'Fire Stone', 'WATER_STONE': 'Water Stone',
           'THUNDER_STONE': 'Thunder Stone', 'LEAF_STONE': 'Leaf Stone'}
 # Especies que se consiguen pero no por la via normal (ver arriba).
 REFUSES = {26: 'Your Pikachu refuses the Thunder Stone: trade a Raichu over from Red or Blue.'}
-
-
-def how(m):
-    if m['category'] == 'In-Game Trade':
-        return 'Trade'
-    if m['category'] == 'In-Game Gift Pokémon':
-        return 'Gift'
-    return 'Static' if 'Static encounter' in m['encounter']['methods'] else 'Wild'
-
-
-def number(m):
-    icon = m.get('icon') or ''
-    return int(icon[len('yellow/pokemon/p'):-4]) if icon.startswith('yellow/pokemon/p') else None
 
 
 def main():
@@ -69,28 +58,17 @@ def main():
 
     markers = json.load(io.open(f'{DATA}/markers.json', encoding='utf-8'))
     check = json.load(io.open(f'{DATA}/checklist.json', encoding='utf-8'))
-    rank = {z['name']: i for i, z in enumerate(check['zones'])}
-    found_in = {}
-    for m in markers:
-        if m['category'] in ('Pokémon', 'In-Game Gift Pokémon', 'In-Game Trade') and number(m):
-            found_in.setdefault(number(m), []).append(m)
-
+    # Donde se encuentra y si se consigue: comun a todos los juegos (common/dex.py).
+    found = found_by_species(markers, check)
     entries = {}
     for n in range(1, 152):
-        found = {}
-        for m in found_in.get(n, []):
-            zone = check['markers'].get(m['id'], {}).get('zone', m['zone'])
-            found.setdefault((zone, how(m)), []).append(m['id'])
         prev = evolves.get(n)
         entries[n] = {'n': n, 'name': names[n], 'icon': f'yellow/pokemon/p{n}.png', 'types': types[n],
-                      'found': [{'zone': z, 'how': h, 'ids': ids} for (z, h), ids in sorted(found.items(), key=lambda kv: rank.get(kv[0][0], 999))],
+                      'found': found.get(n, []),
                       'from': {'n': prev[0], 'method': prev[1]} if prev else None}
 
-    def available(n):
-        e = entries[n]
-        return bool(e['found']) or (n not in REFUSES and bool(e['from'] and available(e['from']['n'])))
+    settle(entries, blocked=REFUSES)
     for e in entries.values():
-        e['get'] = 'found' if e['found'] else 'evo' if available(e['n']) else 'none'
         if e['get'] == 'none':
             e['note'] = REFUSES.get(e['n'], 'Not found in Yellow: trade it over from Red or Blue.')
 

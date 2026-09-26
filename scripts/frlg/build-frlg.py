@@ -14,15 +14,16 @@ Uso:  python scripts/frlg/sync-decomp.py && python scripts/frlg/build-frlg.py
 Salida: public/frlg/areas/**.png, public/icons/frlg/** y public/frlg/data/
         (areas, markers, encounters-<version> y checklist)
 """
-import json, os, re, shutil, sys, unicodedata
+import json, os, re, shutil, sys
 from collections import defaultdict
 from functools import lru_cache
 
-import numpy as np
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import decomp as d
+from common.world import World, build_checklist, dump, places as place_list, slug, spot
 
 OUT_IMG = 'public/frlg/areas'
 OUT_DATA = 'public/frlg/data'
@@ -48,12 +49,6 @@ OBSTACLES = {'OBJ_EVENT_GFX_ROCK_SMASH_ROCK': 'Rock Smash rock',
              'OBJ_EVENT_GFX_CUT_TREE': 'Cut tree'}
 COPIES = {target for target, _, _ in ALIAS.values()}
 GAP = 12  # bloques entre grupos de islas
-
-
-def slug(s):
-    """'Pokémon Tower' -> 'pokemon-tower'."""
-    s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode()
-    return re.sub(r'[^a-z0-9]+', '-', s.lower()).strip('-')
 
 
 # Palabras que no siguen la regla de mayuscula inicial.
@@ -279,14 +274,6 @@ METHODS = {'land_mons': 'Grass', 'water_mons': 'Surf', 'rock_smash_mons': 'Rock 
 ICONS = 'public/icons/frlg'
 
 
-def uid_of(text):
-    """Numero estable para guardar el progreso (FNV-1a de 31 bits del id)."""
-    h = 2166136261
-    for b in text.encode('utf-8'):
-        h = ((h ^ b) * 16777619) & 0xFFFFFFFF
-    return h & 0x7FFFFFFF
-
-
 def load_trades(version):
     """INGAME_TRADE_X -> (especie que te dan, especie que piden) en esa version."""
     text = d.version_text(open(d.path('src/data/ingame_trades.h'), encoding='utf-8').read(), version)
@@ -319,17 +306,6 @@ def wild_tables():
                     t['chance'] += rates[i]
                 out[version][enc['map']][METHODS[group]] = table
     return out
-
-
-def spot(grid, kind, fallback):
-    """Casilla de ese tipo de encuentro mas cercana al centro de todas ellas:
-    siempre cae sobre hierba o agua real, aunque la zona tenga forma de L."""
-    ys, xs = np.nonzero(grid == kind)
-    if not len(xs):
-        return fallback
-    cx, cy = xs.mean(), ys.mean()
-    i = int(np.argmin((xs - cx) ** 2 + (ys - cy) ** 2))
-    return int(xs[i]), int(ys[i])
 
 
 def save_icon(img, rel):
@@ -502,42 +478,18 @@ def main():
 
     # Lugares de cada region (rutas, ciudades): para "ir a" y para nombrar el
     # sitio de una puerta. Varios mapas de una misma zona se funden en uno.
-    places = {}
-    for mid, (rid, x, y) in where.items():
-        if mid in COPIES or rid == mid:
-            continue
-        w, h = layout_size(mid)
-        p = places.setdefault(zone_of[mid], {'name': zone_of[mid], 'area': rid, 'pts': []})
-        p['pts'].append(((x + w / 2) * B, (y + h / 2) * B))
-    places = [{'name': p['name'], 'area': p['area'], 'at': [round(sum(q[0] for q in p['pts']) / len(p['pts'])), round(sum(q[1] for q in p['pts']) / len(p['pts']))]} for p in places.values()]
+    places = place_list([(zone_of[mid], rid, (x + layout_size(mid)[0] / 2) * B, (y + layout_size(mid)[1] / 2) * B)
+                         for mid, (rid, x, y) in where.items() if mid not in COPIES and rid != mid])
 
-    markers, warps = [], []
-    encounter_zones = {v: defaultdict(dict) for v in VERSIONS}
-    placed = set()  # (mapa, categoria, nombre, version) ya puestos
+    # Marcadores, puertas y encuentros con las reglas comunes (common/world.py);
+    # aqui solo se dice en que area y punto cae cada casilla (Bill sale dos
+    # veces en su cabana y da un solo S.S. Ticket: eso lo resuelve World).
+    world = World(tile=B)
 
-    # `catch`: especie de un Pokemon salvaje o fijo. Como en Yellow, todos los
-    # de una especie comparten uid: atraparlo en un sitio lo completa en todos.
-    # `once`: si ya hay uno igual en el mapa no se repite (escenas en varias
-    # casillas); los regalos de objetos nunca se repiten en un mismo mapa (Bill
-    # sale dos veces en su cabana y da un solo S.S. Ticket).
-    def add_to(mid, category, name, x, y, key=None, icon=None, detail=None, encounter=None, version=None, catch=None, once=False):
-        kind = 'item' if category in ('Item In Map', 'Hidden Item', 'Item Gift') else category
-        tag = (mid, kind, name, version)
-        if (once or category == 'Item Gift') and (tag in placed or (mid, kind, name, None) in placed):
-            return
-        placed.add(tag)
+    def add_to(mid, category, name, x, y, **kw):
         area, px = at(mid, x, y)
-        if encounter:
-            encounter = {**encounter, 'zone': encounter['zone'] or location(mid)}
-        mid_key = f'{mid}:{key or category}:{x},{y}' + (f':{version}' if version else '')
-        mk = {'id': mid_key, 'uid': uid_of(f'catch:{catch}' if catch else mid_key), 'category': category, 'name': name, 'location': location(mid),
-              'area': area, 'at': px, 'map': mid, 'zone': zone_of[mid], 'icon': icon}
-        if mid in floor_of:
-            mk['floor'] = floor_of[mid]
-        for k, v in (('detail', detail), ('encounter', encounter), ('version', version)):
-            if v:
-                mk[k] = v
-        markers.append(mk)
+        world.add(map_id=mid, area=area, at=px, location=location(mid), zone=zone_of[mid], floor=floor_of.get(mid),
+                  category=category, name=name, x=x, y=y, **kw)
 
     def actor(mid, body):
         """Personaje que protagoniza una escena: el objeto del mapa cuyo LOCALID
@@ -641,12 +593,8 @@ def main():
                 for method, t in tables[v].items():
                     for sp, r in t.items():
                         n = numbers[sp]
-                        mon = encounter_zones[v][zone_of[mid]].setdefault(n, {'id': n, 'name': species(sp.removeprefix('SPECIES_')),
-                                                                              'sprite': SPRITE.format(n), 'types': [], 'areas': {}})
-                        a = mon['areas'].setdefault(location(mid), {'area': location(mid), 'maxChance': 0, 'encounters': []})
-                        a['encounters'].append({'chance': r['chance'], 'minLevel': r['min'], 'maxLevel': r['max'],
-                                                'method': 'Cave' if method == 'Grass' and cave else method})
-                        a['maxChance'] = max(a['maxChance'], r['chance'])
+                        world.encounter(v, zone_of[mid], n, species(sp.removeprefix('SPECIES_')), SPRITE.format(n), location(mid),
+                                        r['chance'], r['min'], r['max'], 'Cave' if method == 'Grass' and cave else method)
 
         for w in m.get('warp_events') or []:
             dest = w['dest_map']
@@ -658,8 +606,7 @@ def main():
                 continue
             src_area, src = at(mid, w['x'], w['y'])
             dst_area, dst = at(dest, targets[k]['x'], targets[k]['y'])
-            if src_area != dst_area:
-                warps.append({'area': src_area, 'at': src, 'to': dst_area, 'toAt': dst})
+            world.warp(src_area, src, dst_area, dst)
 
     # Escenas que dispara el propio mapa (al entrar, o tras otra escena): el
     # Campeon, el Oak's Parcel, lo que da Celio... Cada etiqueta va al mapa que
@@ -670,33 +617,15 @@ def main():
         if owner and '_EventScript_' in label and label not in REACHED:
             place_scene(owner, label, track=False)
 
-    # Las puertas anchas son varias casillas de warp: se unen en una.
-    merged = []
-    for w in warps:
-        near = next((o for o in merged if o['area'] == w['area'] and o['to'] == w['to'] and abs(o['at'][0] - w['at'][0]) <= 2 * B and abs(o['at'][1] - w['at'][1]) <= B), None)
-        if not near:
-            merged.append(w)
-
-    ids = [mk['id'] for mk in markers]
-    assert len(set(ids)) == len(ids), 'ids de marcador repetidos'
-    owner = {}
-    for mk in markers:
-        key = f"catch:{mk['name']}" if mk['category'] == 'Pokémon' else mk['id']
-        assert owner.setdefault(mk['uid'], key) == key, 'colision de uid: cambia uid_of'
-
-    dump = lambda name, value: json.dump(value, open(f'{OUT_DATA}/{name}', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
-    dump('areas.json', {'areas': areas, 'warps': merged, 'places': places})
-    dump('markers.json', markers)
+    world.check()
+    merged = world.merged_warps()
+    dump(f'{OUT_DATA}/areas.json', {'areas': areas, 'warps': merged, 'places': places})
+    dump(f'{OUT_DATA}/markers.json', world.markers)
     for v in VERSIONS:
-        zones = [{'name': z, 'pokemon': [{**mon, 'areas': list(mon['areas'].values())} for mon in sorted(mons.values(), key=lambda x: x['id'])]}
-                 for z, mons in encounter_zones[v].items()]
-        dump(f'encounters-{v}.json', {'zones': zones})
-    dump('checklist.json', build_checklist(markers, areas))
-
-    counts = defaultdict(int)
-    for mk in markers:
-        counts[mk['category']] += 1
-    print(f'{len(areas)} areas, {len(merged)} warps, {len(places)} lugares, {len(markers)} marcadores:', dict(counts))
+        dump(f'{OUT_DATA}/encounters-{v}.json', world.encounter_zones(v))
+    dump(f'{OUT_DATA}/checklist.json', build_checklist(world.markers, areas, PARTS, 'https://github.com/pret/pokefirered',
+                                                       'Area order follows the story of FireRed and LeafGreen.'))
+    print(world.summary(areas, merged, places))
 
 
 # --- Checklist -------------------------------------------------------------------
@@ -730,31 +659,5 @@ PARTS = [
     ('Post-game: Kanto', ['Cerulean Cave', 'Power Plant']),
     ('Events', ['Navel Rock', 'Birth Island']),
 ]
-CHECKLIST = {'Pokémon', 'Item In Map', 'Hidden Item', 'Item Gift', 'In-Game Trade', 'In-Game Gift Pokémon', 'Battle'}
-
-
-def build_checklist(markers, areas):
-    listed = [mk for mk in markers if mk['category'] in CHECKLIST]
-    zones_used = {mk['zone'] for mk in listed}
-    order = [(i + 1, z) for i, (_, zs) in enumerate(PARTS) for z in zs]
-    known = {z for _, z in order}
-    extra = sorted(zones_used - known)
-    parts = [{'n': i + 1, 'title': t} for i, (t, _) in enumerate(PARTS)]
-    if extra:
-        parts.append({'n': len(parts) + 1, 'title': 'Other areas'})
-        order += [(len(parts), z) for z in extra]
-    # Pisos de cada zona en el orden de los mapas del juego.
-    floors = defaultdict(list)
-    for a in areas:
-        if a['kind'] == 'interior' and a['label'] != a['zone'] and a['label'] not in floors[a['zone']]:
-            floors[a['zone']].append(a['label'])
-    zones = [{'name': z, 'part': n, 'count': sum(mk['zone'] == z for mk in listed),
-              'floors': [f for f in floors.get(z, []) if any(mk.get('floor') == f and mk['zone'] == z for mk in listed)]}
-             for n, z in order if z in zones_used]
-    return {'source': 'https://github.com/pret/pokefirered', 'note': 'Area order follows the story of FireRed and LeafGreen.',
-            'parts': parts, 'zones': zones,
-            'markers': {mk['id']: {'zone': mk['zone'], **({'floor': mk['floor']} if mk.get('floor') and mk['floor'] != mk['zone'] else {})} for mk in listed}}
-
-
 if __name__ == '__main__':
     main()

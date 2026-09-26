@@ -15,14 +15,15 @@ Uso:  python scripts/yellow/sync-decomp.py && python scripts/yellow/build-yellow
 Salida: public/yellow/areas/**.png, public/icons/yellow/** y public/yellow/data/
         (areas, markers, encounters y checklist)
 """
-import json, os, re, shutil, sys, unicodedata
-from collections import defaultdict
+import os, re, shutil, sys
 
 import numpy as np
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import decomp as d
+from common.world import World, build_checklist, dump, places as place_list, slug, spot
 
 OUT_IMG = 'public/yellow/areas'
 OUT_DATA = 'public/yellow/data'
@@ -34,20 +35,6 @@ SPRITE = '/yellow/sprites/p{}.png'
 # Probabilidad de cada una de las 10 casillas de un encuentro (data/wild/probabilities.asm).
 SLOTS = [51, 51, 39, 25, 25, 25, 13, 13, 11, 3]
 WATER_TILE = 0x14
-
-
-def slug(s):
-    """'Pokémon Tower' -> 'pokemon-tower'."""
-    s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode()
-    return re.sub(r'[^a-z0-9]+', '-', s.lower()).strip('-')
-
-
-def uid_of(text):
-    """Numero estable para guardar el progreso (FNV-1a de 31 bits del id)."""
-    h = 2166136261
-    for b in text.encode('utf-8'):
-        h = ((h ^ b) * 16777619) & 0xFFFFFFFF
-    return h & 0x7FFFFFFF
 
 
 # Palabras que no siguen la regla de mayuscula inicial.
@@ -297,16 +284,6 @@ def walkable_tiles():
     return out
 
 
-def spot(grid, tile, fallback):
-    """Casilla con ese tile (o uno de esos) mas cercana al centro de todas ellas."""
-    ys, xs = np.nonzero(np.isin(grid, list(tile)) if isinstance(tile, set) else grid == tile)
-    if not len(xs):
-        return fallback
-    cx, cy = xs.mean(), ys.mean()
-    i = int(np.argmin((xs - cx) ** 2 + (ys - cy) ** 2))
-    return int(xs[i]), int(ys[i])
-
-
 def wild_tables(consts):
     """Constante del mapa -> {'Grass'|'Surf': {especie: (min, max, probabilidad)}}."""
     pointers = re.findall(r'dw (\w+)', asm('data/wild/grass_water.asm'))
@@ -521,14 +498,12 @@ def main():
         return floor_of.get(c, zone_of(c))
 
     # Lugares de Kanto: cada zona exterior, en el centro de sus mapas.
-    places = {}
-    for c, (x, y) in kanto.items():
-        p = places.setdefault(zone_of(c), {'name': zone_of(c), 'area': 'kanto', 'pts': []})
-        p['pts'].append(((x + maps[c]['width'] / 2) * d.BLOCK, (y + maps[c]['height'] / 2) * d.BLOCK))
-    places = [{'name': p['name'], 'area': p['area'], 'at': [round(sum(q[0] for q in p['pts']) / len(p['pts'])), round(sum(q[1] for q in p['pts']) / len(p['pts']))]}
-              for p in places.values()]
+    places = place_list([(zone_of(c), 'kanto', (x + maps[c]['width'] / 2) * d.BLOCK, (y + maps[c]['height'] / 2) * d.BLOCK)
+                         for c, (x, y) in kanto.items()])
 
-    markers, placed = [], set()
+    # Marcadores, puertas y encuentros con las reglas comunes (common/world.py).
+    # El uid lleva 'yellow:' delante para no chocar con el progreso de otros juegos.
+    world = World(tile=STEP, uid_prefix='yellow:')
 
     # En Gen 1 los objetos no tienen icono: todos son la Poke Ball del mapa.
     def item_icon(_const):
@@ -547,23 +522,10 @@ def main():
             Image.fromarray(rgba, 'RGBA').save(f'public/icons/{rel}', optimize=True)
         return rel
 
-    def add(c, category, name, x, y, key=None, icon=None, detail=None, encounter=None, catch=None, once=False):
-        kind = 'item' if category in ('Item In Map', 'Hidden Item', 'Item Gift') else category
-        tag = (c, kind, name)
-        if (once or category == 'Item Gift') and tag in placed:
-            return
-        placed.add(tag)
+    def add(c, category, name, x, y, **kw):
         area, px = at(c, x, y)
-        mid = f'{c}:{key or category}:{x},{y}'
-        mk = {'id': mid, 'uid': uid_of(f'yellow:catch:{catch}' if catch else f'yellow:{mid}'), 'category': category, 'name': name,
-              'location': location(c), 'area': area, 'at': px, 'map': c, 'zone': zone_of(c), 'icon': icon}
-        if c in floor_of:
-            mk['floor'] = floor_of[c]
-        if detail:
-            mk['detail'] = detail
-        if encounter:
-            mk['encounter'] = {**encounter, 'zone': location(c)}
-        markers.append(mk)
+        world.add(map_id=c, area=area, at=px, location=location(c), zone=zone_of(c), floor=floor_of.get(c),
+                  category=category, name=name, x=x, y=y, **kw)
 
     def mon(sp):
         return names[numbers[sp]]
@@ -571,7 +533,6 @@ def main():
     def mon_icon(sp):
         return f'yellow/pokemon/p{numbers[sp]}.png'
 
-    warps, encounter_zones = [], defaultdict(dict)
     for c, m in maps.items():
         if c not in where:
             continue
@@ -678,10 +639,8 @@ def main():
                                'methods': methods, 'sprite': SPRITE.format(numbers[sp])})
                 for method, (lo, hi, ch) in rows:
                     n = numbers[sp]
-                    e = encounter_zones[zone_of(c)].setdefault(n, {'id': n, 'name': mon(sp), 'sprite': SPRITE.format(n), 'types': [], 'areas': {}})
-                    a = e['areas'].setdefault(location(c), {'area': location(c), 'maxChance': 0, 'encounters': []})
-                    a['encounters'].append({'chance': ch, 'minLevel': lo, 'maxLevel': hi, 'method': 'Cave' if method == 'Grass' and cave else method})
-                    a['maxChance'] = max(a['maxChance'], ch)
+                    world.encounter('yellow', zone_of(c), n, mon(sp), SPRITE.format(n), location(c), ch, lo, hi,
+                                    'Cave' if method == 'Grass' and cave else method)
 
         # Puertas y escaleras. LAST_MAP es "el exterior del que viniste": el mapa
         # que tiene una puerta hacia este.
@@ -695,8 +654,7 @@ def main():
                 continue
             src_area, src = at(c, wx, wy)
             dst_area, dst = at(dest, targets[n - 1][0], targets[n - 1][1])
-            if src_area != dst_area:
-                warps.append({'area': src_area, 'at': src, 'to': dst_area, 'toAt': dst})
+            world.warp(src_area, src, dst_area, dst)
 
     # Premios del Casino (se compran con fichas: cuentan como regalo).
     # Cada mostrador tiene su lista (prizes.asm, en el mismo orden): los
@@ -712,26 +670,14 @@ def main():
                 add(PRIZE_ROOM, 'In-Game Gift Pokémon', mon(sp), spot_x, spot_y, key=f'prize:{sp}',
                     icon=mon_icon(sp), detail='Game Corner prize', once=True)
 
-    merged = []
-    for w in warps:
-        near = next((o for o in merged if o['area'] == w['area'] and o['to'] == w['to'] and abs(o['at'][0] - w['at'][0]) <= 2 * STEP and abs(o['at'][1] - w['at'][1]) <= STEP), None)
-        if not near:
-            merged.append(w)
-
-    ids = [mk['id'] for mk in markers]
-    assert len(set(ids)) == len(ids), 'ids de marcador repetidos'
-
-    dump = lambda name, value: json.dump(value, open(f'{OUT_DATA}/{name}', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
-    dump('areas.json', {'areas': areas, 'warps': merged, 'places': places})
-    dump('markers.json', markers)
-    dump('encounters-yellow.json', {'zones': [{'name': z, 'pokemon': [{**e, 'areas': list(e['areas'].values())} for e in sorted(mons.values(), key=lambda e: e['id'])]}
-                                       for z, mons in encounter_zones.items()]})
-    dump('checklist.json', build_checklist(markers, areas))
-
-    counts = defaultdict(int)
-    for mk in markers:
-        counts[mk['category']] += 1
-    print(f'{len(areas)} areas, {len(merged)} warps, {len(places)} lugares, {len(markers)} marcadores:', dict(counts))
+    world.check()
+    merged = world.merged_warps()
+    dump(f'{OUT_DATA}/areas.json', {'areas': areas, 'warps': merged, 'places': places})
+    dump(f'{OUT_DATA}/markers.json', world.markers)
+    dump(f'{OUT_DATA}/encounters-yellow.json', world.encounter_zones('yellow'))
+    dump(f'{OUT_DATA}/checklist.json', build_checklist(world.markers, areas, PARTS, 'https://github.com/pret/pokeyellow',
+                                                       'Area order follows the story of Pokémon Yellow.'))
+    print(world.summary(areas, merged, places))
 
 
 # --- Checklist -------------------------------------------------------------------------
@@ -754,30 +700,5 @@ PARTS = [
     ('Victory Road → Indigo Plateau', ['Route 23', 'Victory Road', 'Indigo Plateau', 'Pokémon League']),
     ('Post-game', ['Cerulean Cave']),
 ]
-CHECKLIST = {'Pokémon', 'Item In Map', 'Hidden Item', 'Item Gift', 'In-Game Trade', 'In-Game Gift Pokémon', 'Battle'}
-
-
-def build_checklist(markers, areas):
-    listed = [mk for mk in markers if mk['category'] in CHECKLIST]
-    zones_used = {mk['zone'] for mk in listed}
-    order = [(i + 1, z) for i, (_, zs) in enumerate(PARTS) for z in zs]
-    known = {z for _, z in order}
-    extra = sorted(zones_used - known)
-    parts = [{'n': i + 1, 'title': t} for i, (t, _) in enumerate(PARTS)]
-    if extra:
-        parts.append({'n': len(parts) + 1, 'title': 'Other areas'})
-        order += [(len(parts), z) for z in extra]
-    floors = defaultdict(list)
-    for a in areas:
-        if a['kind'] == 'interior' and a['label'] != a['zone'] and a['label'] not in floors[a['zone']]:
-            floors[a['zone']].append(a['label'])
-    zones = [{'name': z, 'part': n, 'count': sum(mk['zone'] == z for mk in listed),
-              'floors': [f for f in floors.get(z, []) if any(mk.get('floor') == f and mk['zone'] == z for mk in listed)]}
-             for n, z in order if z in zones_used]
-    return {'source': 'https://github.com/pret/pokeyellow', 'note': 'Area order follows the story of Pokémon Yellow.',
-            'parts': parts, 'zones': zones,
-            'markers': {mk['id']: {'zone': mk['zone'], **({'floor': mk['floor']} if mk.get('floor') and mk['floor'] != mk['zone'] else {})} for mk in listed}}
-
-
 if __name__ == '__main__':
     main()
