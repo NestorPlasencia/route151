@@ -649,6 +649,10 @@ def main():
         # Objetos ocultos de este mapa.
         hidden = re.search(rf'hidden_events_for {c}\n(.*?)db -1', asm('data/events/hidden_events.asm'), re.S)
         for hx, hy, kind, what in re.findall(r'hidden_event\s+(\d+),\s*(\d+),\s*(HiddenItems|HiddenCoins),\s*([\w+]+)', hidden.group(1) if hidden else ''):
+            # Los que caen fuera del mapa no se pueden coger (la Pepita de la entrada
+            # de la Zona Safari: "; inaccessible" en el propio juego).
+            if not (int(hx) < m['width'] * 2 and int(hy) < m['height'] * 2):
+                continue
             if kind == 'HiddenCoins':
                 n = int(what.split('+')[1]) if '+' in what else 10
                 add(c, 'Hidden Item', f'Coins ×{n}', int(hx), int(hy), icon=item_icon('COIN_CASE'))
