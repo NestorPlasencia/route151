@@ -270,6 +270,8 @@ const TEXT = {
  // Creditos
  creditFrlg: ['Maps, markers and encounters', 'Mapas, marcadores y encuentros'],
  creditDex: ['Pokédex data and icons', 'Datos de la Pokédex e iconos'],
+ creditYellow: ['Maps, markers, encounters, Pokédex and sprites', 'Mapas, marcadores, encuentros, Pokédex y sprites'],
+ creditNames: ['Spanish names', 'Nombres en español'],
  creditClasses: ['Spanish trainer classes', 'Clases de entrenador en español'],
  creditDecomp: ['generated from the decompilation', 'generado desde la decompilación'],
  disclaimer: [

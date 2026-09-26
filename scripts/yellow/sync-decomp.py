@@ -25,6 +25,7 @@ PATHS = [
     '/gfx/blocksets/',
     '/gfx/sprites/',
     '/gfx/icons/',
+    '/gfx/pokemon/front/',
     '/gfx/*.asm',
     '/maps.asm',
 ]

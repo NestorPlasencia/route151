@@ -168,3 +168,66 @@ def render(m, palette=None):
                 shades[y:y + TILE, x:x + TILE] = tiles[t] if t < len(tiles) else blank
     colors = np.array(palette or palette_of(m), dtype=np.uint8)
     return Image.fromarray(colors[shades], 'RGB')
+
+
+# --- Pokemon: numeros, nombres, sprites y colores ---------------------------------------
+
+@lru_cache(None)
+def dex_numbers():
+    """BULBASAUR -> 1 (numero de la Pokedex nacional)."""
+    return {c: i + 1 for i, c in enumerate(re.findall(r'const DEX_(\w+)', read('constants/pokedex_constants.asm')))}
+
+
+@lru_cache(None)
+def internal_order():
+    """Especies en el orden interno del juego; los huecos de MissingNo (const_skip) cuentan."""
+    text = read('constants/pokemon_constants.asm').split('DEF NUM_POKEMON_INDEXES')[0]
+    return [c or 'MISSINGNO' for c in re.findall(r'^\s*const(?:_skip|\s+(\w+))', text, re.M)][1:]
+
+
+SPECIES_NAMES = {"Farfetch'd": "Farfetch'd", 'Mr.mime': 'Mr. Mime', 'Nidoran♀': 'Nidoran♀', 'Nidoran♂': 'Nidoran♂'}
+
+
+@lru_cache(None)
+def species_names():
+    """Numero -> nombre como lo escribe el juego, en minusculas ('Mr. Mime', 'Nidoran♀')."""
+    names = re.findall(r'dname "([^"]*)"', read('data/pokemon/names.asm'))
+    numbers = dex_numbers()
+    out = {}
+    for const, name in zip(internal_order(), names):
+        if const in numbers:
+            nice = name[:1] + name[1:].lower()
+            out[numbers[const]] = SPECIES_NAMES.get(nice, nice)
+    return out
+
+
+@lru_cache(None)
+def front_sprites():
+    """Numero -> PNG del sprite frontal (en grises de 4 tonos)."""
+    pics = dict(re.findall(r'^(\w+)PicFront::\s*INCBIN "(gfx/pokemon/front/[^"]+)\.pic"', read('gfx/pics.asm'), re.M))
+    numbers, out = dex_numbers(), {}
+    for f in os.listdir(path('data/pokemon/base_stats')):
+        text = read('data/pokemon/base_stats', f)
+        dex, pic = re.search(r'db DEX_(\w+)', text), re.search(r'dw (\w+)PicFront', text)
+        if dex and pic and pic[1] in pics:
+            out[numbers[dex[1]]] = pics[pic[1]] + '.png'
+    return out
+
+
+@lru_cache(None)
+def mon_palettes():
+    """Numero -> los cuatro colores con que Yellow pinta a esa especie (PAL_*MON)."""
+    names = re.findall(r'db (PAL_\w+)', read('data/pokemon/palettes.asm'))[1:]  # el primero es MissingNo
+    return {n + 1: palettes()[p] for n, p in enumerate(names)}
+
+
+def mon_sprite(n, crop=False):
+    """Sprite frontal en color de Yellow, con el blanco transparente (RGBA).
+    `crop` recorta el margen vacio: asi se usa como figurita."""
+    img = np.array(Image.open(path(front_sprites()[n])).convert('L'))
+    shades = 3 - (img // 85)
+    colors = np.array([(*c, 255) for c in mon_palettes()[n]], dtype=np.uint8)
+    rgba = colors[shades]
+    rgba[shades == 0, 3] = 0
+    out = Image.fromarray(rgba, 'RGBA')
+    return out.crop(out.getbbox()) if crop and out.getbbox() else out

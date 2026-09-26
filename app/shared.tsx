@@ -23,16 +23,17 @@ export const colorOf=(category:string)=>frlgGroups.find(g=>g[0]===category)?.[2]
 // Todos los marcadores traen su figurita: los combates, el sprite del mapa.
 export const iconOf=(m:{icon?:string|null})=>m.icon??undefined;
 
-// Figurita del objeto (PokeAPI, sprites de entrenador o del propio juego, en
+// Figurita del objeto (sprites del propio juego o de PokeAPI en FRLG, en
 // /icons); si no hay, un cuadro del color de su categoria.
 export function Figure({m}:{m:{icon?:string|null;category:string;name?:string}}){const icon=iconOf(m);return icon?<img className={`fig ${icon.startsWith('frlg/npc/')||icon.startsWith('yellow/npc/')?'fig-trainer':''}`} src={`/icons/${icon}`} alt="" loading="lazy"/>:<span className="fig fig-none" style={{'--pin':colorOf(m.category)} as React.CSSProperties}/>}
 
 // Creditos: todo el contenido es de terceros y la app es un proyecto de fans.
 type Credit={what:string;who:string;href:string;note?:string};
-// Yellow sale de su decompilacion, como FRLG; de PokeAPI quedan las figuritas.
+// Yellow sale entero de su decompilacion (mapas, datos y sprites); de PokeAPI
+// solo quedan los nombres en espanol, que el juego no trae.
 const yellowCredits=(tr:T):Credit[]=>[
- {what:tr.t('creditFrlg'),who:'pret/pokeyellow',href:'https://github.com/pret/pokeyellow',note:tr.t('creditDecomp')},
- {what:tr.t('creditDex'),who:'PokéAPI',href:'https://pokeapi.co'},
+ {what:tr.t('creditYellow'),who:'pret/pokeyellow',href:'https://github.com/pret/pokeyellow',note:tr.t('creditDecomp')},
+ {what:tr.t('creditNames'),who:'PokéAPI',href:'https://pokeapi.co'},
  {what:tr.t('creditClasses'),who:'Pokémon Wiki (es)',href:'https://pokemon.fandom.com/es/wiki/Lista_de_clases_de_entrenadores'},
 ];
 const frlgCredits=(tr:T):Credit[]=>[

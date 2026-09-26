@@ -1,7 +1,7 @@
 """Genera la Pokedex de Pokemon Yellow desde pret/pokeyellow y sus marcadores.
 
 Igual que build-frlg-dex.py, pero todo sale del propio juego:
-- tipos: data/pokemon/base_stats; evoluciones: data/pokemon/evos_moves.asm;
+- nombres, tipos, figuritas (su sprite en color) y evoluciones: del juego;
 - donde se encuentra: los marcadores cuya figurita es la especie (salvaje,
   fijo, regalo o intercambio), por zona y en orden de juego;
 - si no tiene marcador: "evoluciona de" si su preevolucion se consigue; si no,
@@ -35,12 +35,11 @@ def how(m):
 
 def number(m):
     icon = m.get('icon') or ''
-    return int(icon[len('pokemon/p'):-4]) if icon.startswith('pokemon/p') else None
+    return int(icon[len('yellow/pokemon/p'):-4]) if icon.startswith('yellow/pokemon/p') else None
 
 
 def main():
-    numbers = {c: i + 1 for i, c in enumerate(re.findall(r'const DEX_(\w+)', d.read('constants/pokedex_constants.asm')))}
-    names = {s['n']: s['name'] for s in json.load(open('public/frlg/data/pokedex-firered.json', encoding='utf-8'))['species']}
+    numbers, names = d.dex_numbers(), d.species_names()
 
     # Tipos de cada especie (PSYCHIC_TYPE -> psychic).
     types = {}
@@ -51,8 +50,7 @@ def main():
         types[numbers[dex]] = list(dict.fromkeys(t.removesuffix('_TYPE').lower() for t in (a, b)))
 
     # Evoluciones: la tabla de punteros va en el orden interno de las especies.
-    # Los huecos de MissingNo (const_skip) tambien ocupan su puesto en la tabla.
-    internal = [c or 'MISSINGNO' for c in re.findall(r'^\s*const(?:_skip|\s+(\w+))', d.read('constants/pokemon_constants.asm').split('DEF NUM_POKEMON_INDEXES')[0], re.M)][1:]
+    internal = d.internal_order()
     text = d.read('data/pokemon/evos_moves.asm')
     pointers = re.findall(r'dw (\w+)EvosMoves', text)
     bodies = dict(re.findall(r'^(\w+)EvosMoves:\n(.*?)(?=^\w+EvosMoves:|\Z)', text, re.M | re.S))
@@ -84,7 +82,7 @@ def main():
             zone = check['markers'].get(m['id'], {}).get('zone', m['zone'])
             found.setdefault((zone, how(m)), []).append(m['id'])
         prev = evolves.get(n)
-        entries[n] = {'n': n, 'name': names[n], 'icon': f'pokemon/p{n}.png', 'types': types[n],
+        entries[n] = {'n': n, 'name': names[n], 'icon': f'yellow/pokemon/p{n}.png', 'types': types[n],
                       'found': [{'zone': z, 'how': h, 'ids': ids} for (z, h), ids in sorted(found.items(), key=lambda kv: rank.get(kv[0][0], 999))],
                       'from': {'n': prev[0], 'method': prev[1]} if prev else None}
 

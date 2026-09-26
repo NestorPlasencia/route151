@@ -26,9 +26,11 @@ import decomp as d
 
 OUT_IMG = 'public/yellow/areas'
 OUT_DATA = 'public/yellow/data'
+OUT_SPRITES = 'public/yellow/sprites'
 ICONS = 'public/icons/yellow'
 STEP = 16  # una casilla de movimiento: medio bloque
-SPRITE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{}.png'
+# Sprite grande de cada especie (panel de encuentros): el del juego, en su color.
+SPRITE = '/yellow/sprites/p{}.png'
 # Probabilidad de cada una de las 10 casillas de un encuentro (data/wild/probabilities.asm).
 SLOTS = [51, 51, 39, 25, 25, 25, 13, 13, 11, 3]
 WATER_TILE = 0x14
@@ -79,15 +81,17 @@ def asm(*parts):
 
 # --- Constantes y nombres -----------------------------------------------------------
 
-def dex_numbers():
-    """BULBASAUR -> 1 (numero de la Pokedex nacional)."""
-    return {c: i + 1 for i, c in enumerate(re.findall(r'const DEX_(\w+)', asm('constants/pokedex_constants.asm')))}
+dex_numbers, species_names = d.dex_numbers, d.species_names
 
 
-def species_names():
-    """Numero -> nombre, el mismo que usa la Pokedex de FRLG (Nidoran♀, Mr. Mime)."""
-    dex = json.load(open('public/frlg/data/pokedex-firered.json', encoding='utf-8'))['species']
-    return {s['n']: s['name'] for s in dex}
+def save_mon_images():
+    """Figurita (sprite recortado) y sprite grande de las 151 especies, en el color
+    que les da Yellow: public/icons/yellow/pokemon y public/yellow/sprites."""
+    os.makedirs(f'{ICONS}/pokemon', exist_ok=True)
+    os.makedirs(OUT_SPRITES, exist_ok=True)
+    for n in d.front_sprites():
+        d.mon_sprite(n, crop=True).save(f'{ICONS}/pokemon/p{n}.png', optimize=True)
+        d.mon_sprite(n).save(f'{OUT_SPRITES}/p{n}.png', optimize=True)
 
 
 def load_items():
@@ -359,8 +363,10 @@ def main():
 
     shutil.rmtree(OUT_IMG, ignore_errors=True)
     shutil.rmtree(ICONS, ignore_errors=True)
+    shutil.rmtree(OUT_SPRITES, ignore_errors=True)
     os.makedirs(OUT_IMG)
     os.makedirs(OUT_DATA, exist_ok=True)
+    save_mon_images()
 
     def zone_of(const):
         m = maps[const]
@@ -416,11 +422,8 @@ def main():
 
     markers, placed = [], set()
 
-    def item_icon(const):
-        name = items.get(const, '')
-        for candidate in (name.replace(' ', '_'), name.replace(' ', '_').replace('é', 'e')):
-            if candidate and os.path.exists(f'public/icons/item/{candidate}.png'):
-                return f'item/{candidate}.png'
+    # En Gen 1 los objetos no tienen icono: todos son la Poke Ball del mapa.
+    def item_icon(_const):
         return sprite_icon('SPRITE_POKE_BALL')
 
     def sprite_icon(sprite):
@@ -458,7 +461,7 @@ def main():
         return names[numbers[sp]]
 
     def mon_icon(sp):
-        return f'pokemon/p{numbers[sp]}.png'
+        return f'yellow/pokemon/p{numbers[sp]}.png'
 
     warps, encounter_zones = [], defaultdict(dict)
     for c, m in maps.items():

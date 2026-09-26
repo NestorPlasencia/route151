@@ -9,7 +9,7 @@ import {LANGS,LANG_NAMES,type Lang,type T} from './i18n';
 
 // Portada y consola de cada juego: la mascota de su caja.
 const COVER:Record<string,{icon:string;color:string;system:string}>={
- yellow:{icon:'pokemon/p25.png',color:'#ffd936',system:'Game Boy · 1998'},
+ yellow:{icon:'yellow/pokemon/p25.png',color:'#ffd936',system:'Game Boy · 1998'},
  firered:{icon:'pokemon/p6.png',color:'#f0643c',system:'Game Boy Advance · 2004'},
  leafgreen:{icon:'pokemon/p3.png',color:'#52c46b',system:'Game Boy Advance · 2004'},
 };

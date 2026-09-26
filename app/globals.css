@@ -409,7 +409,7 @@ button.brand{border:0;background:none;color:inherit;padding:0;cursor:pointer;tex
 .home-game{display:flex;align-items:center;gap:14px;width:100%;padding:12px 14px;border:1px solid #2c3854;border-left:5px solid var(--c);border-radius:14px;background:#141c30;color:#fff;text-align:left;cursor:pointer;font:inherit}
 .home-game:hover,.home-game:focus-visible{background:#1a2440;border-color:var(--c)}
 .home-game.current{background:#1a2440}
-.home-cover{flex:none;width:58px;height:58px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 22%,#141c30)}
+.home-cover{flex:none;width:58px;height:58px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 28%,#fff)}
 .home-cover img{width:52px;height:52px;image-rendering:pixelated;object-fit:contain}
 .home-text{display:flex;flex-direction:column;gap:3px;min-width:0}
 .home-text b{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:16px}
