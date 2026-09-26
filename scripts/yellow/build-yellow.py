@@ -232,6 +232,10 @@ def parse_objects(label):
     for line in re.findall(r'^[ 	]*object_event[ 	]+(.+)$', text, re.M):
         v = [s.strip() for s in line.split(';')[0].split(',')]
         objects.append({'x': int(v[0]), 'y': int(v[1]), 'sprite': v[2], 'facing': v[4], 'text': v[5], 'args': v[6:]})
+    # Carteles y mostradores (los premios del Casino se piden en uno): sin sprite,
+    # pero con su texto, que sirve para saber quien da cada cosa.
+    for x, y, text_id in re.findall(r'^[ \t]*bg_event[ \t]+(\d+),[ \t]*(\d+),[ \t]*(\w+)', text, re.M):
+        objects.append({'x': int(x), 'y': int(y), 'sprite': 'SIGN', 'facing': 'NONE', 'text': text_id, 'args': []})
     return warps, objects
 
 
@@ -280,9 +284,22 @@ def grass_tiles():
     return out
 
 
+def walkable_tiles():
+    """Tileset -> tiles por los que se camina (data/tilesets/collision_tile_ids.asm)."""
+    out, pending = {}, []
+    for label, tiles in re.findall(r'^(\w+)_Coll::(?:\s*coll_tiles ([^\n]*))?', asm('data/tilesets/collision_tile_ids.asm'), re.M):
+        pending.append(label)
+        if tiles:
+            ids = {int(t.strip()[1:], 16) for t in tiles.split(',') if t.strip().startswith('$')}
+            for name in pending:
+                out[re.sub(r'(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Z])', '_', name).upper()] = ids
+            pending = []
+    return out
+
+
 def spot(grid, tile, fallback):
-    """Casilla con ese tile mas cercana al centro de todas ellas."""
-    ys, xs = np.nonzero(grid == tile)
+    """Casilla con ese tile (o uno de esos) mas cercana al centro de todas ellas."""
+    ys, xs = np.nonzero(np.isin(grid, list(tile)) if isinstance(tile, set) else grid == tile)
     if not len(xs):
         return fallback
     cx, cy = xs.mean(), ys.mean()
@@ -345,6 +362,64 @@ def map_scripts(label):
     return '\n'.join(asm('scripts', n) for n in sorted(os.listdir(d.path('scripts'))) if n.split('.')[0].split('_')[0] == label)
 
 
+def label_graph(script):
+    """Etiquetas globales del guion ('CeruleanCityRocketText:'): en que linea
+    empieza cada una y a que otras etiquetas salta o llama (jp, call, ld hl...)."""
+    lines = script.splitlines()
+    starts, owner = [], []
+    for i, line in enumerate(lines):
+        found = re.match(r'^([A-Za-z_]\w*)::?', line)
+        if found:
+            starts.append((i, found[1]))
+        owner.append(starts[-1][1] if starts else None)
+    names = {n for _, n in starts}
+    refs = {n: set() for n in names}
+    for i, line in enumerate(lines):
+        if owner[i]:
+            refs[owner[i]].update(t for t in re.findall(r'\b([A-Za-z_]\w*)\b', line.split(';')[0]) if t in names and t != owner[i])
+    return owner, refs
+
+
+def find_actor(script, offset, actors, texts, fallback):
+    """Casilla del personaje que da lo que hay en `offset` del guion.
+
+    Primero se sigue el guion: el texto de cada personaje (objeto o cartel) es
+    una etiqueta, y desde ella se llega, saltando por las que nombra, a la que
+    contiene el regalo. Si ninguno llega (lo da un guion del mapa tras un
+    combate, como la MT28 del Rocket de Celeste), se busca el personaje cuyo
+    texto comparte palabras con esa etiqueta ('RocketDefeated' -> ROCKET). Si
+    tampoco, el centro del mapa."""
+    owner, refs = label_graph(script)
+    line = script.count('\n', 0, offset)
+    target = owner[line] if line < len(owner) else None
+    if not target:
+        return fallback
+    best = None
+    for a in actors:
+        start = texts.get(a['text'])
+        if not start:
+            continue
+        seen, frontier, depth = {start}, [start], 0
+        while frontier and depth <= 8 and target not in seen:
+            frontier = [r for f in frontier for r in refs.get(f, ()) if r not in seen]
+            seen.update(frontier)
+            depth += 1
+        if target in seen and (best is None or depth < best[0]):
+            best = (depth, a)
+    if best:
+        return best[1]['x'], best[1]['y']
+    generic = {'Script', 'Text', 'Defeated', 'Battle', 'After', 'Before', 'End', 'Give', 'Got', 'Received', 'Default'}
+    words = {w.upper() for w in re.findall(r'[A-Z][a-z]+', target) if w not in generic}
+    scored = [(sum(w in a['text'].split('_') for w in words), a) for a in actors if a.get('text')]
+    scored = [s for s in scored if s[0]]
+    if scored:
+        a = max(scored, key=lambda s: s[0])[1]
+        return a['x'], a['y']
+    # En una tienda lo da el dependiente al entrar (el Paquete de Oak).
+    clerk = next((a for a in actors if a['sprite'] == 'SPRITE_CLERK'), None)
+    return (clerk['x'], clerk['y']) if clerk else fallback
+
+
 def scripted_battles(script):
     """Combates que lanza un guion: [(clase, equipo)]. Tras poner el rival en
     wCurOpponent, el equipo va en wTrainerNo: un numero fijo ('ld a, 2' o
@@ -371,8 +446,9 @@ def scripted_battles(script):
 
 # Regalos que el juego da tras elegir (no con un GivePokemon fijo) y Pikachu, que
 # Oak entrega con su propia rutina. Mapa -> [(especie, nivel)].
-CHOICE_GIFTS = {'OAKS_LAB': [('PIKACHU', 5)], 'FIGHTING_DOJO': [('HITMONLEE', 30), ('HITMONCHAN', 30)],
-                'CINNABAR_LAB_FOSSIL_ROOM': [('OMANYTE', 30), ('KABUTO', 30), ('AERODACTYL', 30)]}
+CHOICE_GIFTS = {'OAKS_LAB': [('PIKACHU', 5, 'SPRITE_OAK')],
+                'FIGHTING_DOJO': [('HITMONLEE', 30, None), ('HITMONCHAN', 30, None)],
+                'CINNABAR_LAB_FOSSIL_ROOM': [('OMANYTE', 30, None), ('KABUTO', 30, None), ('AERODACTYL', 30, None)]}
 # Premios del Casino de Azulona (data/events/prizes.asm, en Yellow).
 PRIZE_ROOM = 'GAME_CORNER_PRIZE_ROOM'
 
@@ -388,6 +464,7 @@ def main():
     outdoor_names, indoor_names = zone_names()
     wild = wild_tables(consts)
     grass = grass_tiles()
+    walkable = walkable_tiles()
     marts = mart_texts()
     trades = re.findall(r'npctrade (\w+),\s*(\w+),', asm('data/events/trades.asm'))
     trade_ids = re.findall(r'const (TRADE_FOR_\w+)', asm('constants/script_constants.asm')) if os.path.exists(d.path('constants/script_constants.asm')) else []
@@ -527,18 +604,30 @@ def main():
         # Regalos, intercambios y combates que da el script del mapa. Van sobre el
         # personaje que los da si se sabe, o en el centro del mapa.
         cx, cy = m['width'], m['height']
-        for sp, lv in re.findall(r'lb bc, (\w+), (\d+)\n(?:[^\n]*\n){0,3}?\s*call GivePokemon', script):
+        who = lambda offset: find_actor(script, offset, objs, texts, (cx, cy))
+        for g in re.finditer(r'lb bc, (\w+), (\d+)\n(?:[^\n]*\n){0,3}?\s*call GivePokemon', script):
+            sp, lv = g.groups()
             if sp in numbers:
-                add(c, 'In-Game Gift Pokémon', mon(sp), cx, cy, key=f'gift:{sp}', icon=mon_icon(sp), detail=f'Lv{lv}', once=True)
-        for sp, lv in CHOICE_GIFTS.get(c, []):
-            add(c, 'In-Game Gift Pokémon', mon(sp), cx, cy, key=f'gift:{sp}', icon=mon_icon(sp), detail=f'Lv{lv}', once=True)
-        for it, q in re.findall(r'lb bc, (\w+), (\d+)\n(?:[^\n]*\n){0,3}?\s*call GiveItem', script):
+                add(c, 'In-Game Gift Pokémon', mon(sp), *who(g.start()), key=f'gift:{sp}', icon=mon_icon(sp), detail=f'Lv{lv}', once=True)
+        # Los que se eligen: sobre el objeto que los nombra (la Poke Ball de
+        # Hitmonlee), sobre quien lo da (Oak) o sobre quien llama a GivePokemon.
+        give = script.find('call GivePokemon')
+        for sp, lv, sprite in CHOICE_GIFTS.get(c, []):
+            named = next((o for o in objs if sp in o['text'].split('_')), None) or next((o for o in objs if o['sprite'] == sprite), None)
+            px, py = (named['x'], named['y']) if named else who(give) if give >= 0 else (cx, cy)
+            add(c, 'In-Game Gift Pokémon', mon(sp), px, py, key=f'gift:{sp}', icon=mon_icon(sp), detail=f'Lv{lv}', once=True)
+        for g in re.finditer(r'lb bc, (\w+), (\d+)\n(?:[^\n]*\n){0,3}?\s*call GiveItem', script):
+            it, q = g.groups()
             if it in items:
-                add(c, 'Item Gift', items[it] + (f' ×{q}' if int(q) > 1 else ''), cx, cy, key=f'gift:{it}', icon=item_icon(it))
-        for tid in re.findall(r'ld a, (TRADE_FOR_\w+)', script):
+                # Objetos que se ven en el mapa (fosiles, Ambar Viejo, Mapa): sobre si mismos.
+                named = next((o for o in objs if o['text'].endswith('_' + it) and o['sprite'] != 'SPRITE_POKE_BALL'), None)
+                px, py = (named['x'], named['y']) if named else who(g.start())
+                add(c, 'Item Gift', items[it] + (f' ×{q}' if int(q) > 1 else ''), px, py, key=f'gift:{it}', icon=item_icon(it))
+        for g in re.finditer(r'ld a, (TRADE_FOR_\w+)', script):
+            tid = g.group(1)
             if tid in trade_ids and trade_ids.index(tid) < len(trades):
-                give, get = trades[trade_ids.index(tid)]
-                add(c, 'In-Game Trade', mon(get), cx, cy, key=f'trade:{get}', icon=mon_icon(get), detail=f'Trade your {mon(give)}', once=True)
+                give_mon, get = trades[trade_ids.index(tid)]
+                add(c, 'In-Game Trade', mon(get), *who(g.start()), key=f'trade:{get}', icon=mon_icon(get), detail=f'Trade your {mon(give_mon)}', once=True)
         # Pokemon fijos que lanza el guion (Snorlax): van sobre su sprite.
         for sp, lv in re.findall(r'ld a, (\w+)\n\s*ld \[wCurOpponent\], a\n\s*ld a, (\d+)\n\s*ld \[wCurEnemyLevel\], a', script):
             if sp in numbers:
@@ -547,9 +636,14 @@ def main():
                 add(c, 'Pokémon', mon(sp), px, py, key=f'static:{sp}', catch=sp, icon=mon_icon(sp),
                     encounter={'min': int(lv), 'max': int(lv), 'chance': 100, 'methods': ['Static encounter'], 'sprite': SPRITE.format(numbers[sp])})
         for cls, n in scripted_battles(script):
-            rival = next((o for o in objs if o['sprite'] in ('SPRITE_BLUE', 'SPRITE_ROCKET', 'SPRITE_JESSIE', 'SPRITE_JAMES')), None)
+            # Sobre quien pelea: el rival, o Jessie y James (en Yellow son los
+            # Rocket de los guiones de Mt. Moon, la Torre, el Escondite y Silph).
+            duo = next((o for o in objs if o['sprite'] in ('SPRITE_JESSIE', 'SPRITE_JAMES')), None)
+            sprites = ('SPRITE_BLUE',) if cls.startswith('RIVAL') else ('SPRITE_JESSIE', 'SPRITE_JAMES', 'SPRITE_ROCKET')
+            rival = next((o for s_ in sprites for o in objs if o['sprite'] == s_), None)
             px, py = (rival['x'], rival['y']) if rival else (cx, cy)
-            add(c, 'Battle', class_name.get(cls, title(cls)), px, py, key=f'scene:{cls}:{n}', detail=parties.get((cls, int(n))),
+            name = 'Jessie & James' if cls == 'ROCKET' and duo else class_name.get(cls, title(cls))
+            add(c, 'Battle', name, px, py, key=f'scene:{cls}:{n}', detail=parties.get((cls, int(n))),
                 icon=sprite_icon(rival['sprite']) if rival else None, once=False)
 
         # Objetos ocultos de este mapa.
@@ -566,7 +660,9 @@ def main():
         if tables:
             grid = tile_grid(m)
             center = (m['width'], m['height'])
-            land = spot(grid, grass.get(m['tileset'], -1), center)
+            # Sin hierba (cuevas, Central Electrica): en el suelo por el que se camina.
+            floor = spot(grid, walkable.get(m['tileset'], set()), center)
+            land = spot(grid, grass[m['tileset']], floor) if m['tileset'] in grass else floor
             water = spot(grid, WATER_TILE, land)
             cave = m['indoor']
             for sp in sorted({s for t in tables.values() for s in t}):
@@ -599,11 +695,18 @@ def main():
                 warps.append({'area': src_area, 'at': src, 'to': dst_area, 'toAt': dst})
 
     # Premios del Casino (se compran con fichas: cuentan como regalo).
+    # Cada mostrador tiene su lista (prizes.asm, en el mismo orden): los
+    # Pokemon de los dos primeros van sobre su mostrador.
     prizes = asm('data/events/prizes.asm')
-    for sp in dict.fromkeys(re.findall(r'\b([A-Z_]+)\b', prizes)):
-        if sp in numbers and PRIZE_ROOM in where:
-            add(PRIZE_ROOM, 'In-Game Gift Pokémon', mon(sp), maps[PRIZE_ROOM]['width'], maps[PRIZE_ROOM]['height'], key=f'prize:{sp}',
-                icon=mon_icon(sp), detail='Game Corner prize', once=True)
+    vendors = [o for o in objects_of.get(PRIZE_ROOM, ([], []))[1] if 'PRIZE_VENDOR' in o['text']]
+    lists = [re.findall(r'\b([A-Z_]+)\b', body) for body in re.split(r'^\w+:', prizes, flags=re.M)[1:]]
+    lists = [lst for lst in lists if any(x in numbers or x in items for x in lst)]
+    for i, lst in enumerate(lists):
+        spot_x, spot_y = (vendors[i]['x'], vendors[i]['y']) if i < len(vendors) else (maps[PRIZE_ROOM]['width'], maps[PRIZE_ROOM]['height'])
+        for sp in dict.fromkeys(lst):
+            if sp in numbers and PRIZE_ROOM in where:
+                add(PRIZE_ROOM, 'In-Game Gift Pokémon', mon(sp), spot_x, spot_y, key=f'prize:{sp}',
+                    icon=mon_icon(sp), detail='Game Corner prize', once=True)
 
     merged = []
     for w in warps:
