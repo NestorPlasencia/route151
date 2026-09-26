@@ -8,8 +8,8 @@ import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} fro
 import {ChecklistView,PokedexView} from './lists';
 import {RankingView} from './ranking';
 import {GameHome} from './home';
-import {BattleAdvice,TeamView,evList,trainerOpponents,type Battle,type Opponent} from './team';
-import {GAMES,METHODS,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
+import {BattleAdvice,TeamView,effortText,trainerOpponents,type Battle,type Opponent} from './team';
+import {GAMES,METHODS,battleUrl,loadGame,moveTextUrl,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
 const span=(e:Encounter)=>`${e.min}${e.max!==e.min?`–${e.max}`:''}`;
@@ -30,7 +30,7 @@ export default function Home(){
  const game=GAMES.find(g=>g.id===gameId)??GAMES[0],groups=groupsOf(game.id);
  const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'|'team'>('mapa'),[dexView,setDexView]=useState<'dex'|'ranking'>('dex'),[battles,setBattles]=useState<Record<string,Battle>>({}),[moveText,setMoveText]=useState<Record<string,{en:string;es:string}>|null>(null),[view,setView]=useState<View>({area:''});
  // Cada juego tiene sus datos de combate (Yellow, los de Gen 1): se guardan por archivo.
- const battle=battles[game.battle]??null;
+ const battle=battles[battleUrl(game)]??null,moveTextSrc=moveTextUrl(game);
  const [active,setActive]=useState<string[]>(groups.map(g=>g[0])),[selected,setSelected]=useState<Marker|null>(null),[stack,setStack]=useState<Marker[]|null>(null),[done,setDone]=useState<number[]>([]),[locations,setLocations]=useState(false),[about,setAbout]=useState(false),[layersOpen,setLayersOpen]=useState(false);
  const [encounterZone,setEncounterZone]=useState<EncounterZone|null>(null);
  // Inicio para elegir juego, y el ultimo que se jugo (se marca en su tarjeta).
@@ -44,7 +44,7 @@ export default function Home(){
   let live=true;setWorld(null);setSelected(null);setStack(null);setEncounterZone(null);setLocations(false);saved.current=null;setArrival(null);
   setActive(groupsOf(game.id).map(g=>g[0]).filter(n=>!game.hidden.includes(n)));
   try{setDone(JSON.parse(localStorage.getItem(game.storage.done)||'[]'))}catch{setDone([])}
-  game.load().then(w=>{if(!live)return;setWorld(w);setView({area:w.areas.find(a=>a.kind==='region')?.id??w.areas[0].id})}).catch(e=>console.error('No se pudo cargar',game.id,e));
+  loadGame(game).then(w=>{if(!live)return;setWorld(w);setView({area:w.areas.find(a=>a.kind==='region')?.id??w.areas[0].id})}).catch(e=>console.error('No se pudo cargar',game.id,e));
   return()=>{live=false};
  },[game]);
  const pickGame=(id:string)=>{setGameId(id);setLast(id);try{localStorage.setItem(GAME_KEY,id)}catch{}};
@@ -54,13 +54,13 @@ export default function Home(){
  useEffect(()=>{document.documentElement.lang=lang},[lang]);
  // Tambien se carga al abrir un entrenador o un Pokemon salvaje del mapa.
  const needsBattle=tab==='team'||(tab==='pokedex'&&dexView==='ranking')||selected?.category==='Battle'||!!selected?.encounter||!!stack?.some(m=>m.category==='Battle'||m.encounter);
- useEffect(()=>{if(!needsBattle||battle)return;const url=game.battle;
+ useEffect(()=>{if(!needsBattle||battle)return;const url=battleUrl(game);
   fetch(url).then(r=>r.json()).then((b:Battle)=>setBattles(all=>({...all,[url]:b}))).catch(e=>console.error('No se pudieron cargar los datos de combate',e));
- },[needsBattle,battle,game.battle]);
- // Yellow no tiene textos de ataques (en Gen 1 no hay descripciones).
- useEffect(()=>{if(tab!=='team'||moveText||!game.moveText)return;
-  fetch(game.moveText).then(r=>r.json()).then(setMoveText).catch(e=>console.error('No se pudo cargar la descripcion de los ataques',e));
- },[tab,moveText,game.moveText]);
+ },[needsBattle,battle,game]);
+ // Solo si las reglas del juego los tienen (en Gen 1 no hay descripciones).
+ useEffect(()=>{if(tab!=='team'||moveText||!moveTextSrc)return;
+  fetch(moveTextSrc).then(r=>r.json()).then(setMoveText).catch(e=>console.error('No se pudo cargar la descripcion de los ataques',e));
+ },[tab,moveText,moveTextSrc]);
 
  const areaById=useMemo(()=>new Map((world?.areas??[]).map(a=>[a.id,a])),[world]);
  const regions=useMemo(()=>world?.areas.filter(a=>a.kind==='region')??[],[world]);
@@ -306,11 +306,10 @@ export default function Home(){
  // intercambio, o el texto largo de Yellow.
  // En un grupo el lugar va una vez en el titulo; cada fila, sin subtitulo.
  const popRow=(m:Marker,compact=false)=><div className="pop-item"><div className="pop-head">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<Figure m={m}/><div><b>{name(m.name)}</b>{!compact&&<small>{m.encounter?`${category(m.category)} · ${place(m.encounter.zone)}`:shortPlace(m)?`${category(m.category)} · ${place(m.location)}`:category(m.category)}</small>}</div></div>{popLine(m)&&<p>{popLine(m)}</p>}{evs(m)&&<p className="pop-ev">{evs(m)}</p>}</div>;
- // Los EVs que gana tu Pokemon al derrotar a un salvaje: "+1 At. Esp." en un
- // Oddish. Salen de los datos de combate, asi que solo en FireRed/LeafGreen.
+ // Lo que gana tu Pokemon al derrotar a un salvaje, segun las reglas del juego:
+ // EVs ("+1 At. Esp." en un Oddish) o Stat Exp.
  const evs=(m:Marker)=>{const n=m.encounter&&battle?speciesByName.get(speciesKey(m.name)):undefined;
-  const list=n?evList([battle!.species[n]?.ev],tr):null;
-  return list?t('evYield',{list}):null};
+  return n?effortText(battle!,[n],tr):null};
  const popLine=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):info(m)??(shortPlace(m)?null:place(m.location)||null)};
  const popRowWithAdvice=(m:Marker,compact=false)=>{const opponents=opponentsOf(m);
   if(m.encounter&&battle)return <div className="pop-item battle-wild-row">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<BattleAdvice opponents={opponents} dex={world!.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr} inline foeLevel={t('encounterLevels',{levels:span(m.encounter)})} foeDetail={t('encounterChance',{chance:m.encounter.chance,methods:m.encounter.methods.map(x=>method(x).replace(/ /g,String.fromCharCode(160))).join(' · ')})}/></div>;
@@ -345,7 +344,7 @@ export default function Home(){
    ?<RankingView dex={world.dex} battle={battle} byId={byId} done={done} dexKey={game.storage.dex} storageKey={`${game.storage.done}-team`} switcher={switcher} tr={tr}/>
    :<PokedexView dex={world.dex} byId={byId} done={done} setMany={setMany} onShow={showOnMap} game={game.short} storageKey={game.storage.dex} switcher={switcher} tr={tr}/>;
  })()}
- {tab==='team'&&(world?<TeamView dex={world.dex} battle={battle} moveText={game.moveText?moveText:null} storageKey={`${game.storage.done}-team`} suggestedLevel={suggestedLevel} tr={tr}/>:<div className="listview loading-list">{t('loadingTeam')}</div>)}
+ {tab==='team'&&(world?<TeamView dex={world.dex} battle={battle} moveText={moveTextSrc?moveText:null} storageKey={`${game.storage.done}-team`} suggestedLevel={suggestedLevel} tr={tr}/>:<div className="listview loading-list">{t('loadingTeam')}</div>)}
  {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label={t('credits')}><button className="close" onClick={()=>setAbout(false)} aria-label={t('close')}><X/></button><small>{t('about')}</small><h2>{t('credits')}</h2><Credits game={game.id} tr={tr}/></dialog></div>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>
  {home&&<GameHome current={game.id} last={last} lang={lang} onLang={pickLang} onPick={choose} tr={tr}/>}

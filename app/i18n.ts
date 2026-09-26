@@ -139,6 +139,8 @@ const TEXT = {
  judgeTotal: ['Total {n} of 186', 'Total {n} de 186'],
  evYield: ['EVs: {list}', 'EVs: {list}'],
  evTotal: ['EVs for the whole fight: {list}', 'EVs de todo el combate: {list}'],
+ statExpYield: ['Stat Exp.: {list}…', 'Stat Exp.: {list}…'],
+ statExpTotal: ['Stat Exp. for the whole fight: {list}…', 'Stat Exp. de todo el combate: {list}…'],
  training: ['Worth training', 'Valor para entrenar'],
  rankingNote: ['Which Pokémon are most worth training, best first. Each is scored as its final form at level 100 with average IVs and a neutral nature; yours can land higher or lower.', 'Qué Pokémon merece más la pena entrenar, de mayor a menor. Cada uno se calcula como su evolución final a nivel 100 con IVs medios y naturaleza neutra; el tuyo puede quedar por encima o por debajo.'],
  rankingNoteGen1: ['Which Pokémon are most worth training, best first. Each is scored as its final form at level 100 with average DVs; yours can land higher or lower.', 'Qué Pokémon merece más la pena entrenar, de mayor a menor. Cada uno se calcula como su evolución final a nivel 100 con DVs medios; el tuyo puede quedar por encima o por debajo.'],

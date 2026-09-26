@@ -4,6 +4,7 @@
 // y Pokedex. Asi el mapa y las listas son los mismos para todos los juegos.
 import type {Marker} from './shared';
 import type {Checklist,Dex} from './lists';
+import {rulesFor,type Gen} from './rules';
 
 export type Pt=[number,number];
 export type Area={id:string;kind:'region'|'interior';label:string;zone?:string;image:string;width:number;height:number};
@@ -14,47 +15,39 @@ export type EncounterZone={name:string;pokemon:EncounterMon[]};
 export type World={areas:Area[];warps:Warp[];places:Place[];markers:Marker[];zones:EncounterZone[];checklist:Checklist;dex:Dex};
 export type Game={
  id:string;short:string;title:string;
- // Claves de localStorage con el progreso (las de Yellow son las de siempre).
+ // Claves de localStorage con el progreso.
  storage:{done:string;dex:string};
- // Datos de combate (equipo, ranking, consejos) y, si los hay, textos de los ataques.
- battle:string;moveText?:string;
- // Capas que empiezan ocultas y categorias que no cuentan como progreso (en FRLG,
- // obstaculos y tiendas: comprar no es coleccionar).
+ // Donde estan sus datos (todos los juegos generan los mismos archivos), que
+ // version es (para los exclusivos y su Pokedex) y de que generacion son sus
+ // reglas (rules.ts): con eso se sabe todo lo demas.
+ data:string;version:string;gen:Gen;
+ // Capas que empiezan ocultas y categorias que no cuentan como progreso
+ // (obstaculos y tiendas: comprar no es coleccionar).
  hidden:string[];untracked:string[];
- load:()=>Promise<World>;
 };
 
 async function json<T>(url:string):Promise<T>{const r=await fetch(url);if(!r.ok)throw new Error(`${r.status} ${url}`);return r.json() as Promise<T>}
-
-// --- Yellow ---------------------------------------------------------------------
-// Generado desde la decompilacion (scripts/yellow), en el mismo formato que FRLG.
 
 // Metodos de encuentro como los nombra PokeAPI; los datos de ahora ya traen el
 // nombre final, asi que solo se traduce lo que venga con ese formato.
 export const METHODS:Record<string,string>={walk:'Grass','old-rod':'Old Rod','good-rod':'Good Rod','super-rod':'Super Rod',surf:'Surf'};
 
-async function loadYellow():Promise<World>{
+// Un solo cargador: cada juego se genera desde su decompilacion (scripts/frlg,
+// scripts/yellow) con los mismos archivos. FireRed y LeafGreen comparten
+// mapas y marcadores; los exclusivos de cada version llevan `version`.
+export async function loadGame(game:Game):Promise<World>{
+ const {data,version}=game;
  const [a,markers,enc,checklist,dex]=await Promise.all([
-  json<{areas:Area[];warps:Warp[];places:Place[]}>('/yellow/data/areas.json'),json<Marker[]>('/yellow/data/markers.json'),
-  json<{zones:EncounterZone[]}>('/yellow/data/encounters.json'),json<Checklist>('/yellow/data/checklist.json'),json<Dex>('/yellow/data/pokedex.json')]);
- return {...a,markers,zones:enc.zones,checklist,dex};
-}
-
-// --- FireRed / LeafGreen ----------------------------------------------------------
-// Generados desde la decompilacion (scripts/frlg); comparten mapas y marcadores,
-// y los exclusivos de cada version llevan `version`.
-
-async function loadFrlg(version:'firered'|'leafgreen'):Promise<World>{
- const [a,markers,enc,checklist,dex]=await Promise.all([
-  json<{areas:Area[];warps:Warp[];places:Place[]}>('/frlg/data/areas.json'),json<(Marker&{version?:string})[]>('/frlg/data/markers.json'),
-  json<{zones:EncounterZone[]}>(`/frlg/data/encounters-${version}.json`),json<Checklist>('/frlg/data/checklist.json'),json<Dex>(`/frlg/data/pokedex-${version}.json`)]);
+  json<{areas:Area[];warps:Warp[];places:Place[]}>(`${data}/areas.json`),json<(Marker&{version?:string})[]>(`${data}/markers.json`),
+  json<{zones:EncounterZone[]}>(`${data}/encounters-${version}.json`),json<Checklist>(`${data}/checklist.json`),json<Dex>(`${data}/pokedex-${version}.json`)]);
  return {...a,markers:markers.filter(m=>!m.version||m.version===version),zones:enc.zones,checklist,dex};
 }
+// Datos de combate y, si las reglas los tienen, textos de los ataques.
+export const battleUrl=(game:Game)=>`${game.data}/battle.json`;
+export const moveTextUrl=(game:Game)=>rulesFor(game.gen).moveText?`${game.data}/move-text.json`:null;
 
 export const GAMES:Game[]=[
- // Yellow empieza de cero con los datos del juego: sus marcadores son otros, asi
- // que el progreso tiene claves nuevas (las de antes, 'ruta151-full', no casan).
- {id:'yellow',short:'Yellow',title:'Pokémon Yellow',storage:{done:'ruta151-yellow',dex:'ruta151-yellow-dex'},battle:'/yellow/data/battle.json',hidden:['Obstacle'],untracked:['Obstacle','Shop'],load:loadYellow},
- {id:'firered',short:'FireRed',title:'Pokémon FireRed',storage:{done:'ruta151-firered',dex:'ruta151-firered-dex'},battle:'/frlg/data/battle.json',moveText:'/frlg/data/move-text.json',hidden:['Obstacle'],untracked:['Obstacle','Shop'],load:()=>loadFrlg('firered')},
- {id:'leafgreen',short:'LeafGreen',title:'Pokémon LeafGreen',storage:{done:'ruta151-leafgreen',dex:'ruta151-leafgreen-dex'},battle:'/frlg/data/battle.json',moveText:'/frlg/data/move-text.json',hidden:['Obstacle'],untracked:['Obstacle','Shop'],load:()=>loadFrlg('leafgreen')},
+ {id:'yellow',short:'Yellow',title:'Pokémon Yellow',storage:{done:'ruta151-yellow',dex:'ruta151-yellow-dex'},data:'/yellow/data',version:'yellow',gen:1,hidden:['Obstacle'],untracked:['Obstacle','Shop']},
+ {id:'firered',short:'FireRed',title:'Pokémon FireRed',storage:{done:'ruta151-firered',dex:'ruta151-firered-dex'},data:'/frlg/data',version:'firered',gen:3,hidden:['Obstacle'],untracked:['Obstacle','Shop']},
+ {id:'leafgreen',short:'LeafGreen',title:'Pokémon LeafGreen',storage:{done:'ruta151-leafgreen',dex:'ruta151-leafgreen-dex'},data:'/frlg/data',version:'leafgreen',gen:3,hidden:['Obstacle'],untracked:['Obstacle','Shop']},
 ];

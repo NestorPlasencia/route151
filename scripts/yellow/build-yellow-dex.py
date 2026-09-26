@@ -11,7 +11,7 @@ Yellow tiene un caso propio: el Pikachu que te da Oak no acepta la Piedra
 Trueno y no hay otro en el juego, asi que Raichu tambien hay que traerlo.
 
 Uso:  python scripts/yellow/build-yellow-dex.py   (despues de build-yellow.py)
-Salida: public/yellow/data/pokedex.json
+Salida: public/yellow/data/pokedex-yellow.json
 """
 import io, json, os, re, sys
 
@@ -95,7 +95,7 @@ def main():
             e['note'] = REFUSES.get(e['n'], 'Not found in Yellow: trade it over from Red or Blue.')
 
     out = [entries[n] for n in sorted(entries)]
-    io.open(f'{DATA}/pokedex.json', 'w', encoding='utf-8', newline='\n').write(
+    io.open(f'{DATA}/pokedex-yellow.json', 'w', encoding='utf-8', newline='\n').write(
         json.dumps({'source': 'https://github.com/pret/pokeyellow', 'species': out}, ensure_ascii=False, separators=(',', ':')))
     by = {}
     for e in out:

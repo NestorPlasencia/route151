@@ -720,7 +720,7 @@ def main():
     dump = lambda name, value: json.dump(value, open(f'{OUT_DATA}/{name}', 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
     dump('areas.json', {'areas': areas, 'warps': merged, 'places': places})
     dump('markers.json', markers)
-    dump('encounters.json', {'zones': [{'name': z, 'pokemon': [{**e, 'areas': list(e['areas'].values())} for e in sorted(mons.values(), key=lambda e: e['id'])]}
+    dump('encounters-yellow.json', {'zones': [{'name': z, 'pokemon': [{**e, 'areas': list(e['areas'].values())} for e in sorted(mons.values(), key=lambda e: e['id'])]}
                                        for z, mons in encounter_zones.items()]})
     dump('checklist.json', build_checklist(markers, areas))
 

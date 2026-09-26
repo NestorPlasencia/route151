@@ -8,12 +8,13 @@ import {ArrowDown,ArrowUp,ChevronDown,HeartCrack,Plus,Search,X} from 'lucide-rea
 import {Figure,Num} from './shared';
 import {ScanCard} from './scan';
 import type {T} from './i18n';
+import {rulesFor,type Gen} from './rules';
 import type {Dex} from './lists';
 
 export type Move={name:string;type:string;power:number;accuracy:number;pp:number;effect?:string;category:'physical'|'special'};
 type MoveKind=Move['category']|'status';
 // `gen`: 1 en Yellow (reglas de la primera generacion), sin nada en FRLG.
-export type Battle={gen?:1;
+export type Battle={gen?:Gen;
  species:Record<string,{base:number[];ev?:number[];types:string[];abilities:string[];learn:[number,string][];tms:string[]}>;
  moves:Record<string,Move>;abilities:Record<string,string>;natures:Record<string,[string|null,string|null]>;
  chart:Record<string,Record<string,number>>;
@@ -231,12 +232,9 @@ export function buildProfile(battle:Battle,mon:TeamMon):BuildProfile|null{
 // hay naturalezas, y los genes son DVs de 0 a 15: en las cuentas van dobles
 // (0 a 30), que es como entran en la formula. Escala: de 125 a 300, con la
 // misma lectura (Mewtwo medio 98, la mitad de las formas finales bajo 50).
-const RULES={
- 3:{weights:[.15,.3,.15,.3,.15,.25],specimen:[.1,.5,.1,.5,.1,.2],floor:120,top:280,max:31},
- 1:{weights:[.15,.3,.15,.3,.1,.3],specimen:[.1,.5,.1,.5,.05,.25],floor:125,top:300,max:30},
-};
+// Los pesos y la escala de cada generacion viven en rules.ts (training).
 const SPECIES_SHARE=.6;
-export const rulesOf=(battle:Battle)=>RULES[battle.gen??3];
+export const rulesOf=(battle:Battle|null)=>rulesFor(battle?.gen);
 type Mods=[string|null,string|null];
 const trainStats=(base:number[],ivs:number[],nature:Mods)=>statsOf(base,100,nature,ivs);
 const mainAttack=(stats:number[])=>stats[1]>=stats[3]?1:3;
@@ -253,7 +251,7 @@ export type TrainingValue={score:number;into:number;main:'atk'|'spa';species:num
  lowersMain:boolean;raisesMain:boolean;mainIv:number|null;speedIv:number|null;base:number;top:number};
 export function trainingValue(battle:Battle,forms:number[],natureKey:string,ivs:number[]|null):TrainingValue|null{
  const shown=forms.filter(n=>battle.species[n]);if(!shown.length)return null;
- const rules=rulesOf(battle),{weights,specimen:specimenWeights}=rules;
+ const rules=rulesOf(battle).training,{weights,specimen:specimenWeights}=rules;
  const trainScore=(weight:number)=>Math.max(0,Math.min(100,Math.round((weight-rules.floor)/(rules.top-rules.floor)*100)));
  const nature=battle.natures[natureKey]??[null,null],neutral:Mods=[null,null],natures=Object.values(battle.natures);
  const mid=STATS.map(()=>IV),own=ivs??mid,best=STATS.map(()=>rules.max),worst=STATS.map(()=>0);
@@ -273,7 +271,7 @@ export function trainingValue(battle:Battle,forms:number[],natureKey:string,ivs:
 // en Gen 1, 30 = DV 15 doblado): lo de mas son EVs o Stat Exp.
 export function ivsOf(battle:Battle,mon:TeamMon){
  const s=battle.species[mon.n],stats=mon.stats;if(!s||!stats)return null;
- const mods=battle.natures[mon.nature]??[null,null],top=rulesOf(battle).max;
+ const mods=battle.natures[mon.nature]??[null,null],top=rulesOf(battle).training.max;
  const fits=STATS.map((stat,i)=>genes(s.base[i],mon.level,stats[i],stat,mods));
  if(fits.some(f=>!f))return null;
  return fits.map(f=>Math.min(top,Math.round((f!.min+Math.min(top,f!.max))/2)));
@@ -309,6 +307,25 @@ export const evList=(evs:(number[]|undefined)[],tr:T)=>{
  return got.length?got.join(', '):null;
 };
 
+// Lo que gana tu Pokemon al derrotar a estos, segun las reglas del juego:
+// - EVs por especie (Gen 3): "EVs: +1 At. Esp.";
+// - Stat Exp. (Gen 1): se gana en todas las estadisticas lo que valen las bases
+//   del rival, asi que se muestran las dos que mas entrena ("Stat Exp.: +90
+//   Velocidad, +55 Ataque…"). `total`: la suma de todo un equipo.
+export function effortText(battle:Battle,ns:number[],tr:T,total=false){
+ const rules=rulesOf(battle);
+ if(rules.effort==='ev'){
+  const list=evList(ns.map(n=>battle.species[n]?.ev),tr);
+  return list?tr.t(total?'evTotal':'evYield',{list}):null;
+ }
+ const shown=STATS.flatMap((stat,i)=>rules.special==='single'&&stat==='spd'?[]:[i]);
+ const sums=shown.map(i=>({i,v:ns.reduce((sum,n)=>sum+(battle.species[n]?.base[i]??0),0)})).filter(x=>x.v).sort((a,b)=>b.v-a.v);
+ if(!sums.length)return null;
+ const label=(i:number)=>tr.t((rules.special==='single'&&STATS[i]==='spa'?'stat_spc':'stat_'+STATS[i]) as never);
+ const list=sums.slice(0,2).map(x=>`+${x.v} ${label(x.i)}`.replace(/ /g,String.fromCharCode(160))).join(', ');
+ return tr.t(total?'statExpTotal':'statExpYield',{list});
+}
+
 // Recomendación junto a un entrenador o encuentro: solo mira el equipo activo.
 export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=true,inline=false,foeDetail,foeLevel}:{opponents:Opponent[];dex:Dex;battle:Battle|null;storageKey:string;tr:T;showOpponent?:boolean;inline?:boolean;foeDetail?:string|null;foeLevel?:string|null}){
  const [team,setTeam]=useState<TeamMon[]>([]);
@@ -336,13 +353,13 @@ export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=tr
    return [{foe,target,best,attacker,good}];
   });
  },[battle,dex,opponents,team]);
- const evsOf=(n:number)=>{const list=battle?evList([battle.species[n]?.ev],tr):null;return list?tr.t('evYield',{list}):null};
+ const evsOf=(n:number)=>battle?effortText(battle,[n],tr):null;
  // Lo que suma todo el equipo del entrenador, repetidos incluidos: sale aunque
  // aun no tengas equipo, porque sirve para decidir si merece la pena.
  const total=useMemo(()=>{
   if(!battle||inline||!showOpponent||opponents.length<2)return null;
   const byName=new Map(dex.species.map(s=>[opponentName(s.name),s.n]));
-  return evList(opponents.map(foe=>battle.species[byName.get(opponentName(foe.name))??0]?.ev),tr);
+  return effortText(battle,opponents.flatMap(foe=>{const n=byName.get(opponentName(foe.name));return n?[n]:[]}),tr,true);
  },[battle,dex,opponents,inline,showOpponent,tr]);
  const fallbackTarget=useMemo(()=>{
   const foe=opponents[0];return foe?dex.species.find(s=>opponentName(s.name)===opponentName(foe.name))??null:null;
@@ -351,7 +368,7 @@ export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=tr
  // enseña su ficha normal, pero no se inventa una recomendación ni una flecha.
  if(!rows.length)return inline&&fallbackTarget?<div className="battle-advice inline"><div className="battle-match inline battle-match-empty">
   <div className="battle-mon battle-foe"><Figure m={{icon:fallbackTarget.icon,category:'Pokémon'}}/><span><b>{tr.name(fallbackTarget.name)} <em className="battle-lv">{foeLevel??tr.t('battleLevel',{level:opponents[0].level})}</em></b>{foeDetail&&<small>{foeDetail}</small>}{(ev=>ev&&<small className="battle-ev">{ev}</small>)(evsOf(fallbackTarget.n))}</span></div>
- </div></div>:total?<div className="battle-advice"><p className="battle-ev-total">{tr.t('evTotal',{list:total})}</p></div>:null;
+ </div></div>:total?<div className="battle-advice"><p className="battle-ev-total">{total}</p></div>:null;
  return <div className={`battle-advice ${inline?'inline':showOpponent?'':'compact'}`}>{rows.map(({foe,target,best,attacker,good})=><div key={`${foe.name}-${foe.level}`}>
   {best&&attacker&&<div className={`battle-match ${inline?'inline':showOpponent?'':'compact'}`}>
    {showOpponent&&<><div className="battle-mon battle-foe"><Figure m={{icon:target.icon,category:'Pokémon'}}/><span><b>{tr.name(target.name)} <em className="battle-lv">{inline&&foeLevel?foeLevel:tr.t('battleLevel',{level:foe.level})}</em></b>{inline&&foeDetail&&<small>{foeDetail}</small>}{(ev=>ev&&<small className="battle-ev">{ev}</small>)(evsOf(target.n))}</span></div>
@@ -361,7 +378,7 @@ export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=tr
    <div className="battle-mon"><Figure m={{icon:attacker.icon,category:'Pokémon'}}/><span><b>{tr.name(attacker.name)} <em className="battle-lv">{tr.t('levelShort',{n:best.mon.level})}</em></b><small>{tr.t('battleUse',{move:tr.move(best.move.name)})}</small><small>{tr.t('battleHit',{range:best.d.min===best.d.max?`${best.d.max}`:`${best.d.min}–${best.d.max}`})}</small></span></div>
   </div>}
   {!good&&<p className="battle-warning">{tr.t('battleNoGood')}</p>}
- </div>)}{total&&<p className="battle-ev-total">{tr.t('evTotal',{list:total})}</p>}</div>;
+ </div>)}{total&&<p className="battle-ev-total">{total}</p>}</div>;
 }
 
 // Cuanto aporta un ataque al perfil actual. Sirve tanto para ordenar la tabla
@@ -414,10 +431,10 @@ export function adviseMoveReplacement(battle:Battle,mon:TeamMon,newKey:string):M
 
 export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex:Dex;battle:Battle|null;moveText:Record<string,{en:string;es:string}>|null;storageKey:string;suggestedLevel:number;tr:T}){
  const {t,lang,type:typeName,move:moveName,ability:abilityName,nature:natureName}=tr;
- // Gen 1 (Yellow): una sola Especial, sin naturalezas, habilidades ni juez, y
- // genes como DVs de 0 a 15 (en las cuentas, dobles).
- const gen1=battle?.gen===1;
- const statLabel=(stat?:string|null)=>t((gen1&&stat==='spa'?'stat_spc':'stat_'+stat) as never);
+ // Lo que se muestra depende de las reglas del juego (rules.ts), no del juego:
+ // Especial unica o separada, genes DV o IV, naturalezas, habilidades, juez...
+ const rules=rulesOf(battle),single=rules.special==='single',dv=rules.genes.name==='DV';
+ const statLabel=(stat?:string|null)=>t((single&&stat==='spa'?'stat_spc':'stat_'+stat) as never);
  const describe=(key:string)=>moveText?.[key]?.[lang==='es'?'es':'en']??null;
  const statusSummary=(key:string,move:Move)=>{
   const stat=effectStat(move.effect);
@@ -499,11 +516,12 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
  // Texto del IV deducido: exacto, un rango, o con EVs si pasa de 31.
  const ivLabel=(fit:{min:number;max:number}|null)=>{
   if(!fit)return t('ivNoFit');
-  // Gen 1: el gen entra doble (DV x 2), y lo que pase de 30 es Stat Exp.
-  if(gen1){
-   if(fit.min>30)return t('dvWithExp');
-   const lo=Math.ceil(fit.min/2),hi=Math.floor(Math.min(30,fit.max)/2);
-   return t('dv',{range:lo>=hi?`${Math.min(lo,15)}`:`${lo}–${hi}`})+(fit.max>30?'+':'');
+  // DVs: entran dobles en las cuentas (`scale`), y lo que pase del tope es Stat Exp.
+  if(dv){
+   const {max,scale}=rules.genes,top=max*scale;
+   if(fit.min>top)return t('dvWithExp');
+   const lo=Math.ceil(fit.min/scale),hi=Math.floor(Math.min(top,fit.max)/scale);
+   return t('dv',{range:lo>=hi?`${Math.min(lo,max)}`:`${lo}–${hi}`})+(fit.max>top?'+':'');
   }
   if(fit.min>31)return t('ivWithEv',{n:fit.min});
   const max=Math.min(31,fit.max);
@@ -589,17 +607,17 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
    </div>
    <div className="team-fields">
     <label>{t('level')}{guessed(mon,'level')}<Num value={mon.level} min={1} max={100} label={t('level')} onChange={n=>update(mon.id,{level:n})}/></label>
-    {!gen1&&<label>{t('nature')}{guessed(mon,'nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${statLabel(up)} −${statLabel(down)})`:''}</option>)}</select></label>}
-    {!gen1&&<label>{t('ability')}{guessed(mon,'ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{[...new Set([...s.abilities,mon.ability].filter(Boolean))].map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>}
+    {rules.natures&&<label>{t('nature')}{guessed(mon,'nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${statLabel(up)} −${statLabel(down)})`:''}</option>)}</select></label>}
+    {rules.abilities&&<label>{t('ability')}{guessed(mon,'ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{[...new Set([...s.abilities,mon.ability].filter(Boolean))].map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>}
    </div>
-   {/* En Gen 1 la Especial es una: se muestra una vez y se escribe en las dos casillas. */}
-   <dl className={`team-stats ${own?'own':''}`}>{STATS.flatMap((stat,i)=>gen1&&stat==='spd'?[]:[<div key={stat}>
+   {/* Con Especial unica se muestra una vez y se escribe en las dos casillas. */}
+   <dl className={`team-stats ${own?'own':''}`}>{STATS.flatMap((stat,i)=>single&&stat==='spd'?[]:[<div key={stat}>
     <dt>{statLabel(stat)}</dt>
     <dd><Num value={stats[i]} min={1} max={999} label={statLabel(stat)}
-     onChange={n=>update(mon.id,{stats:stats.map((v,j)=>j===i||(gen1&&i===3&&j===4)?n:v)})}/></dd>
+     onChange={n=>update(mon.id,{stats:stats.map((v,j)=>j===i||(single&&i===3&&j===4)?n:v)})}/></dd>
     <small>{t('baseStat',{n:s.base[i]})}{own&&' · '}{own&&(fit=>fit?ivLabel(fit):<span title={t('ivNoFitHelp')}>{t('ivNoFit')}</span>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}</small>
    </div>])}</dl>
-   <p className="team-note">{own&&<span className="team-iv">{t(gen1?'dvNote':'ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
+   <p className="team-note">{own&&<span className="team-iv">{t(dv?'dvNote':'ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
    {value&&band&&<div className="training">
     <h4>{t('training')}</h4>
     <div className="training-head">
@@ -619,9 +637,9 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
      <li>{t('trainingSpecies',{n:value.species,name:species.get(value.into)?.name??'',stat:mainStat})}</li>
      <li>{t('trainingSpecimen',{n:value.specimen})}
       <ul>
-       <li>{value.mainIv!==null?gen1?t('trainingDvs',{stat:mainStat,n:Math.round(value.mainIv/2),spe:Math.round((value.speedIv??0)/2)})
-        :t('trainingIvs',{stat:mainStat,n:value.mainIv,spe:value.speedIv??0}):t(gen1?'trainingDvsAssumed':'trainingIvsAssumed')}</li>
-       {!gen1&&<li>{t(value.lowersMain?'trainingNatureDown':value.raisesMain?'trainingNatureUp':'trainingNature',{nature:natureName(mon.nature),stat:mainStat,n:signed(value.nature)})}</li>}
+       <li>{value.mainIv!==null?t(dv?'trainingDvs':'trainingIvs',{stat:mainStat,n:Math.round(value.mainIv/rules.genes.scale),spe:Math.round((value.speedIv??0)/rules.genes.scale)})
+        :t(dv?'trainingDvsAssumed':'trainingIvsAssumed')}</li>
+       {rules.natures&&<li>{t(value.lowersMain?'trainingNatureDown':value.raisesMain?'trainingNatureUp':'trainingNature',{nature:natureName(mon.nature),stat:mainStat,n:signed(value.nature)})}</li>}
       </ul></li>
     </ul>
    </div>}
@@ -646,10 +664,10 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
      return <li key={`${reason.key}-${i}`}>{t(reason.key,vars)}</li>;
     })}</ul>
     <p className="team-note">{t('profileNote')}</p>
-    {own&&!gen1&&(fits=>fits.length&&!fits.includes(mon.nature)?<p className="team-note team-natures">{t('natureFits')} {fits.map(n=>
+    {own&&rules.natures&&(fits=>fits.length&&!fits.includes(mon.nature)?<p className="team-note team-natures">{t('natureFits')} {fits.map(n=>
      <button key={n} className="team-reset" onClick={()=>update(mon.id,{nature:n})}>{natureName(n)}</button>)}</p>:null)(fittingNatures(mon))}
    </div>}
-   {own&&!gen1&&(ivs=>ivs?<div className="judge">
+   {own&&rules.judge&&(ivs=>ivs?<div className="judge">
     <h4>{t('judge')}<small>{t('judgeTotal',{n:ivs.reduce((a,b)=>a+b,0)})}</small></h4>
     <div className="judge-chart">
      <svg viewBox="0 0 340 250" aria-labelledby={`judge-radar-${mon.id}`}>
@@ -721,8 +739,8 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
    </div>}
    {/* El lector vive dentro de cada Pokemon: sirve para enriquecer el que ya
        tienes, y sabiendo de que especie es acierta mucho mas. */}
-   {/* El lector de fichas conoce la pantalla de FRLG, no la de Yellow. */}
-   {!gen1&&<ScanCard battle={battle} dex={dex} mon={mon} tr={tr} onFill={change=>update(mon.id,change)}/>}
+   {/* El lector de fichas conoce la pantalla de Gen 3. */}
+   {rules.scan&&<ScanCard battle={battle} dex={dex} mon={mon} tr={tr} onFill={change=>update(mon.id,change)}/>}
    <h4 className="team-moves-head">{t('scanMoves')}{guessed(mon,'moves')}</h4>
    <div className="team-moves">{[0,1,2,3].map(i=>{
     const move=mon.moves[i]?battle.moves[mon.moves[i]!]:null;

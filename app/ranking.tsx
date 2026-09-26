@@ -10,6 +10,7 @@ import {Search} from 'lucide-react';
 import {Figure,type Marker} from './shared';
 import {finalForms,ivsOf,trainingBand,trainingValue,type Battle,type TeamMon} from './team';
 import type {T} from './i18n';
+import {rulesFor} from './rules';
 import {caughtSpecies,type Dex} from './lists';
 
 // Legendarios de Kanto y Johto: uno de cada por partida, asi que se pueden
@@ -68,7 +69,7 @@ export function RankingView({dex,battle,byId,done,dexKey,storageKey,switcher,tr}
   <div className="list-body rank">
    {/* Mientras cargan los datos de combate el selector sigue arriba, para poder volver. */}
    {!battle&&<p className="list-empty">{t('loadingTeam')}</p>}
-   {battle&&<p className="list-source rank-note">{t(battle.gen===1?'rankingNoteGen1':'rankingNote')}</p>}
+   {battle&&<p className="list-source rank-note">{t(rulesFor(battle.gen).genes.name==='DV'?'rankingNoteGen1':'rankingNote')}</p>}
    {/* El puesto es el de la lista que ves: con filtros, el mejor de lo que queda es el 1. */}
    {shown.map((row,i)=>{
     // Tu nota, calculada como esta forma final (un Abra tuyo cuenta como
