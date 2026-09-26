@@ -125,8 +125,16 @@ export default function Home(){
  },[]);
 
  // Cambiar de area cambia la imagen; cada vista decide donde se posa la camara.
+ // Solo con el mapa a la vista: oculto (se empieza en la checklist) mide 0x0, el
+ // encuadre sale invalido y el mapa se veia negro al abrirlo. La vista que llega
+ // con el mapa oculto se aplica al abrir la pestana; volver sin cambios deja la
+ // camara donde estaba.
+ const applied=useRef<View|null>(null);
  useEffect(()=>{
-  const L=leaflet.current,m=map.current;if(!L||!m||!area)return;
+  const L=leaflet.current,m=map.current;if(!L||!m||!area||tab!=='mapa')return;
+  m.invalidateSize();
+  if(applied.current===view&&shownArea.current===area.image)return;
+  applied.current=view;
   const b:[Pt,Pt]=[[-area.height,0],[0,area.width]];
   // La imagen se identifica por su ruta: al cambiar de juego hay un render con el
   // juego nuevo y el mapa viejo, y con 'juego/area' la imagen vieja quedaba fija.
@@ -141,7 +149,7 @@ export default function Home(){
   if(view.restore)m.setView(view.restore.center,view.restore.zoom,{animate:!changed});
   else if(view.focus)m.setView(ll(view.focus),Math.max(fit,view.zoom??0),{animate:!changed});
   else m.fitBounds(b,{animate:!changed});
- },[view,area,mapReady]);
+ },[view,area,mapReady,tab]);
 
  const shown=useMemo(()=>(area?inArea.get(area.id)??[]:[]).filter(m=>active.includes(m.category)),[area,inArea,active]);
  // Muchos objetos comparten punto exacto (hasta 14): se pintan como un solo pin
@@ -259,8 +267,7 @@ export default function Home(){
  const tracked=useMemo(()=>new Set((world?.markers??[]).filter(m=>!game.untracked.includes(m.category)).map(m=>m.uid)),[world,game]);
  const completed=done.filter(uid=>tracked.has(uid)).length;
  const pct=tracked.size?Math.round(completed/tracked.size*100):0;
- // El mapa sigue montado bajo las listas; al volver, Leaflet recalcula su tamaño.
- useEffect(()=>{if(tab==='mapa')setTimeout(()=>map.current?.invalidateSize(),0)},[tab]);
+ // Ir al mapa desde las listas: el mapa sigue montado y coloca la camara al verse.
  const showOnMap=(m:Marker)=>{setTab('mapa');reveal(m,false)};
  // Llevar a una zona de la checklist: a su lugar del mapa si lo tiene y, si no
  // (cuevas y edificios de varios pisos), al piso del primer objeto que te falta.
