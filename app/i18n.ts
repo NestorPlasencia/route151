@@ -242,7 +242,6 @@ const TEXT = {
  encounterLevels: ['Lv. {levels}', 'Nv. {levels}'],
  levels: ['Lv. {levels}', 'Nv. {levels}'],
  availableHere: ['{n} Pokémon available in this area.', '{n} Pokémon disponibles en esta zona.'],
- encountersPokeapi: ['PokéAPI encounters', 'Encuentros de PokéAPI'],
  encountersWild: ['Wild encounters', 'Pokémon salvajes'],
  // Listas
  sells: ['Sells {list}', 'Vende {list}'],
@@ -269,16 +268,9 @@ const TEXT = {
  showOnMap: ['Show {name} on the map', 'Ver {name} en el mapa'],
  emptyFilter: ['Nothing to show with this filter.', 'No hay nada con este filtro.'],
  // Creditos
- creditMap: ['Map image', 'Imagen del mapa'],
- creditMarkers: ['Checklist and map markers', 'Lista y marcadores del mapa'],
- creditData: ['Encounters, Pokédex data and sprites', 'Encuentros, datos de la Pokédex y sprites'],
- creditTrainers: ['Trainer sprites', 'Sprites de entrenadores'],
- creditOrder: ['Walkthrough order', 'Orden de la guía'],
  creditFrlg: ['Maps, markers and encounters', 'Mapas, marcadores y encuentros'],
  creditDex: ['Pokédex data and icons', 'Datos de la Pokédex e iconos'],
  creditClasses: ['Spanish trainer classes', 'Clases de entrenador en español'],
- creditVia: ['via Pokémon Completion', 'vía Pokémon Completion'],
- creditFlags: ['with event flag research by FabioAttard', 'con la investigación de flags de FabioAttard'],
  creditDecomp: ['generated from the decompilation', 'generado desde la decompilación'],
  disclaimer: [
   'Route 151 is an unofficial fan project and is not affiliated with, endorsed or sponsored by Nintendo, Game Freak, Creatures Inc. or The Pokémon Company. Pokémon and all related names and images are trademarks of their respective owners.',
@@ -297,8 +289,6 @@ const CATEGORIES: Record<string, [string, string]> = {
  'In-Game Trade': ['In-game trade', 'Intercambio'],
  'In-Game Gift Pokémon': ['Gift Pokémon', 'Pokémon de regalo'],
  Battle: ['Battle', 'Combate'],
- Item: ['Collectible item', 'Objeto de colección'],
- 'Miscellaneous Task': ['Task', 'Tarea'],
  Obstacle: ['Obstacle', 'Obstáculo'],
  Shop: ['Shop', 'Tienda'],
 };
@@ -311,8 +301,6 @@ const LAYERS: Record<string, [string, string]> = {
  'In-Game Trade': ['In-Game Trade', 'Intercambios'],
  'In-Game Gift Pokémon': ['In-Game Gift Pokémon', 'Pokémon de regalo'],
  Battle: ['Battle', 'Combates'],
- Item: ['Collectible Item', 'Objetos de colección'],
- 'Miscellaneous Task': ['Task', 'Tareas'],
  Obstacle: ['Obstacle', 'Obstáculos'],
  Shop: ['Shop', 'Tiendas'],
 };

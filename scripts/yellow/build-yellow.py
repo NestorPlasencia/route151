@@ -53,7 +53,7 @@ WORDS = {'Tm': 'TM', 'Hm': 'HM', 'Pp': 'PP', 'Hp': 'HP', 'S.s.': 'S.S.', 'Mt.moo
          'Is.': 'Islands', 'Hq': 'HQ', 'Co.': 'Co.', 'Jr.trainer♂': 'Jr. Trainer♂', 'Jr.trainer♀': 'Jr. Trainer♀',
          'Pokémaniac': 'Pokémaniac', 'Ss': 'S.S.'}
 # Nombres del juego que la app ya conoce escritos de otra forma (y los de FRLG).
-FIX = {'Rocket HQ': 'Rocket Hideout', 'S.s.anne': 'S.S. Anne', 'Pokémon League': 'Pokémon League', 'S.S.anne': 'S.S. Anne', 'S.S.ticket': 'S.S. Ticket', 'Elixer': 'Elixir', 'Max Elixer': 'Max Elixir',
+FIX = {'Rocket HQ': 'Rocket Hideout', 'S.s.anne': 'S.S. Anne', 'S.s.ticket': 'S.S. Ticket', 'Pokémon League': 'Pokémon League', 'S.S.anne': 'S.S. Anne', 'S.S.ticket': 'S.S. Ticket', 'Elixer': 'Elixir', 'Max Elixer': 'Max Elixir',
        'Pokémon Tower': 'Pokémon Tower', 'Silph Co.': 'Silph Co.', 'Rocket Hq': 'Rocket Hideout',
        'Pokédex': 'Pokédex', 'Parlyz Heal': 'Parlyz Heal', 'Exp.all': 'Exp. All', 'Seafoam Islands': 'Seafoam Islands',
        'Diglett S Cave': "Diglett's Cave", 'Diglett’s Cave': "Diglett's Cave", 'Pokémon Mansion': 'Pokémon Mansion',

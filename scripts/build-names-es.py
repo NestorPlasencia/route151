@@ -2,9 +2,9 @@
 
 La app muestra los objetos con el nombre ingles que traen los datos de cada
 juego ('Old Amber', 'TM26', 'Thunderstone'). Aqui se busca cada uno en PokeAPI
-y se guarda su nombre en espanol ('Ambar Viejo', 'MT26', 'Piedra Trueno'). Las
-MT y MO de Amarillo llevan el movimiento en el nombre ('TM01 - Mega Punch'), y
-el movimiento tambien se traduce.
+y se guarda su nombre en espanol ('Ambar Viejo', 'MT26', 'Piedra Trueno'). Si
+una MT o MO lleva el movimiento en el nombre ('TM01 - Mega Punch'), el
+movimiento tambien se traduce.
 
 PokeAPI no tiene los lugares en espanol (solo ingles, frances y aleman): esos
 nombres estan escritos a mano en app/i18n.ts.
@@ -49,16 +49,12 @@ def spanish(entry):
 def wanted_items():
     """Objetos que muestran los juegos: los de FRLG y los de Amarillo."""
     names = set()
-    frlg = json.load(io.open('public/frlg/data/markers.json', encoding='utf-8'))
-    for m in frlg:
-        if m['category'] in ('Item In Map', 'Hidden Item', 'Item Gift'):
-            names.add(re.sub(r' ×\d+$', '', m['name']))
-        if m['category'] == 'Shop' and m.get('detail'):
-            names.update(m['detail'].removeprefix('Sells ').split(', '))
-    yellow = json.load(io.open('public/data/yellow-map.json', encoding='utf-8'))
-    for m in yellow['markers']:
-        if m['category'] in ('Item', 'Item In Map', 'Item Gift'):
-            names.add(m['name'])
+    for path in ('public/frlg/data/markers.json', 'public/yellow/data/markers.json'):
+        for m in json.load(io.open(path, encoding='utf-8')):
+            if m['category'] in ('Item In Map', 'Hidden Item', 'Item Gift'):
+                names.add(re.sub(r' ×\d+$', '', m['name']))
+            if m['category'] == 'Shop' and m.get('detail'):
+                names.update(m['detail'].removeprefix('Sells ').split(', '))
     return sorted(names)
 
 

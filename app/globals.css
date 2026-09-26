@@ -25,37 +25,6 @@ header{height:56px;padding:0 14px;gap:12px}
 .world-image,.leaflet-image-layer{max-width:none!important;max-height:none!important}
 .encounter-drawer{max-height:calc(100% - 36px);display:flex;flex-direction:column}.encounter-drawer>p{margin-bottom:10px}.encounter-list{overflow:auto;margin:0 -8px;padding:0 8px}.encounter-list article{display:grid;grid-template-columns:48px 1fr;align-items:center;border-top:1px solid var(--line);padding:8px 0}.encounter-list img{width:45px;height:45px;image-rendering:pixelated}.encounter-list article div{display:flex;flex-direction:column;gap:2px}.encounter-list article b{text-transform:capitalize;font-size:12px}.encounter-list article span{font-size:10px;color:#657389}.encounter-list article em{font-size:9px;color:var(--blue);font-style:normal;text-transform:capitalize}
 .local-encounter{display:grid;grid-template-columns:76px 1fr;align-items:center;background:#f4f7fb;border:1px solid var(--line);border-radius:11px;margin-bottom:18px;padding:8px}.local-encounter img{width:70px;height:70px;image-rendering:pixelated}.local-encounter div{display:flex;flex-direction:column;gap:5px}.local-encounter b{font-size:14px}.local-encounter span{font-size:11px;color:#657389}.local-encounter em{font-size:10px;color:var(--blue);font-style:normal;text-transform:capitalize}
-/* Pagina de trabajo (/trabajo): mapa completo con todos los objetos. */
-.wk{display:grid;grid-template-columns:minmax(0,1fr) 360px;height:100dvh;background:#0a0d13}
-.wk-map{position:relative;min-height:0;min-width:0}.wk-map>div:first-child{height:100%;width:100%;background:#050608}
-.wk-loading{position:absolute;inset:0;display:grid;place-items:center;color:#dce5f5;z-index:500}
-.wk-side{display:flex;flex-direction:column;min-height:0;background:#fff;color:var(--ink);border-left:1px solid var(--line)}
-.wk-head{padding:14px 16px 10px;border-bottom:1px solid var(--line)}.wk-head h1{font-size:15px;margin:0}.wk-head p{margin:4px 0 8px;font-size:11px;color:var(--muted)}
-.wk-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:10px;color:#657389}.wk-legend span{display:flex;align-items:center;gap:5px}
-.wk-legend .sq{width:12px;height:9px;border:1.5px solid #49a8ff}.wk-legend .sq.dudosa{border:1.5px dashed #ff8a3d}.wk-legend .sq.manual{border:2px solid #b56cff;background:#b56cff22}.wk-legend .ln{width:16px;border-top:2px dotted #e0b400}
-.wk-filters{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;border-bottom:1px solid var(--line)}
-.wk-chip{display:flex;align-items:center;gap:5px;height:28px;padding:0 9px;border:1px solid var(--line);border-radius:999px;background:#f8fafc;color:var(--ink);font-size:11px;cursor:pointer}
-.wk-chip.off{opacity:.4}.wk-chip i{width:9px;height:9px;border-radius:50%;background:var(--c)}.wk-chip b{font-weight:normal;color:var(--muted);font-size:10px}
-.wk-detail{position:relative;padding:14px 16px;border-bottom:1px solid var(--line);background:#f4f7fb}
-.wk-detail small{font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;filter:brightness(.75)}
-.wk-detail h2{font-size:17px;margin:3px 30px 8px 0}
-.wk-detail dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;font-size:11px}.wk-detail dt{color:var(--muted)}.wk-detail dd{margin:0;word-break:break-word}
-.wk-close{position:absolute;right:10px;top:10px;width:28px;height:28px;border:0;border-radius:7px;background:#e6ecf3;font-size:17px;line-height:1;cursor:pointer}
-.wk-search{margin:10px 16px 4px;height:36px;border:1px solid var(--line);border-radius:9px;padding:0 10px;font-size:13px;outline:0}
-.wk-count{padding:0 16px 6px;font-size:10px;color:var(--muted)}
-.wk-list{flex:1;min-height:0;overflow:auto;border-top:1px solid var(--line)}
-.wk-row{display:grid;grid-template-columns:9px minmax(0,1fr) auto;gap:9px;align-items:center;width:100%;padding:8px 16px;border:0;border-bottom:1px solid #eef2f6;background:none;text-align:left;color:var(--ink);cursor:pointer}
-.wk-row.on{background:#eef3fb}.wk-row i{width:9px;height:9px;border-radius:50%;background:var(--c)}
-.wk-row b{display:block;font-size:12px;font-weight:normal}.wk-row small{display:block;font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wk-row em{font-style:normal;font-size:9px;color:#8b97aa}
-@media (max-width:1024px),(pointer:coarse) and (max-width:1366px){.wk{grid-template-columns:1fr;grid-template-rows:55dvh minmax(0,1fr)}.wk-side{border-left:0;border-top:1px solid var(--line)}.wk-search{font-size:16px}}
-.wk-review{padding:12px 16px;border-bottom:1px solid var(--line);background:#fff7ec}
-.wk-review h3{margin:0;font-size:12px;color:#b4540c}.wk-review p{margin:4px 0 8px;font-size:10px;color:#7a5a3a}
-.wk-review>div{display:flex;flex-wrap:wrap;gap:5px}
-.wk-review button{display:flex;flex-direction:column;align-items:flex-start;padding:4px 8px;border:1px solid #f3c9a0;border-radius:7px;background:#fff;font-size:11px;font-weight:bold;color:#b4540c;cursor:pointer}
-.wk-review button.on{background:#ff8a3d;color:#fff;border-color:#ff8a3d}.wk-review button small{font-weight:normal;font-size:9px;opacity:.8}
-.wk-review dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:10px 0 0;font-size:11px}.wk-review dt{color:#9a7a5a}.wk-review dd{margin:0}
-.wk-tag{background:#ff8a3d;color:#fff;border:0;font-weight:bold;font-size:11px;padding:1px 5px;box-shadow:none}.wk-tag::before{display:none}
 
 /* Navegacion por areas: Kanto y cada piso son imagenes propias. */
 .crisp .area-image{image-rendering:pixelated}
@@ -155,7 +124,6 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .credits ul{list-style:none;margin:0;padding:0}.credits li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 0;border-top:1px solid var(--line);font-size:12px}
 .credits li span{color:var(--muted)}.credits li a{color:var(--blue);font-weight:bold;text-decoration:none}.credits li small{grid-column:1/-1;color:var(--muted);font-size:10px;font-weight:normal;letter-spacing:0;text-transform:none}
 .credits p{margin:12px 0 0;font-size:10px;line-height:1.5;color:var(--muted)}
-.wk-credits{padding:8px 16px;border-bottom:1px solid var(--line);font-size:12px}.wk-credits summary{cursor:pointer;color:var(--blue);font-weight:bold}
 /* Pines centrados en su icono, para poder reducirlos sin descentrarlos. */
 .pin-wrap{display:grid;place-items:center}
 /* Mapa alejado: los pines pasan a ser puntos pequenos, sin recuentos. */

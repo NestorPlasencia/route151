@@ -19,10 +19,6 @@ export type Game={
  // Capas que empiezan ocultas y categorias que no cuentan como progreso (en FRLG,
  // obstaculos y tiendas: comprar no es coleccionar).
  hidden:string[];untracked:string[];
- encounterSource:string;
- // En FRLG `location` es el lugar exacto de cada marcador; en Yellow es un texto
- // descriptivo y el lugar se deduce por cercania.
- exactLocations:boolean;
  load:()=>Promise<World>;
 };
 
@@ -56,7 +52,7 @@ async function loadFrlg(version:'firered'|'leafgreen'):Promise<World>{
 export const GAMES:Game[]=[
  // Yellow empieza de cero con los datos del juego: sus marcadores son otros, asi
  // que el progreso tiene claves nuevas (las de antes, 'ruta151-full', no casan).
- {id:'yellow',short:'Yellow',title:'Pokémon Yellow',storage:{done:'ruta151-yellow',dex:'ruta151-yellow-dex'},hidden:['Obstacle'],untracked:['Obstacle','Shop'],encounterSource:'Wild encounters',exactLocations:true,load:loadYellow},
- {id:'firered',short:'FireRed',title:'Pokémon FireRed',storage:{done:'ruta151-firered',dex:'ruta151-firered-dex'},hidden:['Obstacle'],untracked:['Obstacle','Shop'],encounterSource:'Wild encounters',exactLocations:true,load:()=>loadFrlg('firered')},
- {id:'leafgreen',short:'LeafGreen',title:'Pokémon LeafGreen',storage:{done:'ruta151-leafgreen',dex:'ruta151-leafgreen-dex'},hidden:['Obstacle'],untracked:['Obstacle','Shop'],encounterSource:'Wild encounters',exactLocations:true,load:()=>loadFrlg('leafgreen')},
+ {id:'yellow',short:'Yellow',title:'Pokémon Yellow',storage:{done:'ruta151-yellow',dex:'ruta151-yellow-dex'},hidden:['Obstacle'],untracked:['Obstacle','Shop'],load:loadYellow},
+ {id:'firered',short:'FireRed',title:'Pokémon FireRed',storage:{done:'ruta151-firered',dex:'ruta151-firered-dex'},hidden:['Obstacle'],untracked:['Obstacle','Shop'],load:()=>loadFrlg('firered')},
+ {id:'leafgreen',short:'LeafGreen',title:'Pokémon LeafGreen',storage:{done:'ruta151-leafgreen',dex:'ruta151-leafgreen-dex'},hidden:['Obstacle'],untracked:['Obstacle','Shop'],load:()=>loadFrlg('leafgreen')},
 ];

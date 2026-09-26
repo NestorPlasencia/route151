@@ -1,8 +1,7 @@
 'use client';
 // Piezas comunes al mapa, la checklist y la Pokedex.
 import {useEffect,useState} from 'react';
-import {Backpack,Gift,ListChecks,MapPin,Mountain,Search,Sparkles,Store,Swords} from 'lucide-react';
-import trainerIcons from '../public/data/trainer-icons.json';
+import {Gift,MapPin,Mountain,Search,Sparkles,Store,Swords} from 'lucide-react';
 import type {T} from './i18n';
 
 export type Encounter={zone:string;min:number;max:number;chance:number;methods:string[];sprite?:string};
@@ -13,27 +12,20 @@ export type Marker={id:string;uid:number;category:string;name:string;location:st
 
 // Capas del mapa: solo estas categorias se pintan como pines.
 export const groups=[['Pokémon',Sparkles,'#ffd739'],['Item In Map',MapPin,'#49a8ff'],['Item Gift',Gift,'#ff8ec1'],['In-Game Trade',Gift,'#ad83ff'],['In-Game Gift Pokémon',Sparkles,'#f3a63b'],['Battle',Swords,'#ff5f66']] as const;
-// Yellow suma su coleccion de objetos (un pin por objeto: el Old Amber, los
-// fosiles, las MT, los de tienda...) y sus tareas; FireRed/LeafGreen, los objetos
-// ocultos, las tiendas y los obstaculos (rocas, arbustos).
-const yellowGroups=[...groups,['Item',Backpack,'#5ccfb4'],['Miscellaneous Task',ListChecks,'#b9c2cf']] as const;
+// Los juegos suman los objetos ocultos, las tiendas y los obstaculos (rocas de
+// Fuerza; en FRLG tambien arbustos de Corte y rocas de Golpe Roca).
 export const frlgGroups=[...groups.slice(0,2),['Hidden Item',Search,'#7fd4ff'],...groups.slice(2),['Shop',Store,'#5ccfb4'],['Obstacle',Mountain,'#9aa6b8']] as const;
-export type Group=(typeof yellowGroups)[number]|(typeof frlgGroups)[number];
+export type Group=(typeof frlgGroups)[number];
 // Todos los juegos salen ya de su decompilacion y comparten capas.
 export const groupsOf=(_game:string):readonly Group[]=>frlgGroups;
-export const colorOf=(category:string)=>[...yellowGroups,...frlgGroups].find(g=>g[0]===category)?.[2]??'#fff';
+export const colorOf=(category:string)=>frlgGroups.find(g=>g[0]===category)?.[2]??'#fff';
 
-// Los combates de Yellow no traen icono: se deduce de la clase del rival
-// ("Youngster #3" -> sprite de Joven; "Snorlax" -> su figurita). Ver
-// scripts/download-trainers.py. Los de FRLG traen su sprite del mapa.
-const TRAINERS:Record<string,string>=trainerIcons;
-// "Rival #8 (Jolteon)" -> "Rival"; el sexo se conserva: "Jr Trainer (F) #2" -> "Jr Trainer (F)".
-const trainerClass=(name:string)=>name.replace(/\s*#\d+.*$/,'').replace(/\s*\((?![MF]\))[^)]*\)$/,'').trim();
-export const iconOf=(m:{icon?:string|null;category:string;name?:string})=>m.icon??(m.category==='Battle'&&m.name?TRAINERS[trainerClass(m.name)]:undefined);
+// Todos los marcadores traen su figurita: los combates, el sprite del mapa.
+export const iconOf=(m:{icon?:string|null})=>m.icon??undefined;
 
 // Figurita del objeto (PokeAPI, sprites de entrenador o del propio juego, en
 // /icons); si no hay, un cuadro del color de su categoria.
-export function Figure({m}:{m:{icon?:string|null;category:string;name?:string}}){const icon=iconOf(m);return icon?<img className={`fig ${icon.startsWith('trainer/')||icon.startsWith('frlg/npc/')||icon.startsWith('yellow/npc/')?'fig-trainer':''}`} src={`/icons/${icon}`} alt="" loading="lazy"/>:<span className="fig fig-none" style={{'--pin':colorOf(m.category)} as React.CSSProperties}/>}
+export function Figure({m}:{m:{icon?:string|null;category:string;name?:string}}){const icon=iconOf(m);return icon?<img className={`fig ${icon.startsWith('frlg/npc/')||icon.startsWith('yellow/npc/')?'fig-trainer':''}`} src={`/icons/${icon}`} alt="" loading="lazy"/>:<span className="fig fig-none" style={{'--pin':colorOf(m.category)} as React.CSSProperties}/>}
 
 // Creditos: todo el contenido es de terceros y la app es un proyecto de fans.
 type Credit={what:string;who:string;href:string;note?:string};
@@ -41,7 +33,6 @@ type Credit={what:string;who:string;href:string;note?:string};
 const yellowCredits=(tr:T):Credit[]=>[
  {what:tr.t('creditFrlg'),who:'pret/pokeyellow',href:'https://github.com/pret/pokeyellow',note:tr.t('creditDecomp')},
  {what:tr.t('creditDex'),who:'PokéAPI',href:'https://pokeapi.co'},
- {what:tr.t('creditTrainers'),who:'Pokémon Showdown',href:'https://play.pokemonshowdown.com'},
  {what:tr.t('creditClasses'),who:'Pokémon Wiki (es)',href:'https://pokemon.fandom.com/es/wiki/Lista_de_clases_de_entrenadores'},
 ];
 const frlgCredits=(tr:T):Credit[]=>[
