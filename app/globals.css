@@ -459,6 +459,10 @@ button.brand{border:0;background:none;color:inherit;padding:0;cursor:pointer;tex
 .rank-text>b{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px}
 .rank-text small{font-size:10px;color:var(--muted)}
 .rank-mine{font-style:normal;font-size:9px;font-weight:bold;color:#1f7a4d;background:#e4f6ec;padding:1px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:.04em}
+/* Tipos del ranking: botones con el color de cada tipo, apagados salvo el elegido. */
+.rank-types{margin-top:4px;padding:4px}
+.rank-types .type{flex:none;border:0;cursor:pointer;font:inherit;font-size:11px;font-weight:bold;padding:5px 10px;border-radius:999px;opacity:.45}
+.rank-types .type.on{opacity:1;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--ink)}
 .rank-trade{font-style:normal;font-size:9px;font-weight:bold;color:#8a5a08;background:#fdf1dc;padding:1px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:.04em}
 .rank-score{display:flex;flex-direction:column;align-items:center;gap:3px}
 .rank-score small{font-size:9px;color:var(--muted);white-space:nowrap}

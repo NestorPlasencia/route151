@@ -20,7 +20,7 @@ type Filter='caught'|'noLegendary'|'noTrade';
 
 export function RankingView({dex,battle,byId,done,dexKey,storageKey,switcher,tr}:{dex:Dex;battle:Battle|null;byId:Map<string,Marker>;done:number[];dexKey:string;storageKey:string;switcher?:ReactNode;tr:T}){
  const {t,type}=tr;
- const [query,setQuery]=useState(''),[team,setTeam]=useState<TeamMon[]>([]),[manual,setManual]=useState<number[]>([]),[on,setOn]=useState<Filter[]>([]);
+ const [query,setQuery]=useState(''),[team,setTeam]=useState<TeamMon[]>([]),[manual,setManual]=useState<number[]>([]),[on,setOn]=useState<Filter[]>([]),[kind,setKind]=useState<string|null>(null);
  // Las familias que ya llevas se marcan, para ver de un vistazo donde quedan.
  useEffect(()=>{try{const saved:TeamMon[]=JSON.parse(localStorage.getItem(storageKey)||'[]');setTeam(Array.isArray(saved)?saved:[])}catch{setTeam([])}},[storageKey]);
  // Lo registrado a mano en la Pokedex (las especies sin entradas en la checklist).
@@ -46,8 +46,12 @@ export function RankingView({dex,battle,byId,done,dexKey,storageKey,switcher,tr}
  const shown=rows.filter(row=>(!on.includes('caught')||row.family.some(n=>caught.has(n)))
   &&(!on.includes('noLegendary')||!LEGENDARY.has(row.into))
   &&(!on.includes('noTrade')||!row.trade)
+  // El tipo es el de la forma final: Gyarados sale en Agua y en Volador.
+  &&(!kind||row.species.types.includes(kind))
   // Se busca por cualquier miembro de la familia: "Magikarp" encuentra a Gyarados.
   &&(!q||row.family.some(n=>names.get(n)?.toLowerCase().includes(q))));
+ // Solo los tipos que hay en la lista, por su nombre en el idioma elegido.
+ const kinds=[...new Set(rows.flatMap(row=>row.species.types))].sort((a,b)=>type(a).localeCompare(type(b)));
  const toggle=(f:Filter)=>setOn(list=>list.includes(f)?list.filter(x=>x!==f):[...list,f]);
  return <div className="listview">
   <div className="list-head">
@@ -56,6 +60,9 @@ export function RankingView({dex,battle,byId,done,dexKey,storageKey,switcher,tr}
    <label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('searchDex')}/></label>
    <div className="list-filters">{([['caught',t('rankingCaught')],['noLegendary',t('rankingNoLegendary')],['noTrade',t('rankingNoTrade')]] as const).map(([k,label])=>
     <button key={k} className={`chip ${on.includes(k)?'on':''}`} aria-pressed={on.includes(k)} onClick={()=>toggle(k)}>{label}</button>)}</div>
+   {/* Un tipo a la vez; tocarlo otra vez lo quita. */}
+   {kinds.length>0&&<div className="list-filters rank-types">{kinds.map(ty=>
+    <button key={ty} className={`type t-${ty} ${kind===ty?'on':''}`} aria-pressed={kind===ty} onClick={()=>setKind(kind===ty?null:ty)}>{type(ty)}</button>)}</div>}
   </div>
   <div className="list-body rank">
    {/* Mientras cargan los datos de combate el selector sigue arriba, para poder volver. */}
