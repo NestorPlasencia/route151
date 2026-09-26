@@ -7,6 +7,7 @@ import {Credits,Figure,colorOf,groupsOf,type Encounter,type Marker} from './shar
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
 import {RankingView} from './ranking';
+import {GameHome} from './home';
 import {BattleAdvice,TeamView,evList,trainerOpponents,type Battle,type Opponent} from './team';
 import {GAMES,METHODS,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
 
@@ -30,9 +31,12 @@ export default function Home(){
  const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'|'team'>('mapa'),[dexView,setDexView]=useState<'dex'|'ranking'>('dex'),[battle,setBattle]=useState<Battle|null>(null),[moveText,setMoveText]=useState<Record<string,{en:string;es:string}>|null>(null),[view,setView]=useState<View>({area:''});
  const [active,setActive]=useState<string[]>(groups.map(g=>g[0])),[selected,setSelected]=useState<Marker|null>(null),[stack,setStack]=useState<Marker[]|null>(null),[done,setDone]=useState<number[]>([]),[locations,setLocations]=useState(false),[about,setAbout]=useState(false),[layersOpen,setLayersOpen]=useState(false);
  const [encounterZone,setEncounterZone]=useState<EncounterZone|null>(null);
+ // Inicio para elegir juego, y el ultimo que se jugo (se marca en su tarjeta).
+ const [home,setHome]=useState(false),[last,setLast]=useState<string|null>(null);
 
- // El juego elegido se recuerda; ?game=firered en la URL manda.
- useEffect(()=>{let saved:string|null=null;try{saved=localStorage.getItem(GAME_KEY)}catch{}const id=[new URLSearchParams(location.search).get('game'),saved].find(x=>GAMES.some(g=>g.id===x));if(id)setGameId(id);setLang(savedLang())},[]);
+ // El juego elegido se recuerda; ?game=firered en la URL manda. Sin ninguno de
+ // los dos, se empieza en el inicio para elegirlo.
+ useEffect(()=>{let saved:string|null=null;try{saved=localStorage.getItem(GAME_KEY)}catch{}const id=[new URLSearchParams(location.search).get('game'),saved].find(x=>GAMES.some(g=>g.id===x));if(id)setGameId(id);else setHome(true);setLast(GAMES.some(g=>g.id===saved)?saved:null);setLang(savedLang())},[]);
  // Cada juego carga sus datos y su progreso, y empieza en su primera region.
  useEffect(()=>{
   let live=true;setWorld(null);setSelected(null);setStack(null);setEncounterZone(null);setLocations(false);saved.current=null;setArrival(null);
@@ -41,7 +45,9 @@ export default function Home(){
   game.load().then(w=>{if(!live)return;setWorld(w);setView({area:w.areas.find(a=>a.kind==='region')?.id??w.areas[0].id})}).catch(e=>console.error('No se pudo cargar',game.id,e));
   return()=>{live=false};
  },[game]);
- const pickGame=(id:string)=>{setGameId(id);try{localStorage.setItem(GAME_KEY,id)}catch{}};
+ const pickGame=(id:string)=>{setGameId(id);setLast(id);try{localStorage.setItem(GAME_KEY,id)}catch{}};
+ // Desde el inicio se entra siempre al mapa del juego elegido.
+ const choose=(id:string)=>{pickGame(id);setHome(false);setTab('mapa')};
  const pickLang=(l:Lang)=>{setLang(l);try{localStorage.setItem(LANG_KEY,l)}catch{}};
  useEffect(()=>{document.documentElement.lang=lang},[lang]);
  // Tambien se carga al abrir un entrenador o un Pokemon salvaje del mapa.
@@ -313,7 +319,7 @@ export default function Home(){
   return <div className="pop-advised">{popRow(m,compact)}{opponents.length>0&&<BattleAdvice opponents={opponents} dex={world!.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr}/>}</div>};
  const exitRegion=here?exitOf(here).region:null;
  const floors=here?zoneFloors.get(here.zone??here.label)??[here]:[];
- return <main><header><div className="brand"><i><MapIcon/></i><b>ROUTE 151<small>{t('companion',{game:game.title})}</small></b></div>
+ return <main><header><button className="brand" onClick={()=>setHome(true)} aria-label={t('home')} title={t('home')}><i><MapIcon/></i><b>ROUTE 151<small>{t('companion',{game:game.title})}</small></b></button>
  <label className="game-select"><span className="sr-only">{t('game')}</span><select value={game.id} onChange={e=>pickGame(e.target.value)} aria-label={t('game')}>{GAMES.map(g=><option key={g.id} value={g.id}>{g.short}</option>)}</select><ChevronDown/></label>
  <label className="game-select lang-select"><span className="sr-only">{t('language')}</span><select value={lang} onChange={e=>pickLang(e.target.value as Lang)} aria-label={t('language')}>{LANGS.map(l=><option key={l} value={l}>{LANG_NAMES[l]}</option>)}</select><ChevronDown/></label>
  {tab==='mapa'&&<div className="map-controls"><button className="location-button" onClick={()=>setLocations(!locations)} aria-expanded={locations}>{here?<DoorOpen/>:<MapPin/>}<span>{here?place(here.label):area?<>{place(area.label)}<small>{t('allAreas')}</small></>:t('loading')}</span><ChevronDown/></button><button className={`layers-button ${active.length<groups.length?'filtered':''}`} onClick={()=>setLayersOpen(v=>!v)} aria-pressed={layersOpen} aria-label={t('mapLayers')}><Layers/></button></div>}
@@ -344,5 +350,6 @@ export default function Home(){
  {tab==='team'&&(world?<TeamView dex={world.dex} battle={battle} moveText={moveText} storageKey={`${game.storage.done}-team`} suggestedLevel={suggestedLevel} tr={tr}/>:<div className="listview loading-list">{t('loadingTeam')}</div>)}
  {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label={t('credits')}><button className="close" onClick={()=>setAbout(false)} aria-label={t('close')}><X/></button><small>{t('about')}</small><h2>{t('credits')}</h2><Credits game={game.id} tr={tr}/></dialog></div>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>
+ {home&&<GameHome current={game.id} last={last} lang={lang} onLang={pickLang} onPick={choose} tr={tr}/>}
  </main>
 }

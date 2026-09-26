@@ -425,6 +425,29 @@ header{padding-top:env(safe-area-inset-top);height:calc(66px + env(safe-area-ins
 .judge-shape{fill:#168d3b99;stroke:#08742d;stroke-width:2}
 .judge-label{font-size:13px;font-weight:700;fill:#162234;paint-order:stroke;stroke:#fbfcfe;stroke-width:3px;stroke-linejoin:round}
 .judge-rate{font-weight:500;font-size:12px}
+/* Inicio: pantalla completa para elegir juego. El logo de la cabecera la abre. */
+button.brand{border:0;background:none;color:inherit;padding:0;cursor:pointer;text-align:left;font:inherit}
+.home{position:fixed;inset:0;z-index:3000;overflow-y:auto;background:radial-gradient(circle at 50% 0,#1f2c4a,#0b1020 70%);color:#fff}
+.home-inner{max-width:440px;margin:0 auto;padding:48px 16px 32px}
+.home-brand{display:flex;align-items:center;justify-content:center;gap:12px}
+.home-brand>i{width:52px;height:52px;background:#ffd936;color:#15203a;border-radius:15px;display:grid;place-items:center;transform:rotate(-5deg)}
+.home-brand svg{width:28px}.home-brand b{font-size:22px;letter-spacing:.14em}
+.home-tagline{margin:14px 0 0;text-align:center;font-size:13px;line-height:1.5;color:#aab6cb}
+.home-langs{display:flex;justify-content:center;gap:6px;margin-top:16px}
+.home-langs button{height:30px;padding:0 14px;border:1px solid #33405c;border-radius:999px;background:none;color:#aab6cb;font-size:12px;cursor:pointer}
+.home-langs button.on{background:#ffd936;border-color:#ffd936;color:#15203a;font-weight:bold}
+.home h2{margin:34px 0 12px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8f9bb3}
+.home-games{display:flex;flex-direction:column;gap:10px}
+.home-game{display:flex;align-items:center;gap:14px;width:100%;padding:12px 14px;border:1px solid #2c3854;border-left:5px solid var(--c);border-radius:14px;background:#141c30;color:#fff;text-align:left;cursor:pointer;font:inherit}
+.home-game:hover,.home-game:focus-visible{background:#1a2440;border-color:var(--c)}
+.home-game.current{background:#1a2440}
+.home-cover{flex:none;width:58px;height:58px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 22%,#141c30)}
+.home-cover img{width:52px;height:52px;image-rendering:pixelated;object-fit:contain}
+.home-text{display:flex;flex-direction:column;gap:3px;min-width:0}
+.home-text b{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:16px}
+.home-text b i{font-style:normal;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#15203a;background:var(--c);padding:2px 7px;border-radius:6px}
+.home-text small{font-size:11px;color:#8f9bb3}
+.home-text .home-progress{color:#cfd8e6}
 /* Selector entre la Pokedex y el ranking, en la misma pestana. */
 .list-switch{display:flex;gap:6px;margin-top:10px}
 /* Ranking: una fila por forma final, de mayor a menor valor para entrenar. */
