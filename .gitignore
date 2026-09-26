@@ -39,6 +39,7 @@ next-env.d.ts
 /outputs/
 /work/
 /data/frlg/pokefirered/
+/data/yellow/pokeyellow/
 # lector de fichas: lo rehace `npm run build` desde node_modules
 /public/vendor/tesseract/
 

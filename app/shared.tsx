@@ -19,7 +19,8 @@ export const groups=[['Pokémon',Sparkles,'#ffd739'],['Item In Map',MapPin,'#49a
 const yellowGroups=[...groups,['Item',Backpack,'#5ccfb4'],['Miscellaneous Task',ListChecks,'#b9c2cf']] as const;
 export const frlgGroups=[...groups.slice(0,2),['Hidden Item',Search,'#7fd4ff'],...groups.slice(2),['Shop',Store,'#5ccfb4'],['Obstacle',Mountain,'#9aa6b8']] as const;
 export type Group=(typeof yellowGroups)[number]|(typeof frlgGroups)[number];
-export const groupsOf=(game:string):readonly Group[]=>game==='yellow'?yellowGroups:frlgGroups;
+// Todos los juegos salen ya de su decompilacion y comparten capas.
+export const groupsOf=(_game:string):readonly Group[]=>frlgGroups;
 export const colorOf=(category:string)=>[...yellowGroups,...frlgGroups].find(g=>g[0]===category)?.[2]??'#fff';
 
 // Los combates de Yellow no traen icono: se deduce de la clase del rival
@@ -32,16 +33,16 @@ export const iconOf=(m:{icon?:string|null;category:string;name?:string})=>m.icon
 
 // Figurita del objeto (PokeAPI, sprites de entrenador o del propio juego, en
 // /icons); si no hay, un cuadro del color de su categoria.
-export function Figure({m}:{m:{icon?:string|null;category:string;name?:string}}){const icon=iconOf(m);return icon?<img className={`fig ${icon.startsWith('trainer/')||icon.startsWith('frlg/npc/')?'fig-trainer':''}`} src={`/icons/${icon}`} alt="" loading="lazy"/>:<span className="fig fig-none" style={{'--pin':colorOf(m.category)} as React.CSSProperties}/>}
+export function Figure({m}:{m:{icon?:string|null;category:string;name?:string}}){const icon=iconOf(m);return icon?<img className={`fig ${icon.startsWith('trainer/')||icon.startsWith('frlg/npc/')||icon.startsWith('yellow/npc/')?'fig-trainer':''}`} src={`/icons/${icon}`} alt="" loading="lazy"/>:<span className="fig fig-none" style={{'--pin':colorOf(m.category)} as React.CSSProperties}/>}
 
 // Creditos: todo el contenido es de terceros y la app es un proyecto de fans.
 type Credit={what:string;who:string;href:string;note?:string};
+// Yellow sale de su decompilacion, como FRLG; de PokeAPI quedan las figuritas.
 const yellowCredits=(tr:T):Credit[]=>[
- {what:tr.t('creditMap'),who:'ZaidusRecon',href:'https://pokemoncompletion.com/completion/Yellow',note:tr.t('creditVia')},
- {what:tr.t('creditMarkers'),who:'Pokémon Completion',href:'https://pokemoncompletion.com/completion/Yellow',note:tr.t('creditFlags')},
- {what:tr.t('creditData'),who:'PokéAPI',href:'https://pokeapi.co'},
+ {what:tr.t('creditFrlg'),who:'pret/pokeyellow',href:'https://github.com/pret/pokeyellow',note:tr.t('creditDecomp')},
+ {what:tr.t('creditDex'),who:'PokéAPI',href:'https://pokeapi.co'},
  {what:tr.t('creditTrainers'),who:'Pokémon Showdown',href:'https://play.pokemonshowdown.com'},
- {what:tr.t('creditOrder'),who:'Bulbapedia',href:'https://bulbapedia.bulbagarden.net/wiki/Appendix:Yellow_walkthrough'},
+ {what:tr.t('creditClasses'),who:'Pokémon Wiki (es)',href:'https://pokemon.fandom.com/es/wiki/Lista_de_clases_de_entrenadores'},
 ];
 const frlgCredits=(tr:T):Credit[]=>[
  {what:tr.t('creditFrlg'),who:'pret/pokefirered',href:'https://github.com/pret/pokefirered',note:tr.t('creditDecomp')},
