@@ -355,7 +355,7 @@ export default function Home(){
   if(!routeTo||!navWorld||!world||!routeTo.area||!routeTo.at)return null;
   const [px,py]=routeTo.at;
   const g=[...navWorld.grids.values()].find(g=>g.m.area===routeTo.area&&px>=g.m.x*16&&py>=g.m.y*16&&px<(g.m.x+g.m.w)*16&&py<(g.m.y+g.m.h)*16);
-  if(!g)return {items:null,partial:false};
+  if(!g)return {items:null,draw:[] as TripItem[],partial:false};
   const story=world.gates.filter(x=>!x.id.startsWith('hm-')&&x.needs.some(n=>!have.has(n)));
   const closed=(map:string)=>{const z=navWorld.grids.get(map)?.m.zone;return story.some(x=>!!x.maps?.includes(map)||(!!z&&!!x.zones?.includes(z)))};
   // Ancla: el centro de la zona de salida en el mapa de la region, si lo tiene.
@@ -367,7 +367,10 @@ export default function Home(){
    :routeFrom===null&&lastSpot?lastSpot.anchor
    :spot&&ag?{map:ag.id,x:Math.floor(spot.at![0]/16)-ag.m.x,y:Math.floor(spot.at![1]/16)-ag.m.y}:undefined;
   const found=findRoute(navWorld,from,{map:g.id,x:Math.floor(px/16)-g.m.x,y:Math.floor(py/16)-g.m.y,far:PEOPLE.includes(routeTo.category)},movesYouHave(navWorld.nav,have),closed,anchor);
-  return {items:found?withoutGates(tripItems(legsOf(navWorld,found.path)),a=>!isRegion(a)):null,partial:!!found?.partial};
+  // Los pasos en palabras se resumen (sin casetas ni pisos de paso); el dibujo
+  // usa el camino entero, para que salga la linea tambien dentro de tu casa.
+  const all=found?tripItems(legsOf(navWorld,found.path)):null;
+  return {items:all?withoutGates(all,a=>!isRegion(a)):null,draw:all??[],partial:!!found?.partial};
  },[routeTo,navWorld,world,have,from,isRegion,startAt,routeFrom,lastSpot]);
  const startRoute=(m:Marker)=>{setRouteTo(m);setTab('mapa');setSelected(null);setStack(null);setEncounterZone(null)};
  // Al calcularse (o cambiar de donde sales), la camara va al inicio del camino.
@@ -396,7 +399,7 @@ export default function Home(){
   const L=leaflet.current,g=layer.current;if(!L||!g||!world||!area)return;g.clearLayers();
   // El camino de "Como llegar" en esta area: linea azul con borde blanco, y un
   // punto donde empieza. Al cruzar a otra zona por el borde, la linea sigue.
-  const items=trip?.items??[];
+  const items=trip?.draw??[];
   // La linea solo une casillas vecinas (un salto son dos): si el camino entra en
   // un edificio y sale por otra puerta, la linea se corta en vez de cruzarlo.
   const pieces=(pts:[number,number][])=>pts.reduce<[number,number][][]>((out,p,i)=>{
