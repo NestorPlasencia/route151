@@ -141,7 +141,27 @@ class World:
                 return g[0]
             return max(g, key=lambda o: min(o['at'][0], w - o['at'][0], o['at'][1], h - o['at'][1]))
 
-        out = []
+        # Un ascensor lleva al piso que eliges (un script), no al de sus datos: se
+        # pone una puerta por piso, en fila, cada una hacia la puerta de ese piso.
+        elevators = {w['to'] for w in self.warps if 'ELEVATOR' in w['to']}
+        groups = [g for g in groups if g[0]['area'] not in elevators]
+        lifts = []
+        for e in sorted(elevators):
+            ins = {}
+            for w in self.warps:
+                if w['to'] == e and w['area'] != e:
+                    ins.setdefault(w['area'], w)
+            # Por piso (B1F, B2F..., el vestibulo, 1F, 2F... la azotea al final), en filas dentro del ascensor.
+            def order(floor):
+                m = re.search(r'(B?)(\d+)F$', floor)
+                return ((0, int(m.group(2))) if m.group(1) else (1, int(m.group(2)))) if m else ((2, 0) if 'ROOF' in floor else (1, 0))
+            width, height = (sizes or {}).get(e, (0, 0))
+            cols = max(1, (width or t * 4) // t)
+            for i, (floor, w) in enumerate(sorted(ins.items(), key=lambda kv: order(kv[0]))):
+                x, y = t // 2 + (i % cols) * t, t // 2 + t + (i // cols) * t
+                lifts.append({'area': e, 'at': [x, min(y, height - t // 2) if height else y], 'to': floor, 'toAt': w['at']})
+
+        out = lifts
         for g in groups:
             if len(g) == 1:
                 out.append(g[0])

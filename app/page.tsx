@@ -454,11 +454,13 @@ export default function Home(){
    L.marker(ll(at),{icon,zIndexOffset:onDoor?600:0}).on('click',()=>{if(items.length>1){setSelected(null);setStack(items)}else{setStack(null);setSelected(items[0])}}).addTo(g);
   }
   // Puertas: hacia un interior (o a otro piso) se entra; hacia una region se sale.
-  const door=(cls:string)=>L.divIcon({className:'pin-wrap',html:`<span class="door ${cls}"></span>`,iconSize:[26,26],iconAnchor:[13,13]});
+  const door=(cls:string,text='')=>L.divIcon({className:'pin-wrap',html:`<span class="door ${cls}">${text}</span>`,iconSize:[26,26],iconAnchor:[13,13]});
+  // Dentro de un ascensor, una puerta por piso con su nombre (B4F, 5F...).
+  const lift=/ELEVATOR/.test(area.id);
   for(const w of world.warps)if(w.area===area.id){
    const toRegion=isRegion(w.to),dest=areaById.get(w.to);
-   const shut=doorLocked(w.area,w.at);
-   L.marker(ll(w.at),{icon:door(shut?'locked':toRegion?'exit':finished(w.area,w.to)?'done':''),title:`${toRegion?t('exitTo',{place:place(placeAt(w.to,w.toAt)??dest?.label??'')}):`${place(dest?.label??t('interior'))}${finished(w.area,w.to)?` · ${t('nothingLeft')}`:''}`}${shut?` · ${t('unavailable')}`:''}`,zIndexOffset:500})
+   const shut=!lift&&doorLocked(w.area,w.at);
+   L.marker(ll(w.at),{icon:door(`${shut?'locked':toRegion?'exit':finished(w.area,w.to)?'done':''} ${lift?'lift':''}`,lift?place(dest?.label??'').split(' ').pop():''),title:`${toRegion?t('exitTo',{place:place(placeAt(w.to,w.toAt)??dest?.label??'')}):`${place(dest?.label??t('interior'))}${finished(w.area,w.to)?` · ${t('nothingLeft')}`:''}`}${shut?` · ${t('unavailable')}`:''}`,zIndexOffset:500})
     .on('click',()=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})).addTo(g);
   }
   if(arrival&&arrival.area===area.id)L.marker(ll(arrival.at),{icon:L.divIcon({className:'arrive',html:'<span></span><i></i>',iconSize:[0,0]}),title:arrival.label,interactive:false,zIndexOffset:1000}).addTo(g);
