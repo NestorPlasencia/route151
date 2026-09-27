@@ -761,3 +761,7 @@ header .layers-button,.about-button{width:32px;height:32px}
 /* Puertas de un ascensor: una por piso, con su nombre. */
 .door.lift{width:auto;min-width:24px;height:22px;padding:0 3px;display:grid;place-items:center;background:#fff;background-image:none;color:#11182a;font:bold 9px/1 Arial,sans-serif;white-space:nowrap}
 .door.lift.done{background:#52d388}
+/* La puerta por la que sigue el camino: en azul y latiendo. */
+.door.next{border-color:#2d6df6;box-shadow:0 0 0 3px #fff,0 0 0 6px #2d6df6,0 3px 10px #000a;animation:door-next 1.4s ease-in-out infinite}
+.door.lift.next{background:#2d6df6;color:#fff}
+@keyframes door-next{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}

@@ -457,10 +457,19 @@ export default function Home(){
   const door=(cls:string,text='')=>L.divIcon({className:'pin-wrap',html:`<span class="door ${cls}">${text}</span>`,iconSize:[26,26],iconAnchor:[13,13]});
   // Dentro de un ascensor, una puerta por piso con su nombre (B4F, 5F...).
   const lift=/ELEVATOR/.test(area.id);
+  // La puerta por la que el camino sale de aqui (en un ascensor, el piso al que
+  // ir): la mas cercana al ultimo punto del tramo, hacia el area siguiente.
+  const exits=new Set<object>();
+  items.forEach((it,i)=>{
+   const nx=items[i+1];if(it.area!==area.id||!nx||nx.area===area.id||nx.enter!=='door')return;
+   const end=it.pts[it.pts.length-1],cands=world.warps.filter(w=>w.area===area.id&&w.to===nx.area);
+   const best=cands.reduce<typeof cands[number]|null>((b,w)=>!b||Math.hypot(w.at[0]-end[0],w.at[1]-end[1])<Math.hypot(b.at[0]-end[0],b.at[1]-end[1])?w:b,null);
+   if(best)exits.add(best);
+  });
   for(const w of world.warps)if(w.area===area.id){
    const toRegion=isRegion(w.to),dest=areaById.get(w.to);
    const shut=!lift&&doorLocked(w.area,w.at);
-   L.marker(ll(w.at),{icon:door(`${shut?'locked':toRegion?'exit':finished(w.area,w.to)?'done':''} ${lift?'lift':''}`,lift?place(dest?.label??'').split(' ').pop():''),title:`${toRegion?t('exitTo',{place:place(placeAt(w.to,w.toAt)??dest?.label??'')}):`${place(dest?.label??t('interior'))}${finished(w.area,w.to)?` · ${t('nothingLeft')}`:''}`}${shut?` · ${t('unavailable')}`:''}`,zIndexOffset:500})
+   L.marker(ll(w.at),{icon:door(`${shut?'locked':toRegion?'exit':finished(w.area,w.to)?'done':''} ${lift?'lift':''} ${exits.has(w)?'next':''}`,lift?place(dest?.label??'').split(' ').pop():''),title:`${toRegion?t('exitTo',{place:place(placeAt(w.to,w.toAt)??dest?.label??'')}):`${place(dest?.label??t('interior'))}${finished(w.area,w.to)?` · ${t('nothingLeft')}`:''}`}${shut?` · ${t('unavailable')}`:''}`,zIndexOffset:500})
     .on('click',()=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})).addTo(g);
   }
   if(arrival&&arrival.area===area.id)L.marker(ll(arrival.at),{icon:L.divIcon({className:'arrive',html:'<span></span><i></i>',iconSize:[0,0]}),title:arrival.label,interactive:false,zIndexOffset:1000}).addTo(g);
