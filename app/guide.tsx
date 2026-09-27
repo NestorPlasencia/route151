@@ -1,7 +1,7 @@
 'use client';
 // Guia para quien empieza: que hacer ahora y, si toca un lider, como prepararse.
-import {useMemo,useState} from 'react';
-import {ChevronDown,Footprints,KeyRound,List,Lock,LockOpen,MapPin,Target,X} from 'lucide-react';
+import {useEffect,useMemo,useState} from 'react';
+import {Check,ChevronDown,Footprints,KeyRound,List,Lock,LockOpen,MapPin,Target,X} from 'lucide-react';
 import {Help} from './learn';
 import {Figure,type Gate,type Marker} from './shared';
 import type {T} from './i18n';
@@ -19,36 +19,66 @@ export function storyOrder(markers:Marker[],checklist:Checklist){
 }
 
 // Hitos de la historia: lo que piden los bloqueos (el Paquete de Oak, la MO01,
-// el Te...) y los lideres, el Alto Mando y el Campeon.
-const milestone=(m:Marker,needed:Set<string>)=>needed.has(m.name)||(m.category==='Battle'&&LEADER.test(m.name));
+// el Te...), los lideres, el Alto Mando y el Campeon, y en el pueblo de salida
+// el primer Pokemon y el combate con el rival.
+const milestone=(m:Marker,needed:Set<string>,home:boolean)=>needed.has(m.name)||(m.category==='Battle'&&LEADER.test(m.name))
+ ||(home&&(m.category==='In-Game Gift Pokémon'||(m.category==='Battle'&&m.name==='Rival')));
 
-export function NextGoal({markers,checklist,gates,done,unavailable,battle,dex,teamKey,onList,onMap,onRoute,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
+// Antes de todo: pasos sin marcador en la checklist (sales en tu cuarto). Se
+// dan por hechos con un boton, o solos en cuanto marcas algo del juego.
+const INTRO:[Parameters<T['t']>[0],Parameters<T['t']>[0]][]=[['introHouseTitle','introHouseText'],['introGrassTitle','introGrassText']];
+
+export function NextGoal({markers,checklist,gates,done,unavailable,battle,dex,teamKey,introKey,onList,onMap,onRoute,onZone,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;introKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;onZone:(zone:string)=>void;tr:T}){
  const {t,name,place}=tr;
  const order=useMemo(()=>storyOrder(markers,checklist),[markers,checklist]);
  const story=useMemo(()=>gates.filter(g=>!g.id.startsWith('hm-')),[gates]);
  // El primer hito sin hacer que ya se puede hacer. Si ninguno se puede, el
  // primero sin hacer, con lo que le falta.
  const goal=useMemo(()=>{
-  const needed=new Set(story.flatMap(g=>g.needs));
-  const left=order.filter(m=>milestone(m,needed)&&!done.includes(m.uid));
+  const needed=new Set(story.flatMap(g=>g.needs)),home=checklist.zones[0]?.name;
+  const atHome=(m:Marker)=>checklist.markers[m.id]?.zone===home;
+  // Se elige un Pokemon inicial entre varios (FRLG): con uno marcado, los otros sobran.
+  const chose=order.some(m=>atHome(m)&&m.category==='In-Game Gift Pokémon'&&done.includes(m.uid));
+  const left=order.filter(m=>milestone(m,needed,atHome(m))&&!done.includes(m.uid)&&!(chose&&atHome(m)&&m.category==='In-Game Gift Pokémon'));
   return left.find(m=>!unavailable(m))??left[0]??null;
- },[order,story,done,unavailable]);
+ },[order,story,done,unavailable,checklist]);
+ const [intro,setIntro]=useState(INTRO.length);
+ useEffect(()=>{try{setIntro(Number(localStorage.getItem(introKey)??0)||0)}catch{setIntro(INTRO.length)}},[introKey]);
+ const home=checklist.zones[0]?.name??'';
+ if(intro<INTRO.length&&!done.length){
+  const [title,text]=INTRO[intro];
+  const next=()=>{const n=intro+1;setIntro(n);try{localStorage.setItem(introKey,String(n))}catch{}};
+  return <section className="goal">
+   <small className="goal-kicker"><Target/>{t('goalTitle')} · {t('introOf',{n:intro+1,total:INTRO.length})}</small>
+   <div className="goal-main"><div><b>{t(title)}</b></div></div>
+   <p className="goal-why">{t(text)}</p>
+   <div className="goal-actions">
+    <button className="goal-go" onClick={next}><Check/>{t('introDone')}</button>
+    <button onClick={()=>onZone(home)}><MapPin/>{t('goalMap')}</button>
+   </div>
+  </section>;
+ }
  if(!goal)return <section className="goal goal-done"><Target/><p>{t('goalDone')}</p></section>;
  const blockedBy=unavailable(goal);
  // Para que sirve: el primer bloqueo de la historia que lo pide.
  const opens=story.find(g=>g.needs.includes(goal.name));
  const where=checklist.markers[goal.id];
  const leader=goal.category==='Battle';
+ // El primer Pokemon y el rival del pueblo de salida se cuentan a su manera.
+ const inHome=where?.zone===home,starter=inHome&&goal.category==='In-Game Gift Pokémon',rival=inHome&&leader&&goal.name==='Rival';
+ const starters=order.filter(m=>checklist.markers[m.id]?.zone===home&&m.category==='In-Game Gift Pokémon').length;
  return <section className="goal">
   <small className="goal-kicker"><Target/>{t('goalTitle')}</small>
   <div className="goal-main">
    <Figure m={goal}/>
    <div>
-    <b>{t(leader?'goalBeat':'goalGet',{name:name(goal.name)})}</b>
+    <b>{starter?t(starters>1?'goalStarter':'goalReceive',{name:name(goal.name)}):rival?t('goalRival'):t(leader?'goalBeat':'goalGet',{name:name(goal.name)})}</b>
     <small>{place(where?.zone??goal.location)}{where?.floor&&where.floor!==where.zone?` · ${place(where.floor.startsWith(where.zone+' ')?where.floor.slice(where.zone.length+1):where.floor)}`:''}</small>
    </div>
   </div>
   {blockedBy?<p className="goal-why goal-blocked"><Lock/>{t('goalFirst',{why:blockedBy})}</p>
+   :starter?<p className="goal-why">{t('goalStarterNote')}</p>
+   :rival?<p className="goal-why">{t('goalRivalNote')}</p>
    :opens&&<p className="goal-why"><KeyRound/>{opens.why[tr.lang==='es'?'es':'en']}</p>}
   <div className="goal-actions">
    <button onClick={()=>onList(goal)}><List/>{t('goalList')}</button>

@@ -48,6 +48,21 @@ export function ChecklistView({markers,checklist,gates,onRoute,unlock,onUnlockDi
  // Se busca por el nombre que se ve y por el original en ingles.
  const keep=(m:Marker)=>!(hideUnavailable&&blocked(m))&&(focus==='all'||focusOf(m).includes(focus))&&(!hideDone||!isDone(m))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
  const total=markers.length,completed=markers.filter(isDone).length;
+ const floorName=(zone:string,f:string)=>place(f.startsWith(zone+' ')?f.slice(zone.length+1):f);
+ // Una fila: casilla, figura, nombre y detalle; los entrenadores despliegan su
+ // equipo. `where`: el piso, cuando sale fuera de su grupo (lo no disponible).
+ const row=(m:Marker,where?:string)=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id),why=blocked(m)?unavailable(m):null;return <div key={m.id} id={`row-${m.id}`} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''} ${why?'row-locked':''}`}>
+  {/* No disponible: no se puede marcar hasta cumplir lo que pide. */}
+  <button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid)}>{isDone(m)?<Check/>:why?<Lock/>:null}</button>
+  <Figure m={m}/>
+  {/* Un entrenador muestra su equipo en una linea; tocandolo se despliega la
+      ficha como en el mapa: cada Pokemon con su nivel, lo que da y con que atacarle. */}
+  {foes.length?<button className={`row-text row-toggle ${shown?'on':''}`} aria-expanded={shown} onClick={()=>toggleTeam(m.id)}>
+    <b>{name(m.name)}<ChevronDown/></b><small>{where?`${where} · `:''}{d}</small>{why&&<small className="row-why">{why}</small>}</button>
+   :<span className="row-text"><b>{name(m.name)}</b><small>{where?`${where} · `:''}{d??category(m.category)}</small>{why&&<small className="row-why">{why}</small>}</span>}
+  <button className="show" onClick={()=>onShow(m)} aria-label={t('showOnMap',{name:name(m.name)})}><MapPin/></button>
+  {shown&&battle&&<div className="row-team"><BattleAdvice opponents={foes} dex={dex} battle={battle} storageKey={teamKey} tr={tr}/></div>}
+ </div>};
  const toggle=(z:string)=>setOpen(o=>o.includes(z)?o.filter(x=>x!==z):[...o,z]);
  // A una zona de la checklist, abierta y sin filtros que la escondan.
  const goToZone=(z:string)=>{setQuery('');setFocus('all');setHideDone(false);setOpen(o=>o.includes(z)?o:[...o,z]);
@@ -68,7 +83,7 @@ export function ChecklistView({markers,checklist,gates,onRoute,unlock,onUnlockDi
   </div>
   <div className="list-body">
    {unlock&&<Unlocked unlock={unlock} checklist={checklist} onZone={goToZone} onDismiss={onUnlockDismiss} tr={tr}/>}
-   {!q&&focus==='all'&&<NextGoal markers={markers} checklist={checklist} gates={gates} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} onRoute={onRoute} tr={tr}/>}
+   {!q&&focus==='all'&&<NextGoal markers={markers} checklist={checklist} gates={gates} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} introKey={teamKey.replace(/-team$/,'-intro')} onList={goToRow} onMap={onShow} onRoute={onRoute} onZone={onShowZone} tr={tr}/>}
    {checklist.parts.map(part=>{
     const zones=checklist.zones.filter(z=>z.part===part.n&&byZone.has(z.name));
     const all=zones.flatMap(z=>[...byZone.get(z.name)!.values()].flat());
@@ -93,21 +108,16 @@ export function ChecklistView({markers,checklist,gates,onRoute,unlock,onUnlockDi
        {/* Con lo no disponible oculto, que se sepa cuanto hay y por que. */}
        {expanded&&hideUnavailable&&(notes=>notes.length>0&&<p className="zone-locked"><Lock/>{notes.map(([why,n])=>t('hiddenNote',{n,why})).join(' · ')}</p>)(
         [...items.reduce((c,m)=>{const why=blocked(m)&&unavailable(m);return why?c.set(why,(c.get(why)??0)+1):c},new Map<string,number>())])}
-       {expanded&&order.map(f=>{const rows=checkOrder(floors.get(f)!.filter(keep),blocked);if(!rows.length)return null;return <div key={f||'_'} className="floor">
-        {f&&<h4>{place(f.startsWith(z.name+' ')?f.slice(z.name.length+1):f)}</h4>}
-        {rows.map(m=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id),why=blocked(m)?unavailable(m):null;return <div key={m.id} id={`row-${m.id}`} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''} ${why?'row-locked':''}`}>
-         {/* No disponible: no se puede marcar hasta cumplir lo que pide. */}
-         <button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid)}>{isDone(m)?<Check/>:why?<Lock/>:null}</button>
-         <Figure m={m}/>
-         {/* Un entrenador muestra su equipo en una linea; tocandolo se despliega la
-             ficha como en el mapa: cada Pokemon con su nivel, lo que da y con que atacarle. */}
-         {foes.length?<button className={`row-text row-toggle ${shown?'on':''}`} aria-expanded={shown} onClick={()=>toggleTeam(m.id)}>
-           <b>{name(m.name)}<ChevronDown/></b><small>{d}</small>{why&&<small className="row-why">{why}</small>}</button>
-          :<span className="row-text"><b>{name(m.name)}</b><small>{d??category(m.category)}</small>{why&&<small className="row-why">{why}</small>}</span>}
-         <button className="show" onClick={()=>onShow(m)} aria-label={t('showOnMap',{name:name(m.name)})}><MapPin/></button>
-         {shown&&battle&&<div className="row-team"><BattleAdvice opponents={foes} dex={dex} battle={battle} storageKey={teamKey} tr={tr}/></div>}
-        </div>})}
+       {/* Lo que se puede hacer, por pisos; lo que aun no, junto al final de la zona
+           (con su piso al lado), para que lo primero que se vea sea lo que toca. */}
+       {expanded&&order.map(f=>{const rows=checkOrder(floors.get(f)!.filter(m=>keep(m)&&!blocked(m)),blocked);if(!rows.length)return null;return <div key={f||'_'} className="floor">
+        {f&&<h4>{floorName(z.name,f)}</h4>}
+        {rows.map(m=>row(m))}
        </div>})}
+       {expanded&&(rows=>rows.length>0&&<div className="floor floor-locked">
+        <h4><Lock/>{t('unavailable')}</h4>
+        {rows.map(m=>row(m,checklist.markers[m.id]?.floor?floorName(z.name,checklist.markers[m.id].floor!):undefined))}
+       </div>)(checkOrder(order.flatMap(f=>floors.get(f)!.filter(m=>keep(m)&&blocked(m))),blocked))}
       </div>})}
     </section>})}
    <p className="list-source">{checklist.note?<a href={checklist.source} target="_blank" rel="noreferrer">{t('orderStory')}</a>:<>{t('orderSource')}<a href={checklist.source} target="_blank" rel="noreferrer">{t('orderLink')}</a>.</>}</p>

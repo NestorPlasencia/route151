@@ -268,6 +268,19 @@ const TEXT = {
  goalList: ['See in the checklist', 'Ver en la lista'],
  goalMap: ['See on the map', 'Ver en el mapa'],
  goalDone: ['Story complete! Keep going with the rest of the checklist.', '¡Historia completa! Sigue con el resto de la checklist.'],
+ introOf: ["Start · {n}/{total}", "Inicio · {n}/{total}"],
+ introHouseTitle: ["Leave your house", "Sal de tu casa"],
+ introHouseText: ["You start in your room: go down the stairs and out the door into Pallet Town.", "Empiezas en tu cuarto: baja las escaleras y sal por la puerta a Pueblo Paleta."],
+ introGrassTitle: ["Head for the tall grass up north", "Ve hacia la hierba alta del norte"],
+ introGrassText: ["When you try to leave town, Professor Oak stops you and takes you to his lab.", "Al intentar salir del pueblo, el Prof. Oak te detiene y te lleva a su laboratorio."],
+ introDone: ["Done", "Hecho"],
+ choiceTrade: ["You chose {chosen}: this one only by trade", "Elegiste {chosen}: este solo se consigue por intercambio"],
+ choiceOne: ["You chose {chosen}: you can only take one", "Elegiste {chosen}: solo se puede uno"],
+ goalStarter: ["Choose your first Pokémon", "Elige tu primer Pokémon"],
+ goalReceive: ["Receive {name}", "Recibe a {name}"],
+ goalStarterNote: ["Professor Oak gives it to you in his lab. Tick it in the checklist.", "El Prof. Oak te lo da en su laboratorio. Márcalo en la checklist."],
+ goalRival: ["Battle your rival", "Combate con tu rival"],
+ goalRivalNote: ["Win or lose, the story goes on.", "Ganes o pierdas, la historia sigue."],
  prepTitle: ['Get ready', 'Prepárate'],
  prepTeam: ['Their team: {list}', 'Su equipo: {list}'],
  prepNoTeam: ['Add your team in the Team tab to see who to send out and whether you are at the right level.', 'Añade tu equipo en la pestaña Equipo para ver a quién sacar y si vas bien de nivel.'],
@@ -522,7 +535,11 @@ const CLASSES: Record<string, string> = {
 const CLASS_ORDER = Object.keys(CLASSES).sort((a, b) => b.length - a.length);
 
 // Traduce las partes conocidas del nombre de un interior y deja el resto igual.
-const parts = (rest: string) => PARTS.reduce((out, [en, es]) => out.split(en).join(es), rest);
+// Palabras sueltas de un nombre de lugar, en una sola pasada y solo palabras
+// enteras: si no, 'Lab' volvia a entrar en 'Laboratorio' y 'Labyrinth'.
+const PART_MAP = new Map(PARTS);
+const PART_RE = new RegExp(`\\b(${[...PART_MAP.keys()].sort((x, y) => y.length - x.length).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'g');
+const parts = (rest: string) => rest.replace(PART_RE, w => PART_MAP.get(w) ?? w);
 
 const pick = (table: Record<string, [string, string]>, key: string, lang: Lang) => table[key]?.[lang === 'es' ? 1 : 0] ?? key;
 

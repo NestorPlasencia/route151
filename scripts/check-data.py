@@ -193,6 +193,11 @@ def check(game):
                     err(f"bloqueo {g['id']}: mapa sin marcadores {mp}")
             if not all(g['why'].get(lang) for lang in ('en', 'es')):
                 err(f"bloqueo {g['id']}: falta el motivo en algun idioma")
+        # Elige uno: cada opcion son marcadores del juego.
+        for c in load(f'{base}/{file}').get('choices', []):
+            for mid in (x for o in c['options'] for x in o):
+                if mid not in by_id:
+                    err(f"eleccion {c['id']}: marcador inexistente {mid}")
     return errors, warnings
 
 

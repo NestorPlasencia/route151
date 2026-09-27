@@ -35,5 +35,10 @@
    "why": {"en": "The rest of the Sevii Islands open after becoming Champion", "es": "El resto de las Islas Sete se abren al convertirte en Campeón"}},
   {"id": "post-game", "zones": ["Cerulean Cave"], "needs": ["Champion", "Sapphire"],
    "why": {"en": "Opens after becoming Champion and bringing back the Sapphire", "es": "Se abre al ser Campeón y recuperar el Zafiro"}}
+ ],
+ "choices": [
+  {"id": "starter", "options": [["MAP_PALLET_TOWN_PROFESSOR_OAKS_LAB:gift:SPECIES_BULBASAUR:8,4"], ["MAP_PALLET_TOWN_PROFESSOR_OAKS_LAB:gift:SPECIES_SQUIRTLE:9,4"], ["MAP_PALLET_TOWN_PROFESSOR_OAKS_LAB:gift:SPECIES_CHARMANDER:10,4"]]},
+  {"id": "dojo", "options": [["MAP_SAFFRON_CITY_DOJO:gift:SPECIES_HITMONLEE:5,3"], ["MAP_SAFFRON_CITY_DOJO:gift:SPECIES_HITMONCHAN:7,3"]]},
+  {"id": "fossil", "options": [["MAP_MT_MOON_B2F:gift:ITEM_HELIX_FOSSIL:14,7", "MAP_CINNABAR_ISLAND_POKEMON_LAB_EXPERIMENT_ROOM:gift:SPECIES_OMANYTE:12,3"], ["MAP_MT_MOON_B2F:gift:ITEM_DOME_FOSSIL:13,7", "MAP_CINNABAR_ISLAND_POKEMON_LAB_EXPERIMENT_ROOM:gift:SPECIES_KABUTO:12,3"]]}
  ]
 }

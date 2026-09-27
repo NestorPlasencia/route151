@@ -3,7 +3,7 @@ import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} 
 import {createPortal} from 'react-dom';
 import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
 import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Footprints,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,Sparkles,Swords,X} from 'lucide-react';
-import {Credits,FIELD_MOVES,Figure,checkOrder,colorOf,groupsOf,haveNames,missingTool,obstacleMove,unmetGate,type Encounter,type Marker} from './shared';
+import {Credits,FIELD_MOVES,Figure,checkOrder,choicesTaken,colorOf,groupsOf,haveNames,missingTool,obstacleMove,unmetGate,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
 import {RankingView} from './ranking';
@@ -114,10 +114,15 @@ export default function Home(){
  useEffect(()=>{try{setHideState(localStorage.getItem('ruta151-unavailable')==='hide')}catch{}},[]);
  const setHideUnavailable=(on:boolean)=>{setHideState(on);try{localStorage.setItem('ruta151-unavailable',on?'hide':'show')}catch{}};
  const have=useMemo(()=>haveNames(world?.markers??[],done),[world,done]);
+ // Lo que ya elegiste en su lugar (otro inicial, el otro fosil): solo por intercambio.
+ const taken=useMemo(()=>{const byId=new Map((world?.markers??[]).map(m=>[m.id,m]));
+  return choicesTaken(world?.choices??[],id=>{const m=byId.get(id);return !!m&&done.includes(m.uid)})},[world,done]);
  const reasonWith=useCallback((m:Marker,owned:Set<string>)=>{
+  const chosen=taken.get(m.id),pick=chosen&&world?.markers.find(x=>x.id===chosen);
+  if(pick)return t(m.category.includes('Pokémon')?'choiceTrade':'choiceOne',{chosen:name(pick.name)});
   const gate=unmetGate(m,world?.gates??[],owned);if(gate)return gate.why[lang];
   const tool=missingTool(m,owned);return tool?t('needsTool',{tool:name(tool)}):null;
- },[world,lang,t,name]);
+ },[world,lang,t,name,taken]);
  const unavailable=useCallback((m:Marker)=>reasonWith(m,have),[reasonWith,have]);
  // Lo que abre el ultimo marcador que marcaste (una MO, una medalla, una llave).
  const [unlock,setUnlock]=useState<Unlock|null>(null);

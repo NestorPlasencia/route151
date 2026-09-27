@@ -53,6 +53,17 @@ export const obstacleMove=(name:string)=>Object.entries(FIELD_MOVES).find(([,f])
 // salen de los mapas en hm-gates.json (los objetos de la Ruta 2 tras un arbol
 // de Corte). El primero sin cumplir que afecte al marcador, o null.
 export type Gate={id:string;zones?:string[];maps?:string[];markers?:string[];needs:string[];why:{en:string;es:string}};
+// Elige uno (gates.json, `choices`): el inicial de FRLG, Hitmonlee o Hitmonchan,
+// un fosil y el Pokemon que sale de el. Cada opcion son los marcadores que van
+// juntos; al marcar uno, los de las otras opciones quedan fuera.
+export type Choice={id:string;options:string[][]};
+// Marcador descartado -> el que elegiste en su lugar.
+export const choicesTaken=(choices:Choice[],isDone:(id:string)=>boolean)=>{
+ const out=new Map<string,string>();
+ for(const c of choices){const pick=c.options.find(o=>o.some(isDone));if(!pick)continue;
+  const chosen=pick.find(isDone)!;for(const o of c.options)if(o!==pick)for(const id of o)if(!isDone(id))out.set(id,chosen)}
+ return out;
+};
 export const unmetGate=(m:Marker&{map?:string;zone?:string},gates:Gate[],have:Set<string>)=>gates.find(g=>
  (g.zones?.includes(m.zone??'')||g.maps?.includes(m.map??'')||g.markers?.includes(m.id))&&!g.needs.includes(m.name)&&g.needs.some(n=>!have.has(n)))??null;
 

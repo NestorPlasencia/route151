@@ -29,5 +29,9 @@
    "why": {"en": "The guards on Route 23 check all 8 badges", "es": "Los guardias de la Ruta 23 piden las 8 medallas"}},
   {"id": "post-game", "zones": ["Cerulean Cave"], "needs": ["Champion"],
    "why": {"en": "Opens after becoming Champion", "es": "Se abre al convertirte en Campeón"}}
+ ],
+ "choices": [
+  {"id": "dojo", "options": [["FIGHTING_DOJO:gift:HITMONLEE:4,1"], ["FIGHTING_DOJO:gift:HITMONCHAN:5,1"]]},
+  {"id": "fossil", "options": [["MT_MOON_B2F:gift:HELIX_FOSSIL:13,6", "CINNABAR_LAB_FOSSIL_ROOM:gift:OMANYTE:5,2"], ["MT_MOON_B2F:gift:DOME_FOSSIL:12,6", "CINNABAR_LAB_FOSSIL_ROOM:gift:KABUTO:5,2"]]}
  ]
 }
