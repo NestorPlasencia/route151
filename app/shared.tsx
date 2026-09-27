@@ -8,7 +8,7 @@ export type Encounter={zone:string;min:number;max:number;chance:number;methods:s
 // `area` y `at`: donde se pinta (sin ellos solo aparece en las listas);
 // `encounter`: niveles y probabilidad de un Pokemon; `detail`: equipo de un
 // entrenador, que pide un intercambio...
-export type Marker={id:string;uid:number;category:string;name:string;location:string;icon?:string|null;area?:string;at?:[number,number];detail?:string|null;encounter?:Encounter};
+export type Marker={id:string;uid:number;category:string;name:string;move?:string;location:string;icon?:string|null;area?:string;at?:[number,number];detail?:string|null;encounter?:Encounter};
 
 // Capas del mapa: solo estas categorias se pintan como pines.
 export const groups=[['Story',Flag,'#2d6df6'],['Pokémon',Sparkles,'#ffd739'],['Item In Map',MapPin,'#49a8ff'],['Item Gift',Gift,'#ff8ec1'],['In-Game Trade',Gift,'#ad83ff'],['In-Game Gift Pokémon',Sparkles,'#f3a63b'],['Battle',Swords,'#ff5f66']] as const;

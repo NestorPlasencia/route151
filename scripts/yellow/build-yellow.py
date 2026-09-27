@@ -690,6 +690,15 @@ def main():
     world.check()
     merged = world.merged_warps({a['id']: (a['width'], a['height']) for a in areas})
     dump(f'{OUT_DATA}/areas.json', {'areas': areas, 'warps': merged, 'places': places})
+    # Cada MT/MO con el ataque que ensena (el orden de add_tm/add_hm).
+    consts = re.findall(r'^\s*const (\w+)', asm('constants/move_constants.asm').split('DEF NUM_ATTACKS')[0], re.M)[1:]
+    move_name = dict(zip(consts, (title(n) for n in re.findall(r'li "([^"]*)"', asm('data/moves/names.asm')))))
+    items_asm = asm('constants/item_constants.asm')
+    teach = {f'TM{i:02d}': move_name.get(m, title(m.replace('_', ' '))) for i, m in enumerate(re.findall(r'^\s*add_tm (\w+)', items_asm, re.M), 1)}
+    teach |= {f'HM{i:02d}': move_name.get(m, title(m.replace('_', ' '))) for i, m in enumerate(re.findall(r'^\s*add_hm (\w+)', items_asm, re.M), 1)}
+    for mk in world.markers:
+        if mk['name'] in teach:
+            mk['move'] = teach[mk['name']]
     dump(f'{OUT_DATA}/markers.json', world.markers)
     dump(f'{OUT_DATA}/encounters-yellow.json', world.encounter_zones('yellow'))
     dump(f'{OUT_DATA}/checklist.json', build_checklist(world.markers, areas, PARTS, 'https://github.com/pret/pokeyellow',

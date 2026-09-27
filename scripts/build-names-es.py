@@ -134,6 +134,14 @@ def main():
     # Se guardan por el nombre ingles que muestra la app.
     moves = {battle['moves'][k]['name']: v for k, v in moves.items()}
     abilities = {battle['abilities'][k]: v for k, v in abilities.items()}
+    # Los ataques de las MT/MO de los dos juegos (la app los pone junto a la MT),
+    # aunque FRLG no los use: Viento Cortante es la MT02 de Amarillo.
+    taught = sorted({m['move'] for path in ('public/frlg/data/markers.json', 'public/yellow/data/markers.json')
+                     for m in json.load(io.open(path, encoding='utf-8')) if m.get('move')} - set(moves))
+    with ThreadPoolExecutor(8) as pool:
+        for name, entry in zip(taught, pool.map(lambda n: fetch(f'{API}/move/{slug(n)}'), taught)):
+            es = spanish(entry) if entry else None
+            (moves.__setitem__(name, es) if es else no_move.append(name))
 
     io.open(OUT, 'w', encoding='utf-8', newline='\n').write(json.dumps({
         'items': dict(sorted(items.items())), 'moves': dict(sorted(moves.items())),

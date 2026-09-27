@@ -3,7 +3,7 @@
 // los que ir, marcadores con su area y su punto, encuentros por zona, checklist
 // y Pokedex. Asi el mapa y las listas son los mismos para todos los juegos.
 import type {Choice,Gate,Marker} from './shared';
-import {registerStory} from './i18n';
+import {registerStory,registerTeach} from './i18n';
 import type {Checklist,Dex} from './lists';
 import {rulesFor,type Gen} from './rules';
 
@@ -68,6 +68,8 @@ export async function loadGame(game:Game):Promise<World>{
   steps.push({id:`${g.map}:story:${g.step}`,uid:uidOf(`${prefix}:story:${g.step}`),category:'Story',name:g.name.en,detail:g.detail.en,
    location:floor??m.zone,area:m.area,at:[(m.x+g.x)*16+8,(m.y+g.y)*16+8],icon:null,zone:m.zone,floor});
  }
+ // Que ataque ensena cada MT/MO de este juego (no son las mismas en Gen 1 y Gen 3).
+ registerTeach(markers.flatMap(m=>m.move?[[m.name,m.move] as [string,string]]:[]));
  registerStory(goalList.flatMap(g=>'step' in g?[[g.name.en,g.name.es,g.detail.en,g.detail.es] as [string,string,string,string]]:[]));
  const list={...checklist,markers:{...checklist.markers},zones:checklist.zones.map(z=>({...z,floors:[...z.floors]}))};
  for(const s of steps){

@@ -620,6 +620,15 @@ def main():
     world.check()
     merged = world.merged_warps({a['id']: (a['width'], a['height']) for a in areas})
     dump(f'{OUT_DATA}/areas.json', {'areas': areas, 'warps': merged, 'places': places})
+    # Cada MT/MO con el ataque que ensena: ITEM_TM01_FOCUS_PUNCH en items.h.
+    text = lambda *p: open(d.path(*p), encoding='utf-8').read()
+    move_name = {k: ' '.join(w[:1] + w[1:].lower() for w in v.split())
+                 for k, v in re.findall(r'\[MOVE_(\w+)\]\s*=\s*_\("([^"]*)"\)', text('src/data/text/move_names.h'))}
+    teach = {f'{kind}{num}': move_name.get(m, m.title().replace('_', ' '))
+             for kind, num, m in re.findall(r'#define ITEM_(TM|HM)(\d\d)_(\w+) ', text('include/constants/items.h'))}
+    for mk in world.markers:
+        if mk['name'] in teach:
+            mk['move'] = teach[mk['name']]
     dump(f'{OUT_DATA}/markers.json', world.markers)
     for v in VERSIONS:
         dump(f'{OUT_DATA}/encounters-{v}.json', world.encounter_zones(v))

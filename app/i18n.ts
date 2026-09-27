@@ -566,6 +566,9 @@ export type Names = {items: Record<string, string>; moves: Record<string, string
 const STORY = new Map<string, string>();
 // Nombres de objeto que se leen mejor distinto de como los trae PokeAPI.
 const NAME_FIX: Record<string, string> = {"Oak's Parcel": 'Paquete de Oak'};
+// MT/MO -> el ataque que ensena en el juego cargado ('TM28' -> 'Dig').
+const TEACH = new Map<string, string>();
+export const registerTeach = (pairs: [string, string][]) => { TEACH.clear(); for (const [tm, move] of pairs) TEACH.set(tm, move); };
 export const registerStory = (pairs: [string, string, string, string][]) => {
  for (const [name, es, detail, esDetail] of pairs) { STORY.set(name, es); if (detail) STORY.set(detail, esDetail); }
 };
@@ -588,7 +591,10 @@ export function translator(lang: Lang, names: Names = null) {
   nature: (n: string) => (lang === 'es' && names?.natures[n]) || n,
   // Nombre de un objeto ('Coins ×10' -> 'Monedas ×10'); lo demas (Pokemon,
   // entrenadores) se queda igual.
+  // Una MT/MO lleva su ataque: 'TM28' -> 'MT28 Excavar'.
   name: (n: string) => {
+   const teach = TEACH.get(n);
+   if (teach) return lang === 'es' ? `${names?.items[n] ?? n} ${names?.moves[teach] ?? teach}` : `${n} ${teach}`;
    if (lang !== 'es') return n;
    const step = STORY.get(n) ?? NAME_FIX[n];
    if (step) return step;
