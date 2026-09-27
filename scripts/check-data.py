@@ -50,6 +50,15 @@ def check(game):
     d = {k: load(f'{base}/{f}') for k, f in files.items()}
     areas = {a['id']: a for a in d['areas']['areas']}
     markers = [m for m in d['markers'] if not m.get('version') or m['version'] == game['version']]
+    # Pasos de historia (story.json): marcadores como los demas, en una zona de la checklist.
+    if os.path.exists(f'{base}/story.json'):
+        zones_list = {z['name'] for z in d['checklist']['zones']}
+        for s in load(f'{base}/story.json')['steps']:
+            markers.append(s)
+            if s['zone'] not in zones_list:
+                err(f"paso de historia {s['id']}: zona fuera de la checklist {s['zone']}")
+            if not s.get('es', {}).get('name'):
+                err(f"paso de historia {s['id']}: sin nombre en espanol")
     by_id = {m['id']: m for m in markers}
 
     def inside(area_id, pt, what):
@@ -75,7 +84,9 @@ def check(game):
             inside(m['area'], m['at'], what)
         icon = m.get('icon')
         if not icon:
-            warn(f'sin figurita: {what}')
+            # Los pasos de historia no llevan sprite: se pintan con el color de su capa.
+            if m['category'] != 'Story':
+                warn(f'sin figurita: {what}')
         elif not os.path.exists(f'{PUBLIC}/icons/{icon}'):
             err(f'figurita inexistente {icon}: {what}')
         if m['category'] in ('Item Gift', 'In-Game Gift Pokémon', 'In-Game Trade') and m.get('area') in areas:

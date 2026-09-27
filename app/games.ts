@@ -3,6 +3,7 @@
 // los que ir, marcadores con su area y su punto, encuentros por zona, checklist
 // y Pokedex. Asi el mapa y las listas son los mismos para todos los juegos.
 import type {Choice,Gate,Marker} from './shared';
+import {registerStory} from './i18n';
 import type {Checklist,Dex} from './lists';
 import {rulesFor,type Gen} from './rules';
 
@@ -45,7 +46,16 @@ export async function loadGame(game:Game):Promise<World>{
  const fileOf=(file:string)=>json<{gates:Gate[];choices?:Choice[]}>(`${data}/${file}`).catch(()=>({gates:[] as Gate[],choices:[] as Choice[]}));
  const [story,hm]=await Promise.all([fileOf('gates.json'),fileOf('hm-gates.json')]);
  const gates=[...story.gates,...hm.gates],choices=story.choices??[];
- return {...a,markers:markers.filter(m=>!m.version||m.version===version),zones:enc.zones,checklist,dex,gates,choices};
+ // Pasos de historia (story.json): marcadores como los demas, con su zona y su
+ // piso en la checklist; su texto en espanol se registra para traducirlo.
+ const steps=await json<{steps:(Marker&{zone:string;floor:string|null;es:{name:string;detail:string}})[]}>(`${data}/story.json`).then(s=>s.steps).catch(()=>[]);
+ registerStory(steps.map(s=>[s.name,s.es.name,s.detail??'',s.es.detail]));
+ const list={...checklist,markers:{...checklist.markers},zones:checklist.zones.map(z=>({...z,floors:[...z.floors]}))};
+ for(const s of steps){
+  list.markers[s.id]=s.floor?{zone:s.zone,floor:s.floor}:{zone:s.zone};
+  const z=list.zones.find(x=>x.name===s.zone);if(z&&s.floor&&!z.floors.includes(s.floor))z.floors.push(s.floor);
+ }
+ return {...a,markers:[...markers.filter(m=>!m.version||m.version===version),...steps],zones:enc.zones,checklist:list,dex,gates,choices};
 }
 // Datos de combate y, si las reglas los tienen, textos de los ataques.
 export const battleUrl=(game:Game)=>`${game.data}/battle.json`;

@@ -268,12 +268,6 @@ const TEXT = {
  goalList: ['See in the checklist', 'Ver en la lista'],
  goalMap: ['See on the map', 'Ver en el mapa'],
  goalDone: ['Story complete! Keep going with the rest of the checklist.', '¡Historia completa! Sigue con el resto de la checklist.'],
- introOf: ["Start · {n}/{total}", "Inicio · {n}/{total}"],
- introHouseTitle: ["Leave your house", "Sal de tu casa"],
- introHouseText: ["You start in your room: go down the stairs and out the door into Pallet Town.", "Empiezas en tu cuarto: baja las escaleras y sal por la puerta a Pueblo Paleta."],
- introGrassTitle: ["Head for the tall grass up north", "Ve hacia la hierba alta del norte"],
- introGrassText: ["When you try to leave town, Professor Oak stops you and takes you to his lab.", "Al intentar salir del pueblo, el Prof. Oak te detiene y te lleva a su laboratorio."],
- introDone: ["Done", "Hecho"],
  choiceTrade: ["You chose {chosen}: this one only by trade", "Elegiste {chosen}: este solo se consigue por intercambio"],
  choiceOne: ["You chose {chosen}: you can only take one", "Elegiste {chosen}: solo se puede uno"],
  reachFirst: ["To get here first: {why}", "Para llegar, antes: {why}"],
@@ -369,6 +363,8 @@ const TEXT = {
  unlockZone: ["{zone} ({n})", "{zone} ({n})"],
  unlockToast: ["{name} opens {n} new things: see the checklist.", "{name} abre {n} cosas nuevas: mira la checklist."],
  dismiss: ["Got it", "Entendido"],
+ focusStory: ["Story", "Historia"],
+ storyGroup: ["Story", "Historia"],
  obstacle_cut: ["Tree you can cut", "Árbol que se corta"],
  obstacle_smash: ["Rock you can smash", "Roca que se rompe"],
  obstacle_strength: ["Boulder you can push", "Roca que se empuja"],
@@ -417,6 +413,7 @@ export type Key = keyof typeof TEXT;
 
 // Categorias de marcador, tal como llegan en los datos.
 const CATEGORIES: Record<string, [string, string]> = {
+ 'Story': ['Story step', 'Paso de la historia'],
  'Pokémon': ['Pokémon', 'Pokémon'],
  'Item In Map': ['Item on the map', 'Objeto en el mapa'],
  'Hidden Item': ['Hidden item', 'Objeto oculto'],
@@ -429,6 +426,7 @@ const CATEGORIES: Record<string, [string, string]> = {
 };
 // Nombre de la capa (mas corto que el de la categoria).
 const LAYERS: Record<string, [string, string]> = {
+ 'Story': ['Story', 'Historia'],
  'Pokémon': ['Pokémon', 'Pokémon'],
  'Item In Map': ['Item In Map', 'Objetos en el mapa'],
  'Hidden Item': ['Hidden Item', 'Objetos ocultos'],
@@ -550,6 +548,13 @@ export type T = ReturnType<typeof translator>;
 
 export type Names = {items: Record<string, string>; moves: Record<string, string>; abilities: Record<string, string>; natures: Record<string, string>} | null;
 
+// Texto en espanol de los pasos de historia de cada juego (story.json): nombre y
+// detalle en ingles -> en espanol. Lo registra el cargador del juego.
+const STORY = new Map<string, string>();
+export const registerStory = (pairs: [string, string, string, string][]) => {
+ for (const [name, es, detail, esDetail] of pairs) { STORY.set(name, es); if (detail) STORY.set(detail, esDetail); }
+};
+
 export function translator(lang: Lang, names: Names = null) {
  const fill = (text: string, vars?: Record<string, string | number>) =>
   vars ? text.replace(/\{(\w+)\}/g, (all, k) => String(vars[k] ?? all)) : text;
@@ -570,6 +575,8 @@ export function translator(lang: Lang, names: Names = null) {
   // entrenadores) se queda igual.
   name: (n: string) => {
    if (lang !== 'es') return n;
+   const step = STORY.get(n);
+   if (step) return step;
    // Combates: 'Bug Catcher Robby' -> 'Cazabichos Robby'.
    const cls = CLASS_ORDER.find(c => n === c || n.startsWith(c + ' '));
    if (cls) return (CLASSES[cls] + n.slice(cls.length)).trim();
@@ -580,7 +587,7 @@ export function translator(lang: Lang, names: Names = null) {
   // Lugar: el nombre oficial si se conoce, y si no, su zona traducida y el
   // resto por partes ('Celadon City Department Store 2F').
   // Detalle que viene de los datos: el equipo de un entrenador o el nivel.
-  detail: (d: string) => lang === 'es' ? d.replace(/\bLv\.? ?(\d)/g, 'Nv. $1') : d,
+  detail: (d: string) => lang === 'es' ? STORY.get(d) ?? d.replace(/\bLv\.? ?(\d)/g, 'Nv. $1') : d,
   place: (p: string) => {
    if (lang !== 'es' || !p) return p;
    if (PLACES[p]) return PLACES[p];

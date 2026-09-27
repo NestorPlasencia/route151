@@ -1,7 +1,7 @@
 'use client';
 // Pestanas de lista: la checklist por zonas (en orden de juego) y la Pokedex.
 import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
-import {Check,ChevronDown,Lock,MapPin,Search} from 'lucide-react';
+import {Check,ChevronDown,Flag,Lock,MapPin,Search} from 'lucide-react';
 import {Figure,checkOrder,type Gate,type Marker} from './shared';
 import {LEADER,NextGoal,Unlocked,type Unlock} from './guide';
 import type {T} from './i18n';
@@ -17,12 +17,12 @@ function Progress({done,total}:{done:number;total:number}){const pct=total?Math.
 
 // Filtros de la checklist por lo que se busca, no por categoria interna: los
 // lideres (gimnasios, Alto Mando y Campeon) aparte del resto de entrenadores.
-type Focus='all'|'leaders'|'trainers'|'items'|'pokemon'|'gifts';
-const focusOf=(m:Marker):Focus[]=>m.category==='Battle'?[LEADER.test(m.name)?'leaders':'trainers']
+type Focus='all'|'story'|'leaders'|'trainers'|'items'|'pokemon'|'gifts';
+const focusOf=(m:Marker):Focus[]=>m.category==='Story'?['story']:m.category==='Battle'?[LEADER.test(m.name)?'leaders':'trainers']
  :['Item In Map','Hidden Item'].includes(m.category)?['items']:m.category==='Pokémon'?['pokemon']
  :m.category==='Item Gift'?['items','gifts']:['pokemon','gifts'];
-const FOCUS:[Focus,'filterAll'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'][]=[
- ['all','filterAll'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts']];
+const FOCUS:[Focus,'filterAll'|'focusStory'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'][]=[
+ ['all','filterAll'],['story','focusStory'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts']];
 
 export function ChecklistView({markers,checklist,gates,onRoute,unlock,onUnlockDismiss,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];onRoute:(m:Marker)=>void;unlock:Unlock|null;onUnlockDismiss:()=>void;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
  const {t,category,place,name}=tr;
@@ -51,7 +51,7 @@ export function ChecklistView({markers,checklist,gates,onRoute,unlock,onUnlockDi
  const floorName=(zone:string,f:string)=>place(f.startsWith(zone+' ')?f.slice(zone.length+1):f);
  // Una fila: casilla, figura, nombre y detalle; los entrenadores despliegan su
  // equipo. `where`: el piso, cuando sale fuera de su grupo (lo no disponible).
- const row=(m:Marker,where?:string)=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id),why=blocked(m)?unavailable(m):null;return <div key={m.id} id={`row-${m.id}`} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''} ${why?'row-locked':''}`}>
+ const row=(m:Marker,where?:string)=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id),why=blocked(m)?unavailable(m):null;return <div key={m.id} id={`row-${m.id}`} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''} ${why?'row-locked':''} ${m.category==='Story'?'row-story':''}`}>
   {/* No disponible: no se puede marcar hasta cumplir lo que pide. */}
   <button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid)}>{isDone(m)?<Check/>:why?<Lock/>:null}</button>
   <Figure m={m}/>
@@ -83,7 +83,7 @@ export function ChecklistView({markers,checklist,gates,onRoute,unlock,onUnlockDi
   </div>
   <div className="list-body">
    {unlock&&<Unlocked unlock={unlock} checklist={checklist} onZone={goToZone} onDismiss={onUnlockDismiss} tr={tr}/>}
-   {!q&&focus==='all'&&<NextGoal markers={markers} checklist={checklist} gates={gates} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} introKey={teamKey.replace(/-team$/,'-intro')} onList={goToRow} onMap={onShow} onRoute={onRoute} onZone={onShowZone} tr={tr}/>}
+   {!q&&focus==='all'&&<NextGoal markers={markers} checklist={checklist} gates={gates} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} onRoute={onRoute} tr={tr}/>}
    {checklist.parts.map(part=>{
     const zones=checklist.zones.filter(z=>z.part===part.n&&byZone.has(z.name));
     const all=zones.flatMap(z=>[...byZone.get(z.name)!.values()].flat());
@@ -110,7 +110,12 @@ export function ChecklistView({markers,checklist,gates,onRoute,unlock,onUnlockDi
         [...items.reduce((c,m)=>{const why=blocked(m)&&unavailable(m);return why?c.set(why,(c.get(why)??0)+1):c},new Map<string,number>())])}
        {/* Lo que se puede hacer, por pisos; lo que aun no, junto al final de la zona
            (con su piso al lado), para que lo primero que se vea sea lo que toca. */}
-       {expanded&&order.map(f=>{const rows=checkOrder(floors.get(f)!.filter(m=>keep(m)&&!blocked(m)),blocked);if(!rows.length)return null;return <div key={f||'_'} className="floor">
+       {/* Los pasos de la historia de la zona van primero, con su piso al lado. */}
+       {expanded&&(rows=>rows.length>0&&<div className="floor floor-story">
+        <h4><Flag/>{t('storyGroup')}</h4>
+        {rows.map(m=>row(m,checklist.markers[m.id]?.floor?floorName(z.name,checklist.markers[m.id].floor!):undefined))}
+       </div>)(order.flatMap(f=>floors.get(f)!.filter(m=>m.category==='Story'&&keep(m)&&!blocked(m))))}
+       {expanded&&order.map(f=>{const rows=checkOrder(floors.get(f)!.filter(m=>m.category!=='Story'&&keep(m)&&!blocked(m)),blocked);if(!rows.length)return null;return <div key={f||'_'} className="floor">
         {f&&<h4>{floorName(z.name,f)}</h4>}
         {rows.map(m=>row(m))}
        </div>})}

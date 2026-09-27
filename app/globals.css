@@ -265,6 +265,11 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .floor-locked h4 svg{width:13px}
 .door.locked{background:#b9c3d1;border-color:#6b7890;background-image:none;position:relative}
 .door.locked::after{content:'';position:absolute;inset:4px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234b566a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E")}
+.floor-story h4{display:flex;align-items:center;gap:6px;color:var(--blue)!important}
+.floor-story h4 svg{width:13px}
+.fig-story{display:grid;place-items:center;background:#e8effd;border-radius:10px;color:var(--blue)}
+.fig-story svg{width:55%;height:55%}
+.row-story .row-text small{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.35}
 /* Fila a la que lleva el siguiente objetivo: un destello para encontrarla. */
 .row-flash{animation:row-flash 1.6s ease}
 @keyframes row-flash{0%,40%{background:#fff3b0}100%{background:transparent}}

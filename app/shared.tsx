@@ -1,7 +1,7 @@
 'use client';
 // Piezas comunes al mapa, la checklist y la Pokedex.
 import {useEffect,useState} from 'react';
-import {Gift,MapPin,Mountain,Search,Sparkles,Store,Swords} from 'lucide-react';
+import {Flag,Gift,MapPin,Mountain,Search,Sparkles,Store,Swords} from 'lucide-react';
 import type {T} from './i18n';
 
 export type Encounter={zone:string;min:number;max:number;chance:number;methods:string[];sprite?:string};
@@ -11,10 +11,10 @@ export type Encounter={zone:string;min:number;max:number;chance:number;methods:s
 export type Marker={id:string;uid:number;category:string;name:string;location:string;icon?:string|null;area?:string;at?:[number,number];detail?:string|null;encounter?:Encounter};
 
 // Capas del mapa: solo estas categorias se pintan como pines.
-export const groups=[['Pokémon',Sparkles,'#ffd739'],['Item In Map',MapPin,'#49a8ff'],['Item Gift',Gift,'#ff8ec1'],['In-Game Trade',Gift,'#ad83ff'],['In-Game Gift Pokémon',Sparkles,'#f3a63b'],['Battle',Swords,'#ff5f66']] as const;
+export const groups=[['Story',Flag,'#2d6df6'],['Pokémon',Sparkles,'#ffd739'],['Item In Map',MapPin,'#49a8ff'],['Item Gift',Gift,'#ff8ec1'],['In-Game Trade',Gift,'#ad83ff'],['In-Game Gift Pokémon',Sparkles,'#f3a63b'],['Battle',Swords,'#ff5f66']] as const;
 // Los juegos suman los objetos ocultos, las tiendas y los obstaculos (rocas de
 // Fuerza; en FRLG tambien arbustos de Corte y rocas de Golpe Roca).
-export const frlgGroups=[...groups.slice(0,2),['Hidden Item',Search,'#7fd4ff'],...groups.slice(2),['Shop',Store,'#5ccfb4'],['Obstacle',Mountain,'#9aa6b8']] as const;
+export const frlgGroups=[...groups.slice(0,3),['Hidden Item',Search,'#7fd4ff'],...groups.slice(3),['Shop',Store,'#5ccfb4'],['Obstacle',Mountain,'#9aa6b8']] as const;
 export type Group=(typeof frlgGroups)[number];
 // Todos los juegos salen ya de su decompilacion y comparten capas.
 export const groupsOf=(_game:string):readonly Group[]=>frlgGroups;
@@ -67,11 +67,11 @@ export const choicesTaken=(choices:Choice[],isDone:(id:string)=>boolean)=>{
 export const unmetGate=(m:Marker&{map?:string;zone?:string},gates:Gate[],have:Set<string>)=>gates.find(g=>
  (g.zones?.includes(m.zone??'')||g.maps?.includes(m.map??'')||g.markers?.includes(m.id))&&!g.needs.includes(m.name)&&g.needs.some(n=>!have.has(n)))??null;
 
-// Orden dentro de cada seccion: primero lo que se recoge (objetos, regalos,
+// Orden dentro de cada seccion: primero los pasos de la historia, luego lo que se recoge (objetos, regalos,
 // tiendas), luego los combates y al final lo que se captura (salvajes, Pokemon
 // de regalo, intercambios). Lo no disponible, detras de todo. Estable: dentro
 // de cada grupo se queda el orden del juego.
-const KIND:Record<string,number>={Battle:1,'Pokémon':2,'In-Game Gift Pokémon':2,'In-Game Trade':2};
+const KIND:Record<string,number>={Story:-1,Battle:1,'Pokémon':2,'In-Game Gift Pokémon':2,'In-Game Trade':2};
 export const checkOrder=<T extends Marker>(list:T[],blocked:(m:T)=>boolean)=>
  list.map((m,i)=>({m,i,k:(blocked(m)?10:0)+(KIND[m.category]??0)})).sort((a,b)=>a.k-b.k||a.i-b.i).map(x=>x.m);
 
@@ -80,7 +80,10 @@ export const iconOf=(m:{icon?:string|null})=>m.icon??undefined;
 
 // Figurita del objeto (sprites del propio juego o de PokeAPI en FRLG, en
 // /icons); si no hay, un cuadro del color de su categoria.
-export function Figure({m}:{m:{icon?:string|null;category:string;name?:string}}){const icon=iconOf(m);return icon?<img className={`fig ${icon.startsWith('frlg/npc/')||icon.startsWith('yellow/npc/')?'fig-trainer':''}`} src={`/icons/${icon}`} alt="" loading="lazy"/>:<span className="fig fig-none" style={{'--pin':colorOf(m.category)} as React.CSSProperties}/>}
+export function Figure({m}:{m:{icon?:string|null;category:string;name?:string}}){const icon=iconOf(m);
+ // Un paso de la historia no tiene sprite: una bandera.
+ if(!icon&&m.category==='Story')return <span className="fig fig-story"><Flag/></span>;
+ return icon?<img className={`fig ${icon.startsWith('frlg/npc/')||icon.startsWith('yellow/npc/')?'fig-trainer':''}`} src={`/icons/${icon}`} alt="" loading="lazy"/>:<span className="fig fig-none" style={{'--pin':colorOf(m.category)} as React.CSSProperties}/>}
 
 // Creditos: todo el contenido es de terceros y la app es un proyecto de fans.
 type Credit={what:string;who:string;href:string;note?:string};

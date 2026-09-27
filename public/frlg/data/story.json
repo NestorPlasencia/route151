@@ -1,0 +1,215 @@
+{
+ "_source": "Story steps written by hand from the Serebii (Yellow) and The Cave of Dragonflies (FRLG) walkthroughs; see scripts/build-story.py.",
+ "steps": [
+  {
+   "id": "MAP_PALLET_TOWN:story:leave-house",
+   "uid": 1237155879,
+   "category": "Story",
+   "name": "Leave your house",
+   "es": {
+    "name": "Sal de tu casa",
+    "detail": "Empiezas en tu cuarto, arriba: baja las escaleras y sal por la puerta."
+   },
+   "detail": "You start in your room upstairs: go down the stairs and out the door.",
+   "map": "MAP_PALLET_TOWN",
+   "zone": "Pallet Town",
+   "floor": null,
+   "location": "Pallet Town",
+   "area": "kanto",
+   "at": [
+    1064,
+    4280
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_PALLET_TOWN:story:oak-stops",
+   "uid": 1710054872,
+   "category": "Story",
+   "name": "Head for the tall grass",
+   "es": {
+    "name": "Ve hacia la hierba alta",
+    "detail": "El Prof. Oak te detiene y te lleva a su laboratorio a elegir tu primer Pokémon."
+   },
+   "detail": "Professor Oak stops you and takes you to his lab to choose your first Pokémon.",
+   "map": "MAP_PALLET_TOWN",
+   "zone": "Pallet Town",
+   "floor": null,
+   "location": "Pallet Town",
+   "area": "kanto",
+   "at": [
+    1160,
+    4184
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_PALLET_TOWN_PROFESSOR_OAKS_LAB:story:deliver-parcel",
+   "uid": 1838214626,
+   "category": "Story",
+   "name": "Deliver Oak's Parcel",
+   "es": {
+    "name": "Entrega el Paquete de Oak",
+    "detail": "Lleva el paquete de la tienda de Verde al Prof. Oak: te da la Pokédex y cinco Poké Balls."
+   },
+   "detail": "Bring the parcel from the Viridian Mart back to Oak: he gives you the Pokédex and five Poké Balls.",
+   "map": "MAP_PALLET_TOWN_PROFESSOR_OAKS_LAB",
+   "zone": "Pallet Town",
+   "floor": "Pallet Town Professor Oak's Lab",
+   "location": "Pallet Town Professor Oak's Lab",
+   "area": "MAP_PALLET_TOWN_PROFESSOR_OAKS_LAB",
+   "at": [
+    104,
+    56
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_VIRIDIAN_CITY:story:old-man",
+   "uid": 1665381701,
+   "category": "Story",
+   "name": "Watch the old man catch a Pokémon",
+   "es": {
+    "name": "Mira al anciano atrapar un Pokémon",
+    "detail": "Con la Pokédex ya se ha tomado su café: te enseña a atrapar y te deja pasar."
+   },
+   "detail": "Once you have the Pokédex he has had his coffee: he shows you how to catch and lets you through.",
+   "map": "MAP_VIRIDIAN_CITY",
+   "zone": "Viridian City",
+   "floor": null,
+   "location": "Viridian City",
+   "area": "kanto",
+   "at": [
+    1112,
+    3016
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_CELADON_CITY_GAME_CORNER:story:rocket-poster",
+   "uid": 1419750483,
+   "category": "Story",
+   "name": "Open the hideout behind the Game Corner poster",
+   "es": {
+    "name": "Abre la guarida tras el póster del Casino",
+    "detail": "Vence al Rocket delante del póster y pulsa el interruptor que hay detrás."
+   },
+   "detail": "Beat the Rocket in front of the poster and press the switch behind it.",
+   "map": "MAP_CELADON_CITY_GAME_CORNER",
+   "zone": "Celadon City",
+   "floor": "Celadon City Game Corner",
+   "location": "Celadon City Game Corner",
+   "area": "MAP_CELADON_CITY_GAME_CORNER",
+   "at": [
+    184,
+    40
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_POKEMON_TOWER_6F:story:marowak",
+   "uid": 1264122499,
+   "category": "Story",
+   "name": "Calm the ghost of Marowak",
+   "es": {
+    "name": "Calma al fantasma de Marowak",
+    "detail": "Con el Scope Silph puedes verlo y combatirlo; después se abre el paso hacia arriba."
+   },
+   "detail": "With the Silph Scope you can see it and battle it; then the way up opens.",
+   "map": "MAP_POKEMON_TOWER_6F",
+   "zone": "Pokémon Tower",
+   "floor": "Pokémon Tower 6F",
+   "location": "Pokémon Tower 6F",
+   "area": "MAP_POKEMON_TOWER_6F",
+   "at": [
+    184,
+    248
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_POKEMON_TOWER_7F:story:rescue-fuji",
+   "uid": 1137724589,
+   "category": "Story",
+   "name": "Rescue Mr. Fuji",
+   "es": {
+    "name": "Rescata al Sr. Fuji",
+    "detail": "En lo alto de la torre, tras tres Rockets. En su casa te da la Poké Flauta."
+   },
+   "detail": "At the top of the tower, after three Rockets. He thanks you with the Poké Flute at his house.",
+   "map": "MAP_POKEMON_TOWER_7F",
+   "zone": "Pokémon Tower",
+   "floor": "Pokémon Tower 7F",
+   "location": "Pokémon Tower 7F",
+   "area": "MAP_POKEMON_TOWER_7F",
+   "at": [
+    184,
+    72
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_CINNABAR_ISLAND_POKEMON_CENTER_1F:story:bill-sevii",
+   "uid": 207823783,
+   "category": "Story",
+   "name": "Sail with Bill to One Island",
+   "es": {
+    "name": "Viaja con Bill a Isla Prima",
+    "detail": "Tras vencer a Blaine, Bill te espera en este Centro Pokémon: dile que sí y el barco os lleva a las Islas Sete."
+   },
+   "detail": "After beating Blaine, Bill waits in this Pokémon Center: say yes and the ferry takes you both to the Sevii Islands.",
+   "map": "MAP_CINNABAR_ISLAND_POKEMON_CENTER_1F",
+   "zone": "Cinnabar Island",
+   "floor": "Cinnabar Island Pokémon Center 1F",
+   "location": "Cinnabar Island Pokémon Center 1F",
+   "area": "MAP_CINNABAR_ISLAND_POKEMON_CENTER_1F",
+   "at": [
+    184,
+    88
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_PALLET_TOWN_PROFESSOR_OAKS_LAB:story:national-dex",
+   "uid": 238834309,
+   "category": "Story",
+   "name": "Get the National Pokédex",
+   "es": {
+    "name": "Recibe la Pokédex Nacional",
+    "detail": "Tras ser Campeón, con 60 Pokémon vistos, el Prof. Oak mejora tu Pokédex."
+   },
+   "detail": "After becoming Champion, with 60 Pokémon seen, Professor Oak upgrades your Pokédex.",
+   "map": "MAP_PALLET_TOWN_PROFESSOR_OAKS_LAB",
+   "zone": "Pallet Town",
+   "floor": "Pallet Town Professor Oak's Lab",
+   "location": "Pallet Town Professor Oak's Lab",
+   "area": "MAP_PALLET_TOWN_PROFESSOR_OAKS_LAB",
+   "at": [
+    104,
+    56
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_ONE_ISLAND_POKEMON_CENTER_1F:story:sapphire-celio",
+   "uid": 1474249440,
+   "category": "Story",
+   "name": "Give the Sapphire to Celio",
+   "es": {
+    "name": "Entrega el Zafiro a Celio",
+    "detail": "Trae el Zafiro del Almacén Rocket: Celio termina su red."
+   },
+   "detail": "Bring back the Sapphire from the Rocket Warehouse: Celio finishes his network.",
+   "map": "MAP_ONE_ISLAND_POKEMON_CENTER_1F",
+   "zone": "One Island",
+   "floor": "One Island Pokémon Center 1F",
+   "location": "One Island Pokémon Center 1F",
+   "area": "MAP_ONE_ISLAND_POKEMON_CENTER_1F",
+   "at": [
+    248,
+    104
+   ],
+   "icon": null
+  }
+ ]
+}

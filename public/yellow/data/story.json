@@ -1,0 +1,194 @@
+{
+ "_source": "Story steps written by hand from the Serebii (Yellow) and The Cave of Dragonflies (FRLG) walkthroughs; see scripts/build-story.py.",
+ "steps": [
+  {
+   "id": "PALLET_TOWN:story:leave-house",
+   "uid": 1785872154,
+   "category": "Story",
+   "name": "Leave your house",
+   "es": {
+    "name": "Sal de tu casa",
+    "detail": "Empiezas en tu cuarto, arriba: baja las escaleras y sal por la puerta."
+   },
+   "detail": "You start in your room upstairs: go down the stairs and out the door.",
+   "map": "PALLET_TOWN",
+   "zone": "Pallet Town",
+   "floor": null,
+   "location": "Pallet Town",
+   "area": "kanto",
+   "at": [
+    888,
+    3832
+   ],
+   "icon": null
+  },
+  {
+   "id": "PALLET_TOWN:story:oak-stops",
+   "uid": 322971973,
+   "category": "Story",
+   "name": "Head for the tall grass",
+   "es": {
+    "name": "Ve hacia la hierba alta",
+    "detail": "El Prof. Oak te detiene, atrapa un Pikachu y te lleva a su laboratorio."
+   },
+   "detail": "Professor Oak stops you, catches a Pikachu and takes you to his lab.",
+   "map": "PALLET_TOWN",
+   "zone": "Pallet Town",
+   "floor": null,
+   "location": "Pallet Town",
+   "area": "kanto",
+   "at": [
+    968,
+    3768
+   ],
+   "icon": null
+  },
+  {
+   "id": "OAKS_LAB:story:deliver-parcel",
+   "uid": 1604977449,
+   "category": "Story",
+   "name": "Deliver Oak's Parcel",
+   "es": {
+    "name": "Entrega el Paquete de Oak",
+    "detail": "Lleva el paquete de la tienda de Verde al Prof. Oak: te da la Pokédex."
+   },
+   "detail": "Bring the parcel from the Viridian Mart back to Oak: he gives you the Pokédex.",
+   "map": "OAKS_LAB",
+   "zone": "Pallet Town",
+   "floor": "Pallet Town Oak's Lab",
+   "location": "Pallet Town Oak's Lab",
+   "area": "OAKS_LAB",
+   "at": [
+    88,
+    40
+   ],
+   "icon": null
+  },
+  {
+   "id": "VIRIDIAN_CITY:story:old-man",
+   "uid": 143390016,
+   "category": "Story",
+   "name": "Watch the old man catch a Pokémon",
+   "es": {
+    "name": "Mira al anciano atrapar un Pokémon",
+    "detail": "Con la Pokédex te deja pasar a la Ruta 2 y te enseña a lanzar una Poké Ball."
+   },
+   "detail": "Once you have the Pokédex he lets you through to Route 2 and shows you how to throw a Poké Ball.",
+   "map": "VIRIDIAN_CITY",
+   "zone": "Viridian City",
+   "floor": null,
+   "location": "Viridian City",
+   "area": "kanto",
+   "at": [
+    920,
+    2680
+   ],
+   "icon": null
+  },
+  {
+   "id": "CELADON_MART_ROOF:story:buy-drink",
+   "uid": 954255551,
+   "category": "Story",
+   "name": "Buy a drink on the Celadon roof",
+   "es": {
+    "name": "Compra una bebida en la azotea de Azulona",
+    "detail": "Agua Fresca, Refresco o Limonada de las máquinas: los guardias de Azafrán tienen sed."
+   },
+   "detail": "Fresh Water, Soda Pop or Lemonade from the vending machines: the Saffron guards are thirsty.",
+   "map": "CELADON_MART_ROOF",
+   "zone": "Celadon City",
+   "floor": "Celadon Mart Roof",
+   "location": "Celadon Mart Roof",
+   "area": "CELADON_MART_ROOF",
+   "at": [
+    168,
+    24
+   ],
+   "icon": null
+  },
+  {
+   "id": "ROUTE_5_GATE:story:give-drink",
+   "uid": 130525770,
+   "category": "Story",
+   "name": "Give a drink to a Saffron guard",
+   "es": {
+    "name": "Da una bebida a un guardia de Azafrán",
+    "detail": "En cualquiera de las casetas alrededor de Azafrán: el guardia te deja entrar a la ciudad."
+   },
+   "detail": "In any of the gatehouses around Saffron: the guard lets you into the city.",
+   "map": "ROUTE_5_GATE",
+   "zone": "Route 5",
+   "floor": "Route 5 Gate",
+   "location": "Route 5 Gate",
+   "area": "ROUTE_5_GATE",
+   "at": [
+    24,
+    56
+   ],
+   "icon": null
+  },
+  {
+   "id": "GAME_CORNER:story:rocket-poster",
+   "uid": 1432217598,
+   "category": "Story",
+   "name": "Open the hideout behind the Game Corner poster",
+   "es": {
+    "name": "Abre la guarida tras el póster del Casino",
+    "detail": "Vence al Rocket delante del póster y pulsa el interruptor que hay detrás."
+   },
+   "detail": "Beat the Rocket in front of the poster and press the switch behind it.",
+   "map": "GAME_CORNER",
+   "zone": "Celadon City",
+   "floor": "Celadon City Game Corner",
+   "location": "Celadon City Game Corner",
+   "area": "GAME_CORNER",
+   "at": [
+    152,
+    72
+   ],
+   "icon": null
+  },
+  {
+   "id": "POKEMON_TOWER_6F:story:marowak",
+   "uid": 695216718,
+   "category": "Story",
+   "name": "Calm the ghost of Marowak",
+   "es": {
+    "name": "Calma al fantasma de Marowak",
+    "detail": "Con el Scope Silph puedes verlo y combatirlo; después se abre el paso hacia arriba."
+   },
+   "detail": "With the Silph Scope you can see it and battle it; then the way up opens.",
+   "map": "POKEMON_TOWER_6F",
+   "zone": "Pokémon Tower",
+   "floor": "Pokémon Tower 6F",
+   "location": "Pokémon Tower 6F",
+   "area": "POKEMON_TOWER_6F",
+   "at": [
+    168,
+    264
+   ],
+   "icon": null
+  },
+  {
+   "id": "POKEMON_TOWER_7F:story:rescue-fuji",
+   "uid": 1731100396,
+   "category": "Story",
+   "name": "Rescue Mr. Fuji",
+   "es": {
+    "name": "Rescata al Sr. Fuji",
+    "detail": "En lo alto de la torre, tras Jessie y James. En su casa te da la Poké Flauta."
+   },
+   "detail": "At the top of the tower, after Jessie and James. He thanks you with the Poké Flute at his house.",
+   "map": "POKEMON_TOWER_7F",
+   "zone": "Pokémon Tower",
+   "floor": "Pokémon Tower 7F",
+   "location": "Pokémon Tower 7F",
+   "area": "POKEMON_TOWER_7F",
+   "at": [
+    168,
+    56
+   ],
+   "icon": null
+  }
+ ]
+}
