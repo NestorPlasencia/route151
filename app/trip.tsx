@@ -1,7 +1,6 @@
 'use client';
 // Panel de "Como llegar" sobre el mapa: desde donde, los pasos en palabras
 // (sal de, ve al norte, entra en, toma el barco) y que MO usar en cada tramo.
-import {ChevronDown,MapPin} from 'lucide-react';
 import type {Key,T} from './i18n';
 import type {How,Leg} from './pathfind';
 
@@ -42,13 +41,13 @@ export function withoutGates(items:TripItem[],isInterior:(area:string)=>boolean)
 
 const USE:Partial<Record<How,Key>>={surf:'moveSurf',cut:'moveCut',strength:'moveStrength',smash:'moveSmash',waterfall:'moveWaterfall',jump:'moveJump'};
 
-// Los pasos de la ruta, desplegados debajo de la barra del objetivo del mapa
-// (la barra hace de cabecera: que, marcar, cerrar). Se abre al tocar la linea de
-// pasos de la barra; eligiendo donde estas sale solo el aviso.
-export function RoutePanel({target,from,fromRoom,zones,onFrom,onHere,picking,onCancelPick,items,partial,status,onStep,labelOf,isInterior,tr}:{
- target:string;from:string;fromRoom:boolean;zones:string[];onFrom:(zone:string)=>void;onHere:()=>void;picking:boolean;onCancelPick:()=>void;items:TripItem[];partial:boolean;status:'loading'|'none'|'ok';
+// Los pasos de la ruta, desplegados debajo de la barra del objetivo, como parte
+// de ella. La ruta sale siempre del ultimo objetivo marcado (o de tu cuarto al
+// empezar): se va de objetivo en objetivo.
+export function RoutePanel({target,fromRoom,items,partial,status,onStep,labelOf,isInterior,tr}:{
+ target:string;fromRoom:boolean;items:TripItem[];partial:boolean;status:'loading'|'none'|'ok';
  onStep:(item:TripItem)=>void;labelOf:(item:TripItem)=>string;isInterior:(area:string)=>boolean;tr:T}){
- const {t,place}=tr;
+ const {t}=tr;
  const say=(item:TripItem,i:number)=>{
   const where=labelOf(item);
   if(i===0)return fromRoom?t('routeRoom'):t('routeStart',{place:where});
@@ -60,13 +59,8 @@ export function RoutePanel({target,from,fromRoom,zones,onFrom,onHere,picking,onC
   }
   return where;
  };
- if(picking)return <section className="trip"><div className="trip-pick"><MapPin/><span>{t('routePick')}</span><button onClick={onCancelPick}>{t('cancel')}</button></div></section>;
  return <section className="trip" aria-label={t('routeHow')}>
   <div className="trip-body">
-   <div className="trip-from">
-    <label><span>{t('routeFromLabel')}</span><select value={from} onChange={e=>onFrom(e.target.value)}>{zones.map(z=><option key={z} value={z}>{place(z)}</option>)}</select><ChevronDown/></label>
-    <button onClick={onHere}><MapPin/>{t('routeHere')}</button>
-   </div>
    {status==='loading'&&<p className="trip-note">{t('routeLoading')}</p>}
    {status==='none'&&<p className="trip-note trip-none">{t('routeNone')}</p>}
    {status==='ok'&&<ol className="trip-steps">

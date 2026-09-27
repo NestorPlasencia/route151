@@ -143,7 +143,7 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .prep .battle-advice{background:#fff;border-radius:9px;padding:4px 6px}
 .goal-actions .goal-go{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:bold}
 /* Como llegar: panel sobre el mapa con los pasos; el camino va dibujado. */
-.trip{position:absolute;left:8px;right:8px;top:58px;z-index:760;background:#fff;border-radius:0 0 14px 14px;box-shadow:0 12px 36px #0007;border:1px solid var(--line);max-height:58%;display:flex;flex-direction:column;overflow:hidden}
+.trip{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:#fff8d6;border-bottom:1px solid #f1d977}
 .trip-head{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 10px}
 .trip-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:9px;border:0;background:none;padding:4px 0;cursor:pointer;text-align:left;color:var(--ink)}
 .trip-toggle>svg{width:18px;flex:none;color:var(--blue)}
@@ -156,21 +156,14 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .trip-close{width:34px;height:34px;border:0;border-radius:9px;background:#f0f3f7;display:grid;place-items:center;cursor:pointer;flex:none}
 .trip-close svg{width:16px}
 .trip-body{overflow:auto;padding:10px}
-.trip-from{display:flex;gap:8px;align-items:center;margin-bottom:6px}
-.trip-from label{flex:1;min-width:0;position:relative;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:9px;padding:0 28px 0 9px;height:36px;background:#f8fafc}
-.trip-from label span{font-size:11px;color:var(--muted)}
-.trip-from select{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:13px;font-weight:bold;color:var(--ink);appearance:none;outline:0}
-.trip-from label svg{position:absolute;right:8px;width:14px;pointer-events:none;color:var(--muted)}
-.trip-from button{display:flex;align-items:center;gap:5px;height:36px;padding:0 10px;border-radius:9px;border:1px solid var(--line);background:#fff;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--ink)}
-.trip-from button svg{width:14px;color:var(--blue)}
 .trip-note{font-size:12px;color:var(--muted);margin:8px 2px}
 .trip-none{color:#8a5a08}
 .trip-steps{list-style:none;margin:0;padding:0;counter-reset:step}
 .trip-steps li{position:relative;padding-left:30px;counter-increment:step}
 .trip-steps li::before{content:counter(step);position:absolute;left:0;top:9px;width:21px;height:21px;border-radius:50%;background:#e8effd;color:var(--blue);font-size:11px;font-weight:bold;display:grid;place-items:center}
-.trip-steps li:not(:last-child)::after{content:'';position:absolute;left:10px;top:31px;bottom:-9px;width:2px;background:#dbe5f6}
+.trip-steps li:not(:last-child)::after{content:'';position:absolute;left:10px;top:31px;bottom:-9px;width:2px;background:#e9dca0}
 .trip-steps button{width:100%;text-align:left;border:0;background:none;padding:9px 4px;border-radius:8px;cursor:pointer;color:var(--ink)}
-.trip-steps button:hover{background:#f3f7fd}
+.trip-steps button:hover{background:#fff1b8}
 .trip-steps b{display:block;font-size:13px}
 .trip-steps small{display:block;font-size:11px;color:#8a5a08;margin-top:2px}
 .trip-end{padding-top:9px;padding-bottom:4px}
@@ -242,10 +235,6 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .route-act{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid var(--blue);font-size:12px;box-shadow:0 2px 6px #0007}
 .pop-hm{color:#8a5a08!important}
 .pop-hm.ok{color:#1d7a47!important}
-.trip-pick{display:flex;align-items:center;gap:8px;padding:4px 10px 10px;font-size:13px;font-weight:bold;color:var(--blue)}
-.trip-pick svg{width:16px;flex:none}
-.trip-pick span{flex:1}
-.trip-pick button{height:32px;padding:0 12px;border-radius:9px;border:1px solid var(--line);background:#fff;font-size:12px;cursor:pointer;color:var(--ink)}
 /* Bienvenida: pantallas cortas la primera vez. */
 .tour-backdrop{z-index:4500}
 .tour{text-align:center;max-width:380px}
@@ -272,7 +261,8 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .fig-story svg{width:55%;height:55%}
 .row-story .row-text small{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.35}
 /* Siguiente objetivo arriba del mapa, y su bandera sobre el pin. */
-.map-goal{position:absolute;left:0;right:0;top:0;z-index:750;display:flex;align-items:center;gap:9px;padding:6px 10px;background:#fff8d6;border-bottom:1px solid #f1d977;box-shadow:0 4px 14px #0005}
+.map-top{position:absolute;left:0;right:0;top:0;z-index:750;display:flex;flex-direction:column;max-height:72%;box-shadow:0 6px 18px #0005}
+.map-goal{flex:none;display:flex;align-items:center;gap:9px;padding:6px 10px;background:#fff8d6;border-bottom:1px solid #f1d977}
 .map-goal-text{flex:1;min-width:0}
 .map-goal>.fig{width:32px;height:32px;flex:none}
 .map-goal small{display:block;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;color:#8a6a08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -287,11 +277,6 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .goal-flag{display:block;filter:drop-shadow(0 2px 3px #000a);animation:goal-bob 1.6s ease-in-out infinite}
 .goal-flag svg{width:26px;height:26px}
 @keyframes goal-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-.trip-done{padding:4px 12px 12px}
-.trip-done>b{display:flex;align-items:center;gap:6px;color:#1d7a47;font-size:14px}
-.trip-done>b svg{width:17px}
-.trip-done button{margin-top:8px;width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-weight:bold;font-size:13px;cursor:pointer;text-align:left}
-.trip-done button svg{width:17px;flex:none}
 .goal-mini{display:flex;align-items:center;gap:8px;margin:10px -16px -10px;padding:8px 12px 8px 16px;background:#fff8d6;border-top:1px solid #f1d977}
 .goal-mini>svg{width:15px;flex:none;color:#8a6a08}
 .goal-mini b{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

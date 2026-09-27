@@ -15,7 +15,7 @@ import {RoutePanel,tripItems,withoutGates,type TripItem} from './trip';
 import {BackupBox} from './backup';
 import {refreshApp} from './service-worker';
 import {LearnView} from './learn';
-import {goalTitle,nextGoalOf,storyOrder,type Unlock} from './guide';
+import {goalTitle,nextGoalOf,type Unlock} from './guide';
 import {TOUR_KEY,Tour} from './tour';
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
@@ -235,7 +235,7 @@ export default function Home(){
    // un pin: al volver a pulsar el mismo pin se cerraba y no se reabria. Se
    // cierra solo con un clic en el mapa (fuera de los pines) o con Escape.
    // Eligiendo donde estas (Como llegar), el toque marca el sitio y no cierra nada.
-   m.on('click',e=>{if(pickRef.current){pickRef.current([e.latlng.lng,-e.latlng.lat]);return}setSelected(null);setStack(null)});setPopupBox(box);
+   m.on('click',()=>{setSelected(null);setStack(null)});setPopupBox(box);
    layer.current=L.layerGroup().addTo(m);map.current=m;setMapReady(true);
   }).catch(e=>console.error('No se pudo cargar Leaflet',e));
   return()=>{disposed=true;map.current?.remove();map.current=null};
@@ -331,8 +331,8 @@ export default function Home(){
  // Como llegar: al siguiente objetivo o a cualquier marcador del mapa. La app no
  // sabe donde estas en tu partida: por defecto, la ultima zona de la historia
  // donde marcaste algo; se cambia en el panel o con "Estoy aqui".
- const [routeTo,setRouteTo]=useState<Marker|null>(null),[routeFrom,setRouteFromState]=useState<string|null>(null),[startAt,setStartAt]=useState<{zone:string;area:string;at:Pt}|null>(null),[picking,setPicking]=useState(false);
- useEffect(()=>{setRouteTo(null);setRouteFromState(null)},[game]);
+ const [routeTo,setRouteTo]=useState<Marker|null>(null);
+ useEffect(()=>setRouteTo(null),[game]);
  const lastZone=useMemo(()=>{
   if(!world)return '';
   const zones=new Set(world.markers.filter(m=>done.includes(m.uid)).map(m=>world.checklist.markers[m.id]?.zone));
@@ -341,18 +341,24 @@ export default function Home(){
  // Donde estas, si no lo dices: en la casilla de lo ultimo que marcaste (en orden
  // de historia; los salvajes no cuentan, marcarlos los marca en todas partes), o
  // en tu cuarto si la partida empieza.
+ // Donde estas: en la casilla de lo ultimo que marcaste (guardado al marcarlo);
+ // si lo desmarcas, el ultimo objetivo hecho de la lista; al empezar, tu cuarto.
+ const [lastTicked,setLastTicked]=useState<string|null>(null);
+ useEffect(()=>{try{setLastTicked(localStorage.getItem(`${game.storage.done}-last`))}catch{setLastTicked(null)}},[game]);
  const lastSpot=useMemo(()=>{
   if(!world||!navWorld)return null;
-  let last:Marker|null=null;
-  for(const m of storyOrder(world.markers,world.checklist))if(m.category!=='Pokémon'&&m.area&&m.at&&done.includes(m.uid))last=m;
-  const x=last?targetAt(navWorld,last.area!,last.at!,false):null;
+  const byId=new Map(world.markers.map(m=>[m.id,m]));
+  let last=lastTicked?byId.get(lastTicked)??null:null;
+  if(last&&!done.includes(last.uid))last=null;
+  if(!last)for(const id of world.goals){const m=byId.get(id);if(m&&m.area&&m.at&&done.includes(m.uid))last=m}
+  const x=last?.area&&last.at?targetAt(navWorld,last.area,last.at,false):null;
   if(x)return {zone:navWorld.grids.get(x.map)!.m.zone,anchor:{map:x.map,x:x.x,y:x.y},room:false};
   const [m,sx,sy]=navWorld.nav.starts[0]??[];const g=m?navWorld.grids.get(m):undefined;
   return g?{zone:g.m.zone,anchor:{map:g.id,x:sx,y:sy},room:true}:null;
- },[world,navWorld,done]);
- const from=routeFrom??lastSpot?.zone??lastZone;
+ },[world,navWorld,done,lastTicked]);
+ // Se sale siempre del ultimo objetivo marcado (o de tu cuarto): de objetivo en objetivo.
+ const from=lastSpot?.zone??lastZone;
  // items null: no hay camino con lo que tienes (falta una MO o un paso de la historia).
- const pickRef=useRef<((p:Pt)=>void)|null>(null);
  const trip=useMemo(()=>{
   if(!routeTo||!navWorld||!world||!routeTo.area||!routeTo.at)return null;
   const [px,py]=routeTo.at;
@@ -363,17 +369,13 @@ export default function Home(){
   // Ancla: el centro de la zona de salida en el mapa de la region, si lo tiene.
   const spot=world.places.find(p=>p.name===from&&p.at&&isRegion(p.area));
   const ag=spot&&[...navWorld.grids.values()].find(g=>g.m.area===spot.area&&g.m.zone===from&&spot.at![0]>=g.m.x*16&&spot.at![1]>=g.m.y*16&&spot.at![0]<(g.m.x+g.m.w)*16&&spot.at![1]<(g.m.y+g.m.h)*16);
-  // El punto que tocaste manda sobre el centro de la zona.
-  const tapped=startAt&&startAt.zone===from?[...navWorld.grids.values()].find(g=>g.m.area===startAt.area&&g.m.zone===from&&startAt.at[0]>=g.m.x*16&&startAt.at[1]>=g.m.y*16&&startAt.at[0]<(g.m.x+g.m.w)*16&&startAt.at[1]<(g.m.y+g.m.h)*16):undefined;
-  const anchor=tapped&&startAt?{map:tapped.id,x:Math.floor(startAt.at[0]/16)-tapped.m.x,y:Math.floor(startAt.at[1]/16)-tapped.m.y}
-   :routeFrom===null&&lastSpot?lastSpot.anchor
-   :spot&&ag?{map:ag.id,x:Math.floor(spot.at![0]/16)-ag.m.x,y:Math.floor(spot.at![1]/16)-ag.m.y}:undefined;
+  const anchor=lastSpot?lastSpot.anchor:spot&&ag?{map:ag.id,x:Math.floor(spot.at![0]/16)-ag.m.x,y:Math.floor(spot.at![1]/16)-ag.m.y}:undefined;
   const found=findRoute(navWorld,from,{map:g.id,x:Math.floor(px/16)-g.m.x,y:Math.floor(py/16)-g.m.y,far:PEOPLE.includes(routeTo.category)},movesYouHave(navWorld.nav,have),closed,anchor);
   // Los pasos en palabras se resumen (sin casetas ni pisos de paso); el dibujo
   // usa el camino entero, para que salga la linea tambien dentro de tu casa.
   const all=found?tripItems(legsOf(navWorld,found.path)):null;
   return {items:all?withoutGates(all,a=>!isRegion(a)):null,draw:all??[],partial:!!found?.partial};
- },[routeTo,navWorld,world,have,from,isRegion,startAt,routeFrom,lastSpot]);
+ },[routeTo,navWorld,world,have,from,isRegion,lastSpot]);
  const [tripOpen,setTripOpen]=useState(false);
  useEffect(()=>setTripOpen(false),[routeTo]);
  // Al marcar el destino, la ruta termina: la barra vuelve al siguiente objetivo.
@@ -388,14 +390,6 @@ export default function Home(){
  },[trip,routeTo,from]);
  useEffect(()=>{if(!routeTo)framed.current=''},[routeTo]);
  const stepTo=(item:TripItem)=>{setSelected(null);setStack(null);setView({area:item.area,focus:item.pts[Math.floor(item.pts.length/2)],zoom:-1})};
- // Elegir la zona en la lista olvida el punto tocado; tocar el mapa fija los dos.
- const setRouteFrom=(zone:string)=>{setRouteFromState(zone);setStartAt(null)};
- const gridAt=(areaId:string,p:Pt)=>navWorld?[...navWorld.grids.values()].find(g=>g.m.area===areaId&&p[0]>=g.m.x*16&&p[1]>=g.m.y*16&&p[0]<(g.m.x+g.m.w)*16&&p[1]<(g.m.y+g.m.h)*16):undefined;
- const imHere=()=>{setPicking(true);setSelected(null);setStack(null)};
- useEffect(()=>{
-  pickRef.current=picking&&area?(p:Pt)=>{const g=gridAt(area.id,p);if(!g)return;setPicking(false);setRouteFromState(g.m.zone);setStartAt({zone:g.m.zone,area:area.id,at:p});framed.current='';setToast(t('routePicked'))}:null;
- });
- useEffect(()=>{setPicking(false);setStartAt(null)},[routeTo]);
 
  // Los pines llaman a la version mas reciente de enter/exitTo sin redibujarse
  // en cada render (se recrean con cada render).
@@ -467,7 +461,7 @@ export default function Home(){
   box.classList.remove('pop-below');p.options.offset=L.point(0,-6);if(tip)tip.style.marginLeft='';p.update();
   // Por arriba, lo que tape el mapa: la barra de pisos o regiones y la del objetivo.
   const stage=m.getContainer().getBoundingClientRect();
-  const covers=[...document.querySelectorAll('.floorbar,.map-goal')].map(e=>e.getBoundingClientRect().bottom);
+  const covers=[...document.querySelectorAll('.floorbar,.map-top')].map(e=>e.getBoundingClientRect().bottom);
   const top=Math.max(stage.top,...covers)+8;
   let r=box.getBoundingClientRect();
   if(r.top<top){box.classList.add('pop-below');p.options.offset=L.point(0,r.height+42);p.update();r=box.getBoundingClientRect()}
@@ -480,7 +474,9 @@ export default function Home(){
  },[selected,stack,done,area,battle]);
  const toggleGroup=(name:string)=>setActive(a=>a.includes(name)?a.filter(x=>x!==name):[...a,name]);
  const saveDone=(update:(old:number[])=>number[])=>setDone(old=>{const n=update(old);try{localStorage.setItem(game.storage.done,JSON.stringify(n))}catch{}return n});
- const toggleDone=(uid:number)=>{
+ const toggleDone=(uid:number,id?:string)=>{
+  // Lo ultimo que marcas es donde estas: de ahi sale la siguiente ruta.
+  if(id&&!done.includes(uid)){setLastTicked(id);try{localStorage.setItem(`${game.storage.done}-last`,id)}catch{}}
   // Al marcar algo que otros piden, se avisa de lo que queda abierto.
   const m=world?.markers.find(x=>x.uid===uid);
   if(m&&!done.includes(uid)&&!have.has(m.name)){
@@ -547,7 +543,7 @@ export default function Home(){
  // no se puede marcar.
  const whyLocked=(m:Marker)=>done.includes(m.uid)?null:unavailable(m);
  const popTick=(m:Marker)=>{if(game.untracked.includes(m.category))return null;const why=whyLocked(m),on=done.includes(m.uid);
-  return <button className={`tick ${on?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid)}>{on?<Check/>:why?<Lock/>:null}</button>};
+  return <button className={`tick ${on?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid,m.id)}>{on?<Check/>:why?<Lock/>:null}</button>};
  const popWhy=(m:Marker)=>{const why=whyLocked(m);return why&&<p className="pop-why"><Lock/>{why}</p>};
  const obstacleHint=(m:Marker)=>{const mv=m.category==='Obstacle'?obstacleMove(m.name):null;if(!mv)return null;
   const f=FIELD_MOVES[mv],missing=f.needs.filter(n=>!have.has(n)),key=({cut:'moveCut',strength:'moveStrength',smash:'moveSmash'} as const)[mv as 'cut'];
@@ -578,21 +574,24 @@ export default function Home(){
      destino. Marcar, trazar o cerrar la ruta, y verlo; los pasos se despliegan
      debajo al tocar su linea. Al marcar el destino la ruta se cierra sola y la
      barra pasa al siguiente objetivo, listo para trazarlo. */}
+ {/* Barra del objetivo y, debajo, los pasos de la ruta: una sola pieza pegada arriba. */}
+ <div className="map-top">
  {world&&(routeTo??nextGoal)&&(subject=>{
   const blocked=unavailable(subject),steps=!trip?t('routeLoading'):!trip.items?t('routeNoneShort').split(' · ')[0]:t(trip.items.length+1===1?'routeStepsOne':'routeSteps',{n:trip.items.length+1}).split(' · ')[0];
   return <div className="map-goal"><Figure m={subject}/>
    {routeTo?<button className="map-goal-text" onClick={()=>setTripOpen(v=>!v)} aria-expanded={tripOpen}>
      <small className={trip&&!trip.items?'trip-none':''}>{t('routeHow')} · {steps}<ChevronDown/></small><b>{name(routeTo.name)}</b></button>
     :<span className="map-goal-text"><small>{t('goalTitle')}</small><b>{goalTitle(subject,world.markers,world.checklist,tr)}</b></span>}
-   <button className="map-goal-tick" disabled={!!blocked} title={blocked??t('goalMark')} aria-label={t('goalMark')} onClick={()=>toggleDone(subject.uid)}>{blocked?<Lock/>:<Check/>}</button>
+   <button className="map-goal-tick" disabled={!!blocked} title={blocked??t('goalMark')} aria-label={t('goalMark')} onClick={()=>toggleDone(subject.uid,subject.id)}>{blocked?<Lock/>:<Check/>}</button>
    {/* Interruptor de Como llegar: encendido dibuja la ruta; apagado la quita. */}
    <button className={`map-goal-go ${routeTo?'on':''}`} aria-pressed={!!routeTo} onClick={()=>routeTo?setRouteTo(null):startRoute(subject)} aria-label={t(routeTo?'routeClose':'routeHow')} title={t(routeTo?'routeClose':'routeHow')}><Footprints/></button>
    <button onClick={()=>reveal(subject,true)} aria-label={t('goalShow')} title={t('goalShow')}><MapPin/></button>
   </div>;
  })(routeTo??nextGoal!)}
- {routeTo&&world&&(tripOpen||picking)&&<RoutePanel target={name(routeTo.name)} from={from} fromRoom={routeFrom===null&&!startAt&&!!lastSpot?.room} zones={world.checklist.zones.map(z=>z.name)} onFrom={setRouteFrom} onHere={imHere} picking={picking} onCancelPick={()=>setPicking(false)}
+ {routeTo&&world&&tripOpen&&<RoutePanel target={name(routeTo.name)} fromRoom={!!lastSpot?.room}
   items={trip?.items??[]} partial={!!trip?.partial} status={!trip?'loading':trip.items?'ok':'none'} onStep={item=>{setTripOpen(false);stepTo(item)}}
   labelOf={it=>isRegion(it.area)?place(it.zone):place(areaById.get(it.area)?.label??it.zone)} isInterior={a=>!isRegion(a)} tr={tr}/>}
+ </div>
  {!world&&<div className="loading">{t('loadingGame',{game:game.short})}</div>}<div className="map-note">{t('mapNote')}</div></div>
  {locations&&world&&<div className="locations">{here&&<button className="leave-inline" onClick={()=>{leave();setLocations(false)}}><ArrowLeft/>{t('backToMap',{region:place(areaById.get(exitRegion??'')?.label??'')})}</button>}
   {regions.map((r,i)=><Fragment key={r.id}><h3>{place(r.label).toUpperCase()}</h3><button className={area?.id===r.id?'current':''} onClick={()=>showRegion(r.id)}><MapIcon/>{t('wholeMap')}</button>{world.places.filter(p=>p.area===r.id||(i===0&&!isRegion(p.area))).map(loc=><button key={loc.name} onClick={()=>go(loc)}><MapPin/>{place(loc.name)}</button>)}</Fragment>)}

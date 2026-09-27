@@ -24,7 +24,7 @@ const focusOf=(m:Marker):Focus[]=>m.category==='Story'?['story']:m.category==='B
 const FOCUS:[Focus,'filterAll'|'focusStory'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'][]=[
  ['all','filterAll'],['story','focusStory'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts']];
 
-export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,onRoute,unlock,onUnlockDismiss,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;onRoute:(m:Marker)=>void;unlock:Unlock|null;onUnlockDismiss:()=>void;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
+export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,onRoute,unlock,onUnlockDismiss,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;onRoute:(m:Marker)=>void;unlock:Unlock|null;onUnlockDismiss:()=>void;done:number[];toggleDone:(uid:number,id?:string)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
  const {t,category,place,name}=tr;
  const isDone=(m:Marker)=>done.includes(m.uid);
  // No disponible todavia (y sin marcar): sale en gris y no cuenta para la zona.
@@ -53,7 +53,7 @@ export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,o
  // equipo. `where`: el piso, cuando sale fuera de su grupo (lo no disponible).
  const row=(m:Marker,where?:string)=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id),why=blocked(m)?unavailable(m):null;return <div key={m.id} id={`row-${m.id}`} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''} ${why?'row-locked':''} ${m.category==='Story'?'row-story':''}`}>
   {/* No disponible: no se puede marcar hasta cumplir lo que pide. */}
-  <button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid)}>{isDone(m)?<Check/>:why?<Lock/>:null}</button>
+  <button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid,m.id)}>{isDone(m)?<Check/>:why?<Lock/>:null}</button>
   <Figure m={m}/>
   {/* Un entrenador muestra su equipo en una linea; tocandolo se despliega la
       ficha como en el mapa: cada Pokemon con su nivel, lo que da y con que atacarle. */}
