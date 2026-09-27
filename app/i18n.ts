@@ -323,6 +323,8 @@ const TEXT = {
  routeStart: ['Start in {place}', 'Sales de {place}'],
  routeRoom: ["Start in your room", "Empiezas en tu cuarto"],
  routeFly: ['Fly to {place}', 'Vuela a {place}'],
+ routeWalk: ['On foot', 'A pie'],
+ routeFlyMode: ['Fly', 'Vuelo'],
  routeEdge: ['Head {dir} to {place}', 'Ve al {dir}: {place}'],
  routeEnter: ['Go into {place}', 'Entra en {place}'],
  routeExit: ['Go out to {place}', 'Sal a {place}'],

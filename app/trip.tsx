@@ -3,6 +3,7 @@
 // (sal de, ve al norte, entra en, toma el barco) y que MO usar en cada tramo.
 import type {Key,T} from './i18n';
 import type {How,Leg} from './pathfind';
+import {Bird,Footprints} from 'lucide-react';
 
 // Un paso por lugar: los mapas seguidos de una misma zona y area se juntan.
 export type TripItem={area:string;zone:string;enter:How;side?:string;uses:How[];pts:[number,number][];acts:Leg['acts'];prev?:string};
@@ -48,8 +49,8 @@ const USE:Partial<Record<How,Key>>={surf:'moveSurf',cut:'moveCut',strength:'move
 // Los pasos de la ruta, desplegados debajo de la barra del objetivo, como parte
 // de ella. La ruta sale siempre del ultimo objetivo marcado (o de tu cuarto al
 // empezar): se va de objetivo en objetivo.
-export function RoutePanel({target,fromRoom,items,partial,status,onStep,labelOf,isInterior,tr}:{
- target:string;fromRoom:boolean;items:TripItem[];partial:boolean;status:'loading'|'none'|'ok';
+export function RoutePanel({target,fromRoom,fly,items,partial,status,onStep,labelOf,isInterior,tr}:{
+ target:string;fromRoom:boolean;fly:{on:boolean;set:(on:boolean)=>void}|null;items:TripItem[];partial:boolean;status:'loading'|'none'|'ok';
  onStep:(item:TripItem)=>void;labelOf:(item:TripItem)=>string;isInterior:(area:string)=>boolean;tr:T}){
  const {t}=tr;
  const say=(item:TripItem,i:number)=>{
@@ -65,6 +66,11 @@ export function RoutePanel({target,fromRoom,items,partial,status,onStep,labelOf,
  };
  return <section className="trip" aria-label={t('routeHow')}>
   <div className="trip-body">
+   {/* Con Vuelo: a pie (lo de siempre) o volando a un pueblo que ya visitaste. */}
+   {fly&&<div className="trip-mode">
+    <button className={fly.on?'':'on'} aria-pressed={!fly.on} onClick={()=>fly.set(false)}><Footprints/>{t('routeWalk')}</button>
+    <button className={fly.on?'on':''} aria-pressed={fly.on} onClick={()=>fly.set(true)}><Bird/>{t('routeFlyMode')}</button>
+   </div>}
    {status==='loading'&&<p className="trip-note">{t('routeLoading')}</p>}
    {status==='none'&&<p className="trip-note trip-none">{t('routeNone')}</p>}
    {status==='ok'&&<ol className="trip-steps">

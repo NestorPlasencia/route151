@@ -765,3 +765,8 @@ header .layers-button,.about-button{width:32px;height:32px}
 .door.next{border-color:#2d6df6;box-shadow:0 0 0 3px #fff,0 0 0 6px #2d6df6,0 3px 10px #000a;animation:door-next 1.4s ease-in-out infinite}
 .door.lift.next{background:#2d6df6;color:#fff}
 @keyframes door-next{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+/* A pie o volando: dos botones sobre los pasos. */
+.trip-mode{display:flex;gap:6px;margin:0 0 8px}
+.trip-mode button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:34px;border-radius:9px;border:1px solid #e3cf7a;background:#fff;color:var(--ink);font-size:12px;font-weight:bold;cursor:pointer}
+.trip-mode button svg{width:15px}
+.trip-mode button.on{background:var(--blue);border-color:var(--blue);color:#fff}

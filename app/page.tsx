@@ -383,6 +383,9 @@ export default function Home(){
    return w?[{map:g.id,x:w[0],y:w[1]+1}]:[];
   });
  },[navWorld,world,have,done]);
+ // Volar es una alternativa: cada ruta nueva empieza a pie.
+ const [flyOn,setFlyOn]=useState(false);
+ useEffect(()=>setFlyOn(false),[routeTo]);
  const trip=useMemo(()=>{
   if(!routeTo||!navWorld||!world||!routeTo.area||!routeTo.at)return null;
   const [px,py]=routeTo.at;
@@ -394,12 +397,17 @@ export default function Home(){
   const spot=world.places.find(p=>p.name===from&&p.at&&isRegion(p.area));
   const ag=spot&&[...navWorld.grids.values()].find(g=>g.m.area===spot.area&&g.m.zone===from&&spot.at![0]>=g.m.x*16&&spot.at![1]>=g.m.y*16&&spot.at![0]<(g.m.x+g.m.w)*16&&spot.at![1]<(g.m.y+g.m.h)*16);
   const anchor=lastSpot?lastSpot.anchor:spot&&ag?{map:ag.id,x:Math.floor(spot.at![0]/16)-ag.m.x,y:Math.floor(spot.at![1]/16)-ag.m.y}:undefined;
-  const found=findRoute(navWorld,from,{map:g.id,x:Math.floor(px/16)-g.m.x,y:Math.floor(py/16)-g.m.y,far:PEOPLE.includes(routeTo.category)},movesYouHave(navWorld.nav,have),closed,anchor,flySpots);
+  // A pie (con Surf si hace falta) por defecto; volando, solo si lo eliges y si
+  // de verdad empieza con un vuelo.
+  const target={map:g.id,x:Math.floor(px/16)-g.m.x,y:Math.floor(py/16)-g.m.y,far:PEOPLE.includes(routeTo.category)},moves=movesYouHave(navWorld.nav,have);
+  const walk=findRoute(navWorld,from,target,moves,closed,anchor);
+  const flown=flySpots.length?findRoute(navWorld,from,target,moves,closed,anchor,flySpots):null;
+  const canFly=flown?.path[0]?.how==='fly',flying=flyOn&&canFly,found=flying?flown:walk;
   // Los pasos en palabras se resumen (sin casetas ni pisos de paso); el dibujo
   // usa el camino entero, para que salga la linea tambien dentro de tu casa.
   const all=found?tripItems(legsOf(navWorld,found.path)):null;
-  return {items:all?withoutGates(all,a=>!isRegion(a),a=>{const l=areaById.get(a)?.label??'';return FLOOR_RE.test(l)?l.replace(FLOOR_RE,''):null}):null,draw:all??[],partial:!!found?.partial};
- },[routeTo,navWorld,world,have,from,isRegion,lastSpot,areaById,flySpots]);
+  return {items:all?withoutGates(all,a=>!isRegion(a),a=>{const l=areaById.get(a)?.label??'';return FLOOR_RE.test(l)?l.replace(FLOOR_RE,''):null}):null,draw:all??[],partial:!!found?.partial,canFly,flying};
+ },[routeTo,navWorld,world,have,from,isRegion,lastSpot,areaById,flySpots,flyOn]);
  const [tripOpen,setTripOpen]=useState(false);
  useEffect(()=>setTripOpen(false),[routeTo]);
  // Al marcar el destino, la ruta termina: la barra vuelve al siguiente objetivo.
@@ -413,7 +421,8 @@ export default function Home(){
  const framed=useRef('');
  useEffect(()=>{
   const first=trip?.items?.[0];if(!routeTo||!first)return;
-  if(framed.current===routeTo.id)return;framed.current=routeTo.id;
+  // Tambien al cambiar entre a pie y volando: el camino empieza en otro sitio.
+  const k=`${routeTo.id}|${trip?.flying?'fly':'walk'}`;if(framed.current===k)return;framed.current=k;
   setView({area:first.area,focus:first.pts[0],zoom:keepZoom(first.area)});setArrival(null);
  },[trip,routeTo,keepZoom]);
  useEffect(()=>{if(!routeTo)framed.current=''},[routeTo]);
@@ -635,7 +644,7 @@ export default function Home(){
    <button onClick={()=>reveal(subject,true)} aria-label={t('goalShow')} title={t('goalShow')}><MapPin/></button>
   </div>;
  })(routeTo??nextGoal!)}
- {routeTo&&world&&tripOpen&&<RoutePanel target={name(routeTo.name)} fromRoom={!!lastSpot?.room}
+ {routeTo&&world&&tripOpen&&<RoutePanel target={name(routeTo.name)} fromRoom={!!lastSpot?.room} fly={trip?.canFly?{on:trip.flying,set:setFlyOn}:null}
   items={trip?.items??[]} partial={!!trip?.partial} status={!trip?'loading':trip.items?'ok':'none'} onStep={item=>{setTripOpen(false);stepTo(item)}}
   labelOf={it=>isRegion(it.area)?place(it.zone):place(areaById.get(it.area)?.label??it.zone)} isInterior={a=>!isRegion(a)} tr={tr}/>}
  </div>
