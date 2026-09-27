@@ -2,7 +2,8 @@
 // Pestanas de lista: la checklist por zonas (en orden de juego) y la Pokedex.
 import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
 import {Check,ChevronDown,Lock,MapPin,Search} from 'lucide-react';
-import {Figure,checkOrder,type Marker} from './shared';
+import {Figure,checkOrder,type Gate,type Marker} from './shared';
+import {LEADER,NextGoal} from './guide';
 import type {T} from './i18n';
 import {BattleAdvice,trainerOpponents,type Battle} from './team';
 
@@ -17,14 +18,13 @@ function Progress({done,total}:{done:number;total:number}){const pct=total?Math.
 // Filtros de la checklist por lo que se busca, no por categoria interna: los
 // lideres (gimnasios, Alto Mando y Campeon) aparte del resto de entrenadores.
 type Focus='all'|'leaders'|'trainers'|'items'|'pokemon'|'gifts';
-const LEADER=/^(Leader|Elite Four|Champion)\b/;
 const focusOf=(m:Marker):Focus[]=>m.category==='Battle'?[LEADER.test(m.name)?'leaders':'trainers']
  :['Item In Map','Hidden Item'].includes(m.category)?['items']:m.category==='Pokémon'?['pokemon']
  :m.category==='Item Gift'?['items','gifts']:['pokemon','gifts'];
 const FOCUS:[Focus,'filterAll'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'][]=[
  ['all','filterAll'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts']];
 
-export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
+export function ChecklistView({markers,checklist,gates,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
  const {t,category,place,name}=tr;
  const isDone=(m:Marker)=>done.includes(m.uid);
  // No disponible todavia (y sin marcar): sale en gris y no cuenta para la zona.
@@ -49,6 +49,10 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
  const keep=(m:Marker)=>!(hideUnavailable&&blocked(m))&&(focus==='all'||focusOf(m).includes(focus))&&(!hideDone||!isDone(m))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
  const total=markers.length,completed=markers.filter(isDone).length;
  const toggle=(z:string)=>setOpen(o=>o.includes(z)?o.filter(x=>x!==z):[...o,z]);
+ // Del siguiente objetivo a su fila: se abre su zona, sin filtros que la escondan.
+ const goToRow=(m:Marker)=>{const z=checklist.markers[m.id]?.zone;if(!z)return;
+  setQuery('');setFocus('all');setHideDone(false);setOpen(o=>o.includes(z)?o:[...o,z]);
+  setTimeout(()=>{const row=document.getElementById(`row-${m.id}`);row?.scrollIntoView({block:'center'});row?.classList.add('row-flash');setTimeout(()=>row?.classList.remove('row-flash'),1600)},60)};
  return <div className="listview">
   <div className="list-head">
    <div className="list-title"><h2>{t('tabChecklist')}</h2><Progress done={completed} total={total}/></div>
@@ -60,6 +64,7 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
    </div>
   </div>
   <div className="list-body">
+   {!q&&focus==='all'&&<NextGoal markers={markers} checklist={checklist} gates={gates} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} tr={tr}/>}
    {checklist.parts.map(part=>{
     const zones=checklist.zones.filter(z=>z.part===part.n&&byZone.has(z.name));
     const all=zones.flatMap(z=>[...byZone.get(z.name)!.values()].flat());
@@ -86,7 +91,7 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
         [...items.reduce((c,m)=>{const why=blocked(m)&&unavailable(m);return why?c.set(why,(c.get(why)??0)+1):c},new Map<string,number>())])}
        {expanded&&order.map(f=>{const rows=checkOrder(floors.get(f)!.filter(keep),blocked);if(!rows.length)return null;return <div key={f||'_'} className="floor">
         {f&&<h4>{place(f.startsWith(z.name+' ')?f.slice(z.name.length+1):f)}</h4>}
-        {rows.map(m=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id),why=blocked(m)?unavailable(m):null;return <div key={m.id} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''} ${why?'row-locked':''}`}>
+        {rows.map(m=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id),why=blocked(m)?unavailable(m):null;return <div key={m.id} id={`row-${m.id}`} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''} ${why?'row-locked':''}`}>
          {/* No disponible: no se puede marcar hasta cumplir lo que pide. */}
          <button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid)}>{isDone(m)?<Check/>:why?<Lock/>:null}</button>
          <Figure m={m}/>

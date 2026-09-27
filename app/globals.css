@@ -105,6 +105,45 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .row-why{display:block;color:#8a5a08!important;white-space:normal!important}
 .zone-lockbadge{display:flex;align-items:center;gap:5px;font-size:11px;color:#8a5a08;font-weight:normal}
 .zone-lockbadge svg{width:13px}
+/* Siguiente objetivo, arriba de la checklist: que hacer ahora y, si es un
+   lider, como prepararse. */
+.goal{margin:0 0 14px;padding:12px 14px;border-radius:12px;background:#fff8d6;border:1px solid #f1d977}
+.goal>svg{width:18px;flex:none}
+.goal-done{display:flex;gap:9px;align-items:center;background:#e8f8ef;border-color:#9fdcb8;color:#1d6b41}
+.goal-done p{margin:0;font-size:13px}
+.goal-kicker{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;color:#8a6a08}
+.goal-kicker svg{width:13px}
+.goal-main{display:flex;align-items:center;gap:10px;margin:8px 0 4px}
+.goal-main b{display:block;font-size:15px}
+.goal-main small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.goal-why{display:flex;gap:6px;align-items:flex-start;margin:6px 0 0;font-size:12px;color:#5c4a12;line-height:1.35}
+.goal-why svg{width:13px;flex:none;margin-top:1px}
+.goal-blocked{color:#8a5a08}
+.goal-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.goal-actions button{display:flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:9px;border:1px solid #e3cf7a;background:#fff;color:var(--ink);font-size:12px;cursor:pointer}
+.goal-actions svg{width:14px}
+.prep{margin-top:12px;border-top:1px solid #efdc8f;padding-top:8px}
+.prep-head{width:100%;display:flex;align-items:center;gap:8px;border:0;background:none;padding:4px 0;cursor:pointer;color:var(--ink);text-align:left}
+.prep-head b{font-size:13px}
+.prep-head span{flex:1;min-width:0;font-size:11px;color:var(--muted)}
+.prep-head svg{width:15px;transition:.15s}
+.prep-head[aria-expanded=true] svg{transform:rotate(180deg)}
+.prep-body p{margin:6px 0;font-size:12px;line-height:1.4}
+.prep-sub{font-weight:bold}
+.prep-note{color:var(--muted)}
+.prep-warn{color:#a3470d;font-weight:bold}
+.prep-ok{color:#1d7a47}
+.prep-catch{list-style:none;margin:4px 0;padding:0;display:grid;gap:6px}
+.prep-catch li{display:flex;align-items:center;gap:8px;background:#fff;border-radius:9px;padding:5px 8px}
+.prep-catch li span{flex:1;min-width:0}
+.prep-catch b{display:block;font-size:13px}
+.prep-catch small{display:block;font-size:11px;color:var(--muted)}
+.prep-catch button{width:32px;height:32px;border:0;border-radius:8px;background:#eef3fb;color:var(--blue);display:grid;place-items:center;cursor:pointer}
+.prep-catch button svg{width:15px}
+.prep .battle-advice{background:#fff;border-radius:9px;padding:4px 6px}
+/* Fila a la que lleva el siguiente objetivo: un destello para encontrarla. */
+.row-flash{animation:row-flash 1.6s ease}
+@keyframes row-flash{0%,40%{background:#fff3b0}100%{background:transparent}}
 /* En el mapa: pin gris con candado si lo que falta aun no se puede hacer, y en
    la ficha la casilla bloqueada con el motivo. */
 .pin.pin-locked{background:#b9c3d1;color:#4b566a}

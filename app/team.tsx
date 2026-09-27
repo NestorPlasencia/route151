@@ -289,7 +289,7 @@ export const trainingBand=(score:number)=>score>=85?'train5':score>=70?'train4':
 export type MoveAdvice={kind:'replace'|'keep'|'manual';old:string|null;delta:number};
 
 export type Opponent={name:string;level:number};
-const opponentName=(value:string)=>value.toLowerCase().replace(/♀/g,'f').replace(/♂/g,'m').replace(/[^a-z0-9]/g,'');
+export const opponentName=(value:string)=>value.toLowerCase().replace(/♀/g,'f').replace(/♂/g,'m').replace(/[^a-z0-9]/g,'');
 // Los equipos de entrenadores llegan como texto del mapa: "Clefairy Lv14, ...".
 // Se transforma aquí para que el mapa y la ficha usen la misma fórmula de daño.
 export const trainerOpponents=(detail?:string|null):Opponent[]=>(detail??'').split(', ').flatMap(part=>{
@@ -329,13 +329,19 @@ export function effortText(battle:Battle,ns:number[],tr:T,total=false){
 // Recomendación junto a un entrenador o encuentro: solo mira el equipo activo.
 // Sin equipo sigue enseñando a los rivales (figurita, nivel y lo que dan), que es
 // lo que sirve para prepararse; la flecha y el ataque aparecen al tener equipo.
-export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=true,inline=false,foeDetail,foeLevel}:{opponents:Opponent[];dex:Dex;battle:Battle|null;storageKey:string;tr:T;showOpponent?:boolean;inline?:boolean;foeDetail?:string|null;foeLevel?:string|null}){
+// El equipo guardado, al dia: se vuelve a leer cuando la pestana Equipo lo cambia.
+export function useSavedTeam(storageKey:string){
  const [team,setTeam]=useState<TeamMon[]>([]);
  useEffect(()=>{
   const load=()=>{try{const saved=JSON.parse(localStorage.getItem(storageKey)||'[]');setTeam(Array.isArray(saved)?saved:[])}catch{setTeam([])}};
   const changed=(event:Event)=>{if((event as CustomEvent<string>).detail===storageKey)load()};
   load();addEventListener('route151-team-changed',changed);return()=>removeEventListener('route151-team-changed',changed);
  },[storageKey]);
+ return team;
+}
+
+export function BattleAdvice({opponents,dex,battle,storageKey,tr,showOpponent=true,inline=false,foeDetail,foeLevel}:{opponents:Opponent[];dex:Dex;battle:Battle|null;storageKey:string;tr:T;showOpponent?:boolean;inline?:boolean;foeDetail?:string|null;foeLevel?:string|null}){
+ const team=useSavedTeam(storageKey);
  const rows=useMemo(()=>{
   if(!battle)return [];
   const byName=new Map(dex.species.map(s=>[opponentName(s.name),s]));
