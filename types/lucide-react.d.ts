@@ -14,6 +14,7 @@ declare module 'lucide-react' {
   export const LockOpen: Icon;
   export const Flag: Icon;
   export const RefreshCw: Icon;
+  export const RotateCcw: Icon;
   export const ChevronUp: Icon;
   export const ArrowDown: Icon;
   export const ArrowLeft: Icon;

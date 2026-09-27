@@ -318,6 +318,8 @@ const TEXT = {
  tourNext: ["Next", "Siguiente"],
  tourStart: ["Start playing", "Empezar"],
  tourAgain: ["See the welcome again", "Ver la bienvenida otra vez"],
+ resetGame: ["Start {game} over", "Empezar {game} de cero"],
+ resetConfirm: ["This deletes every check, the Pokédex and the team saved for {game} on this device. If you may want them back, save a copy first. Continue?", "Se borran todos los checks, la Pokédex y el equipo de {game} en este dispositivo. Si quieres poder recuperarlos, guarda antes una copia. ¿Continuar?"],
  routeStart: ['Start in {place}', 'Sales de {place}'],
  routeRoom: ["Start in your room", "Empiezas en tu cuarto"],
  routeEdge: ['Head {dir} to {place}', 'Ve al {dir}: {place}'],

@@ -251,6 +251,8 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .tour-actions .tour-next{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:bold;min-width:120px}
 .tour-actions .tour-skip{border:0;color:var(--muted)}
 .tour-again{display:block;width:100%;margin:0 0 16px;height:36px;border-radius:9px;border:1px solid var(--line);background:#fff;font-size:12px;cursor:pointer;color:var(--blue)}
+.tour-again.reset-game{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:-8px;color:#c0392b;border-color:#f0c9c4}
+.tour-again.reset-game svg{width:14px}
 .floor-locked h4{display:flex;align-items:center;gap:6px;color:#8a5a08!important}
 .floor-locked h4 svg{width:13px}
 .door.locked{background:#b9c3d1;border-color:#6b7890;background-image:none;position:relative}
@@ -739,3 +741,20 @@ button.brand{border:0;background:none;color:inherit;padding:0;cursor:pointer;tex
  .compare-list li{grid-template-columns:auto minmax(0,1fr);align-items:start}
  .compare-list>li>span{grid-column:2}
 }
+/* Cabecera en telefonos estrechos (o con la letra grande): nada se encoge por
+   debajo de su icono ni se monta sobre el de al lado. */
+header .location-button{min-width:38px;overflow:hidden}
+header .layers-button{flex:none}
+@media (max-width:400px){
+header{gap:5px;padding:0 8px}
+.map-controls{flex:0 0 auto;gap:4px}
+header .location-button{width:34px;min-width:34px;height:34px;padding:0;justify-content:center}
+header .location-button>span,header .location-button svg:last-child{display:none}
+header .layers-button,.about-button{width:32px;height:32px}
+.game-select select{padding:0 20px 0 7px;font-size:11px}
+.lang-select select{padding:0 16px 0 6px}
+.game-select svg{right:5px;width:12px}
+}
+/* Flecha blanca sobre la linea del camino: hacia donde se va. */
+.route-arrow{display:block;position:relative;width:12px;height:12px}
+.route-arrow::before{content:'';position:absolute;left:1px;top:2px;width:6px;height:6px;border:solid #fff;border-width:2.5px 2.5px 0 0;transform:rotate(45deg)}

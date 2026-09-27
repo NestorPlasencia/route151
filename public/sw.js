@@ -1,6 +1,6 @@
 // Service worker de Route 151: permite instalar la app y usarla sin conexion.
 // Sube VERSION cuando cambie la estrategia de cache para descartar la anterior.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const SHELL = `route151-shell-${VERSION}`;
 const ASSETS = `route151-assets-${VERSION}`;
 const DATA = `route151-data-${VERSION}`;

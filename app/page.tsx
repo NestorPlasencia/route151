@@ -2,7 +2,7 @@
 import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
-import {ArrowLeft,BookOpen,Check,RefreshCw,ChevronDown,DoorOpen,Footprints,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,Sparkles,Swords,X} from 'lucide-react';
+import {ArrowLeft,BookOpen,Check,RefreshCw,RotateCcw,ChevronDown,DoorOpen,Footprints,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,Sparkles,Swords,X} from 'lucide-react';
 import {Credits,FIELD_MOVES,Figure,checkOrder,choicesTaken,colorOf,groupsOf,haveNames,missingTool,obstacleMove,unmetGate,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
@@ -196,6 +196,13 @@ export default function Home(){
  const reasons=useMemo(()=>new Map((world?.markers??[]).map(m=>[m.id,reasonWith(m,have)])),[world,reasonWith,have]);
  const unavailable=useCallback((m:Marker)=>reasons.get(m.id)??null,[reasons]);
  // Hecho, o descartado por otra eleccion (el inicial que no elegiste).
+ // Empezar el juego de cero: se borra lo suyo (checks, Pokedex, equipo, lo ultimo
+ // marcado) y se recarga. Los otros juegos, el idioma y la copia se quedan.
+ const resetGame=()=>{
+  if(!confirm(t('resetConfirm',{game:game.title})))return;
+  try{const base=game.storage.done;for(const k of Object.keys(localStorage))if(k===base||k.startsWith(`${base}-`))localStorage.removeItem(k)}catch{}
+  location.reload();
+ };
  const settled=useCallback((m:Marker)=>done.includes(m.uid)||taken.has(m.id),[done,taken]);
  // El siguiente objetivo, el mismo que en la checklist: sale arriba del mapa.
  const nextGoal=useMemo(()=>world?nextGoalOf(world.markers.filter(m=>world.checklist.markers[m.id]),world.goals,settled):null,[world,settled]);
@@ -411,6 +418,14 @@ export default function Home(){
     const pts=seg.map(ll);
     L.polyline(pts,{color:'#fff',weight:10,opacity:.95,interactive:false,lineCap:'round',lineJoin:'round'}).addTo(g);
     L.polyline(pts,{color:'#2d6df6',weight:5,opacity:1,interactive:false,lineCap:'round',lineJoin:'round'}).addTo(g);
+    // Flechas sobre la linea cada tres casillas: hacia donde se camina.
+    let run=24;
+    for(let j=1;j<seg.length;j++){
+     const [ax,ay]=seg[j-1],[bx,by]=seg[j],len=Math.hypot(bx-ax,by-ay);
+     for(;run<=len;run+=48){const f=run/len,deg=Math.atan2(by-ay,bx-ax)*180/Math.PI;
+      L.marker(ll([ax+(bx-ax)*f,ay+(by-ay)*f]),{icon:L.divIcon({className:'pin-wrap',html:`<span class="route-arrow" style="transform:rotate(${deg}deg)"></span>`,iconSize:[12,12],iconAnchor:[6,6]}),interactive:false,zIndexOffset:-100}).addTo(g)}
+     run-=len;
+    }
    }
   });
   // El siguiente objetivo, con una bandera sobre su pin.
@@ -613,7 +628,7 @@ export default function Home(){
  })()}
  {tab==='team'&&(world?<TeamView dex={world.dex} battle={battle} moveText={moveTextSrc?moveText:null} storageKey={`${game.storage.done}-team`} suggestedLevel={suggestedLevel} tr={tr}/>:<div className="listview loading-list">{t('loadingTeam')}</div>)}
  {tour&&!home&&<Tour onClose={closeTour} tr={tr}/>}
- {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label={t('credits')}><button className="close" onClick={()=>setAbout(false)} aria-label={t('close')}><X/></button><BackupBox tr={tr}/><button className="tour-again" onClick={()=>{setAbout(false);setTour(true)}}>{t('tourAgain')}</button><small>{t('about')}</small><h2>{t('credits')}</h2><Credits game={game.id} tr={tr}/></dialog></div>}
+ {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label={t('credits')}><button className="close" onClick={()=>setAbout(false)} aria-label={t('close')}><X/></button><BackupBox tr={tr}/><button className="tour-again" onClick={()=>{setAbout(false);setTour(true)}}>{t('tourAgain')}</button><button className="tour-again reset-game" onClick={()=>resetGame()}><RotateCcw/>{t('resetGame',{game:game.title})}</button><small>{t('about')}</small><h2>{t('credits')}</h2><Credits game={game.id} tr={tr}/></dialog></div>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>
  {home&&<GameHome current={game.id} last={last} lang={lang} onLang={pickLang} onPick={choose} tr={tr}/>}
  </main>

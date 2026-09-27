@@ -26,6 +26,12 @@ export async function refreshApp(){
   const reg=await navigator.serviceWorker?.getRegistration();await reg?.update();
   const keys=await caches.keys();
   await Promise.all(keys.filter(k=>k.startsWith('route151-data-')||k.startsWith('route151-shell-')).map(k=>caches.delete(k)));
+  // El codigo y los estilos de la app tambien: una copia vieja dejaba la barra
+  // del objetivo sin sus estilos nuevos. Los sprites (otro origen) se quedan.
+  for(const k of keys.filter(k=>k.startsWith('route151-assets-'))){
+   const c=await caches.open(k);
+   await Promise.all((await c.keys()).filter(r=>new URL(r.url).pathname.startsWith('/_next/')).map(r=>c.delete(r)));
+  }
  }catch(e){console.error('No se pudo limpiar la cache',e)}
  location.reload();
 }
