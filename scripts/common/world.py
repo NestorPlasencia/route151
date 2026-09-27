@@ -105,13 +105,20 @@ class World:
 
     def merged_warps(self):
         """Las puertas anchas son varias casillas de warp: se unen en una."""
-        merged, t = [], self.tile
+        # Se junta con cualquier casilla del grupo, no solo la primera: la salida
+        # sur del Bosque Verde son cuatro casillas seguidas. Si son mas de dos en
+        # fila, la puerta va en la del medio.
+        groups, t = [], self.tile
         for w in self.warps:
-            near = next((o for o in merged if o['area'] == w['area'] and o['to'] == w['to']
-                         and abs(o['at'][0] - w['at'][0]) <= 2 * t and abs(o['at'][1] - w['at'][1]) <= t), None)
-            if not near:
-                merged.append(w)
-        return merged
+            near = next((g for g in groups if g[0]['area'] == w['area'] and g[0]['to'] == w['to']
+                         and any(abs(o['at'][0] - w['at'][0]) <= 2 * t and abs(o['at'][1] - w['at'][1]) <= t for o in g)), None)
+            if near:
+                near.append(w)
+            else:
+                groups.append([w])
+        def line(g):
+            return len(g) > 2 and (len({o['at'][1] for o in g}) == 1 or len({o['at'][0] for o in g}) == 1)
+        return [{**g[0], 'at': sorted(o['at'] for o in g)[len(g) // 2]} if line(g) else g[0] for g in groups]
 
     def encounter(self, version, zone, n, name, sprite, location, chance, lo, hi, method):
         """Una fila de la tabla de encuentros de la zona (el panel "ir a")."""
