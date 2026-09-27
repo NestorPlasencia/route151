@@ -172,3 +172,57 @@ export function legsOf(w:World,path:Step[]):Leg[]{
  }
  return legs;
 }
+
+// Barrido de lo que se alcanza: las casillas que pisas desde el inicio del juego
+// con tus MO y sin entrar en lo que la historia aun no abre. Asi un bloqueo se
+// propaga solo: con la Ruta 3 cerrada, el Monte Moon y lo que hay detras tambien.
+export const tileId=(gi:number,x:number,y:number)=>(gi*256+y)*256+x;
+const homeKeys=(w:World)=>w.nav.starts.flatMap(([m,x,y])=>{const g=w.grids.get(m);return g?[key(g.i,x,y,g.elev?g.elev[y*g.m.w+x]:0,false)]:[]});
+export function reachTiles(w:World,can:Set<string>,closed:(map:string)=>boolean){
+ const tiles=new Set<number>();
+ for(const k of explore(w,homeKeys(w),can,closed).order){const u=unkey(k);tiles.add(tileId(u.gi,u.x,u.y))}
+ return tiles;
+}
+// Casilla de un marcador desde su punto en la app (area y pixeles).
+export function targetAt(w:World,area:string,at:[number,number],far:boolean):Target|null{
+ for(const g of w.list)if(g.m.area===area&&at[0]>=g.m.x*16&&at[1]>=g.m.y*16&&at[0]<(g.m.x+g.m.w)*16&&at[1]<(g.m.y+g.m.h)*16)
+  return {map:g.id,x:Math.floor(at[0]/16)-g.m.x,y:Math.floor(at[1]/16)-g.m.y,far};
+ return null;
+}
+export function reached(w:World,tiles:Set<number>,t:Target){
+ const g=w.grids.get(t.map);if(!g)return true;
+ for(const [dx,dy] of [[0,0],...STEPS])if(tiles.has(tileId(g.i,t.x+dx,t.y+dy)))return true;
+ if(t.far)for(const [dx,dy] of STEPS)if(tiles.has(tileId(g.i,t.x+2*dx,t.y+2*dy)))return true;
+ return false;
+}
+// Arbol de caminos con todo abierto (todas las MO, ninguna zona cerrada): de
+// cada casilla, por donde se llega. Sirve para decir que falta en el camino a
+// algo que no alcanzas: el primer paso cerrado o que pide una MO que no tienes.
+export type Tree={parent:Map<number,number>;how:Map<number,How>;best:Map<number,number>};
+export function openTree(w:World):Tree{
+ const s=explore(w,homeKeys(w),new Set(Object.keys(w.nav.moves)),()=>false);
+ const best=new Map<number,number>();
+ for(const k of s.order){const u=unkey(k),id=tileId(u.gi,u.x,u.y);if(!best.has(id))best.set(id,k)}
+ return {parent:s.parent,how:s.how,best};
+}
+export type Blocker={map:string}|{move:string}|null;
+export function blockerOf(w:World,tree:Tree,t:Target,can:Set<string>,closed:(map:string)=>boolean):Blocker{
+ const g=w.grids.get(t.map);if(!g)return null;
+ const around:[number,number][]=[[0,0],...STEPS,...(t.far?STEPS.map(([dx,dy])=>[2*dx,2*dy] as [number,number]):[])];
+ // La casilla o una de al lado; si no (un pin sobre un muro de la cueva), la
+ // primera casilla alcanzada de su mapa.
+ let end=around.map(([dx,dy])=>tree.best.get(tileId(g.i,t.x+dx,t.y+dy))).find(k=>k!==undefined);
+ if(end===undefined)for(const [id,k] of tree.best)if(Math.floor(id/65536)===g.i){end=k;break}
+ // Un piso al que solo lleva un script (el ascensor de la guarida): lo que pide
+ // llegar a su zona.
+ if(end===undefined)for(const [id,k] of tree.best)if(w.list[Math.floor(id/65536)].m.zone===g.m.zone){end=k;break}
+ if(end===undefined)return null;
+ const path:number[]=[];for(let k=end;k!==-1;k=tree.parent.get(k)!)path.push(k);
+ for(const k of path.reverse()){
+  const h=tree.how.get(k)!,m=w.list[unkey(k).gi].id;
+  if(closed(m))return {map:m};
+  const move=h==='land'?null:h==='jump'?null:h==='walk'||h==='door'||h==='edge'||h==='ferry'?null:h;
+  if(move&&!can.has(move))return {move};
+ }
+ return null;
+}

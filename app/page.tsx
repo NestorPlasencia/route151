@@ -10,7 +10,7 @@ import {RankingView} from './ranking';
 import {GameHome} from './home';
 import {BattleAdvice,TeamView,effortText,trainerOpponents,type Battle,type Opponent} from './team';
 import {GAMES,METHODS,battleUrl,loadGame,moveTextUrl,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
-import {findRoute,legsOf,movesYouHave,prepare,type Nav,type World as RouteWorld} from './pathfind';
+import {blockerOf,findRoute,legsOf,movesYouHave,openTree,prepare,reachTiles,reached,targetAt,type Nav,type Target,type World as RouteWorld} from './pathfind';
 import {RoutePanel,tripItems,withoutGates,type TripItem} from './trip';
 import {BackupBox} from './backup';
 import {LearnView} from './learn';
@@ -26,6 +26,7 @@ const shortLabels=(list:Area[])=>{const words=list.map(f=>f.label.split(' '));le
 const GAME_KEY='ruta151-game';
 // A la gente se le habla tambien por encima de un mostrador (a dos casillas).
 const PEOPLE=['Item Gift','In-Game Trade','Battle','In-Game Gift Pokémon','Shop'];
+const MOVE_KEY:Record<string,'moveSurf'|'moveCut'|'moveStrength'|'moveSmash'|'moveWaterfall'>={surf:'moveSurf',cut:'moveCut',strength:'moveStrength',smash:'moveSmash',waterfall:'moveWaterfall'};
 // Candado de lucide para los pines bloqueados: el pin es HTML de Leaflet, no React.
 const LOCK_SVG='<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
@@ -117,13 +118,70 @@ export default function Home(){
  // Lo que ya elegiste en su lugar (otro inicial, el otro fosil): solo por intercambio.
  const taken=useMemo(()=>{const byId=new Map((world?.markers??[]).map(m=>[m.id,m]));
   return choicesTaken(world?.choices??[],id=>{const m=byId.get(id);return !!m&&done.includes(m.uid)})},[world,done]);
+ // La rejilla de los mapas (nav.json): para las rutas y para saber a que llegas.
+ const [navData,setNavData]=useState<{url:string;w:RouteWorld}|null>(null);
+ const navUrl=`${game.data}/nav.json`,navWorld=navData?.url===navUrl?navData.w:null;
+ useEffect(()=>{if(!world||navWorld)return;let live=true;
+  fetch(navUrl).then(r=>r.json()).then((n:Nav)=>{if(live)setNavData({url:navUrl,w:prepare(n)})}).catch(e=>console.error('No se pudo cargar la rejilla de rutas',e));
+  return()=>{live=false};
+ },[world,navWorld,navUrl]);
+ // Zonas y mapas que la historia aun no abre con lo que tienes (guardias, Snorlax...).
+ const storyLeft=useCallback((owned:Set<string>)=>(world?.gates??[]).filter(x=>!x.id.startsWith('hm-')&&x.needs.some(n=>!owned.has(n))),[world]);
+ const closedBy=useCallback((owned:Set<string>)=>{const story=storyLeft(owned);
+  return (map:string)=>{const z=navWorld?.grids.get(map)?.m.zone;return story.find(x=>!!x.maps?.includes(map)||(!!z&&!!x.zones?.includes(z)))??null}},[storyLeft,navWorld]);
+ // Casilla de cada marcador en la rejilla, y el arbol de caminos con todo abierto.
+ const targets=useMemo(()=>{const out=new Map<string,Target>();if(navWorld&&world)for(const m of world.markers)if(m.area&&m.at){const x=targetAt(navWorld,m.area,m.at,PEOPLE.includes(m.category));if(x)out.set(m.id,x)}return out},[navWorld,world]);
+ const tree=useMemo(()=>navWorld?openTree(navWorld):null,[navWorld]);
+ // Lo que pisas desde el inicio con lo que tienes. Solo cambia al tener otra MO
+ // o abrir un paso de la historia: se guarda por esa firma.
+ const reachCache=useRef<{url:string;tiles:Map<string,{tiles:Set<number>;maps:Set<number>}>}>({url:'',tiles:new Map()});
+ const reachFor=useCallback((owned:Set<string>)=>{
+  if(!navWorld)return null;
+  if(reachCache.current.url!==navUrl)reachCache.current={url:navUrl,tiles:new Map()};
+  const can=movesYouHave(navWorld.nav,owned),story=storyLeft(owned),closed=closedBy(owned);
+  const sig=[...can].sort().join()+'|'+story.map(x=>x.id).join();
+  let hit=reachCache.current.tiles.get(sig);
+  if(!hit){const tiles=reachTiles(navWorld,can,m=>!!closed(m));hit={tiles,maps:new Set([...tiles].map(k=>Math.floor(k/65536)))};reachCache.current.tiles.set(sig,hit)}
+  return {...hit,can,closed};
+ },[navWorld,navUrl,storyLeft,closedBy]);
+ // Pokemon que tienes (para los intercambios): marcados, registrados en la
+ // Pokedex o en tu equipo. Se relee al volver de esas pestanas.
+ const [speciesRev,setSpeciesRev]=useState(0);
+ useEffect(()=>setSpeciesRev(r=>r+1),[tab]);
+ const ownedSpecies=useMemo(()=>{
+  const out=new Set<string>();if(!world||speciesRev<0)return out;
+  for(const m of world.markers)if(['Pokémon','In-Game Gift Pokémon','In-Game Trade'].includes(m.category)&&done.includes(m.uid))out.add(m.name);
+  try{
+   const nums=new Set<number>([...JSON.parse(localStorage.getItem(game.storage.dex)||'[]'),...(JSON.parse(localStorage.getItem(`${game.storage.done}-team`)||'[]') as {n:number}[]).map(x=>x.n)]);
+   for(const sp of world.dex.species)if(nums.has(sp.n))out.add(sp.name);
+  }catch{}
+  return out;
+ },[world,done,game,speciesRev]);
  const reasonWith=useCallback((m:Marker,owned:Set<string>)=>{
   const chosen=taken.get(m.id),pick=chosen&&world?.markers.find(x=>x.id===chosen);
   if(pick)return t(m.category.includes('Pokémon')?'choiceTrade':'choiceOne',{chosen:name(pick.name)});
   const gate=unmetGate(m,world?.gates??[],owned);if(gate)return gate.why[lang];
+  // A lo que no se llega desde el inicio: el primer obstaculo del camino. Un
+  // salvaje cuenta si llegas a su mapa (su pin puede caer en mitad del agua).
+  const at=targets.get(m.id),r=at?reachFor(owned):null;
+  if(at&&r&&navWorld&&tree){
+   const g=navWorld.grids.get(at.map),ok=m.encounter?!!g&&r.maps.has(g.i):reached(navWorld,r.tiles,at);
+   if(!ok){
+    const b=blockerOf(navWorld,tree,at,r.can,map=>!!r.closed(map));
+    if(b&&'map' in b){const x=r.closed(b.map);if(x)return t('reachFirst',{why:x.why[lang]})}
+    if(b&&'move' in b){const f=navWorld.nav.moves[b.move];return t('reachMove',{move:t(MOVE_KEY[b.move]??'moveSurf'),needs:(f??[]).map(name).join(' + ')})}
+   }
+  }
+  const trade=m.category==='In-Game Trade'&&/^Trade your (.+)$/.exec(m.detail??'');
+  if(trade&&!done.includes(m.uid)&&!ownedSpecies.has(trade[1]))return t('tradeNeeds',{name:name(trade[1])});
   const tool=missingTool(m,owned);return tool?t('needsTool',{tool:name(tool)}):null;
- },[world,lang,t,name,taken]);
- const unavailable=useCallback((m:Marker)=>reasonWith(m,have),[reasonWith,have]);
+ },[world,lang,t,name,taken,targets,reachFor,navWorld,tree,ownedSpecies,done]);
+ // El motivo de cada marcador con lo que tienes, calculado una vez por cambio.
+ const reasons=useMemo(()=>new Map((world?.markers??[]).map(m=>[m.id,reasonWith(m,have)])),[world,reasonWith,have]);
+ const unavailable=useCallback((m:Marker)=>reasons.get(m.id)??null,[reasons]);
+ // Puertas del mapa a las que aun no llegas: grises, con candado.
+ const reachNow=useMemo(()=>reachFor(have),[reachFor,have]);
+ const doorLocked=useCallback((area:string,at:Pt)=>{if(!navWorld||!reachNow)return false;const x=targetAt(navWorld,area,at,false);return !!x&&!reached(navWorld,reachNow.tiles,x)},[navWorld,reachNow]);
  // Lo que abre el ultimo marcador que marcaste (una MO, una medalla, una llave).
  const [unlock,setUnlock]=useState<Unlock|null>(null);
  // Bienvenida: sale una vez, la primera vez que se entra a un juego.
@@ -252,12 +310,7 @@ export default function Home(){
  // Como llegar: al siguiente objetivo o a cualquier marcador del mapa. La app no
  // sabe donde estas en tu partida: por defecto, la ultima zona de la historia
  // donde marcaste algo; se cambia en el panel o con "Estoy aqui".
- const [routeTo,setRouteTo]=useState<Marker|null>(null),[routeFrom,setRouteFromState]=useState<string|null>(null),[startAt,setStartAt]=useState<{zone:string;area:string;at:Pt}|null>(null),[picking,setPicking]=useState(false),[navData,setNavData]=useState<{url:string;w:RouteWorld}|null>(null);
- const navUrl=`${game.data}/nav.json`,navWorld=navData?.url===navUrl?navData.w:null;
- useEffect(()=>{if(!routeTo||navWorld)return;let live=true;
-  fetch(navUrl).then(r=>r.json()).then((n:Nav)=>{if(live)setNavData({url:navUrl,w:prepare(n)})}).catch(e=>console.error('No se pudo cargar la rejilla de rutas',e));
-  return()=>{live=false};
- },[routeTo,navWorld,navUrl]);
+ const [routeTo,setRouteTo]=useState<Marker|null>(null),[routeFrom,setRouteFromState]=useState<string|null>(null),[startAt,setStartAt]=useState<{zone:string;area:string;at:Pt}|null>(null),[picking,setPicking]=useState(false);
  useEffect(()=>{setRouteTo(null);setRouteFromState(null)},[game]);
  const lastZone=useMemo(()=>{
   if(!world)return '';
@@ -336,11 +389,12 @@ export default function Home(){
   const door=(cls:string)=>L.divIcon({className:'pin-wrap',html:`<span class="door ${cls}"></span>`,iconSize:[26,26],iconAnchor:[13,13]});
   for(const w of world.warps)if(w.area===area.id){
    const toRegion=isRegion(w.to),dest=areaById.get(w.to);
-   L.marker(ll(w.at),{icon:door(toRegion?'exit':finished(w.area,w.to)?'done':''),title:toRegion?t('exitTo',{place:place(placeAt(w.to,w.toAt)??dest?.label??'')}):`${place(dest?.label??t('interior'))}${finished(w.area,w.to)?` · ${t('nothingLeft')}`:''}`,zIndexOffset:500})
+   const shut=doorLocked(w.area,w.at);
+   L.marker(ll(w.at),{icon:door(shut?'locked':toRegion?'exit':finished(w.area,w.to)?'done':''),title:`${toRegion?t('exitTo',{place:place(placeAt(w.to,w.toAt)??dest?.label??'')}):`${place(dest?.label??t('interior'))}${finished(w.area,w.to)?` · ${t('nothingLeft')}`:''}`}${shut?` · ${t('unavailable')}`:''}`,zIndexOffset:500})
     .on('click',()=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})).addTo(g);
   }
   if(arrival&&arrival.area===area.id)L.marker(ll(arrival.at),{icon:L.divIcon({className:'arrive',html:'<span></span><i></i>',iconSize:[0,0]}),title:arrival.label,interactive:false,zIndexOffset:1000}).addTo(g);
- },[stacks,done,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place,trip]);
+ },[stacks,done,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place,trip,doorLocked]);
 
  useLayoutEffect(()=>{
   const m=map.current,p=popup.current;if(!m||!p)return;
