@@ -50,15 +50,30 @@ def check(game):
     d = {k: load(f'{base}/{f}') for k, f in files.items()}
     areas = {a['id']: a for a in d['areas']['areas']}
     markers = [m for m in d['markers'] if not m.get('version') or m['version'] == game['version']]
-    # Pasos de historia (story.json): marcadores como los demas, en una zona de la checklist.
-    if os.path.exists(f'{base}/story.json'):
+    # Objetivos (goals.json): los pasos propios ("step") son marcadores como los
+    # demas, colocados con nav.json como hace la app; los demas apuntan a uno.
+    goal_ids = []
+    if os.path.exists(f'{base}/goals.json'):
+        nav = load(f'{base}/nav.json')['maps'] if os.path.exists(f'{base}/nav.json') else {}
         zones_list = {z['name'] for z in d['checklist']['zones']}
-        for s in load(f'{base}/story.json')['steps']:
-            markers.append(s)
-            if s['zone'] not in zones_list:
-                err(f"paso de historia {s['id']}: zona fuera de la checklist {s['zone']}")
-            if not s.get('es', {}).get('name'):
-                err(f"paso de historia {s['id']}: sin nombre en espanol")
+        for g in load(f'{base}/goals.json')['goals']:
+            if 'step' not in g:
+                goal_ids.append((g['id'], g.get('name')))
+                continue
+            sid = f"{g['map']}:story:{g['step']}"
+            goal_ids.append((sid, None))
+            m = nav.get(g['map'])
+            if not m:
+                err(f"objetivo {sid}: mapa sin rejilla {g['map']}")
+                continue
+            if not (0 <= g['x'] < m['w'] and 0 <= g['y'] < m['h']):
+                err(f"objetivo {sid}: casilla fuera del mapa ({g['x']}, {g['y']})")
+            if m['zone'] not in zones_list:
+                err(f"objetivo {sid}: zona fuera de la checklist {m['zone']}")
+            if not all(g.get(k, {}).get(lang) for k in ('name', 'detail') for lang in ('en', 'es')):
+                err(f"objetivo {sid}: falta el nombre o el detalle en algun idioma")
+            markers.append({'id': sid, 'category': 'Story', 'name': g['name']['en'], 'location': m['zone'], 'area': m['area'],
+                            'at': [(m['x'] + g['x']) * 16 + 8, (m['y'] + g['y']) * 16 + 8], 'icon': None})
     by_id = {m['id']: m for m in markers}
 
     def inside(area_id, pt, what):
@@ -204,17 +219,17 @@ def check(game):
                     err(f"bloqueo {g['id']}: mapa sin marcadores {mp}")
             if not all(g['why'].get(lang) for lang in ('en', 'es')):
                 err(f"bloqueo {g['id']}: falta el motivo en algun idioma")
-        # Objetivos de la tarjeta (goals.json): cada uno, un marcador o paso del juego, una vez.
-        if file == 'gates.json' and os.path.exists(f'{base}/goals.json'):
+        # Objetivos: cada uno existe y sale una vez.
+        if file == 'gates.json':
             seen = set()
-            for goal in load(f'{base}/goals.json')['goals']:
-                if goal['id'] not in by_id:
-                    err(f"objetivo inexistente: {goal['id']}")
-                elif goal.get('name') and goal['name'] != by_id[goal['id']]['name']:
-                    warn(f"objetivo con otro nombre: {goal['id']} es {by_id[goal['id']]['name']}, no {goal['name']}")
-                if goal['id'] in seen:
-                    err(f"objetivo repetido: {goal['id']}")
-                seen.add(goal['id'])
+            for gid, gname in goal_ids:
+                if gid not in by_id:
+                    err(f"objetivo inexistente: {gid}")
+                elif gname and gname != by_id[gid]['name']:
+                    warn(f"objetivo con otro nombre: {gid} es {by_id[gid]['name']}, no {gname}")
+                if gid in seen:
+                    err(f"objetivo repetido: {gid}")
+                seen.add(gid)
         # Elige uno: cada opcion son marcadores del juego.
         for c in load(f'{base}/{file}').get('choices', []):
             for mid in (x for o in c['options'] for x in o):

@@ -550,7 +550,7 @@ export type T = ReturnType<typeof translator>;
 
 export type Names = {items: Record<string, string>; moves: Record<string, string>; abilities: Record<string, string>; natures: Record<string, string>} | null;
 
-// Texto en espanol de los pasos de historia de cada juego (story.json): nombre y
+// Texto en espanol de los pasos de historia de cada juego (goals.json): nombre y
 // detalle en ingles -> en espanol. Lo registra el cargador del juego.
 const STORY = new Map<string, string>();
 // Nombres de objeto que se leen mejor distinto de como los trae PokeAPI.

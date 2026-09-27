@@ -20,7 +20,7 @@ export function storyOrder(markers:Marker[],checklist:Checklist){
 }
 
 // Hitos de la historia: lo que piden los bloqueos (el Paquete de Oak, la MO01,
-// el Te...), los pasos de la historia (story.json), los lideres, el Alto Mando y
+// el Te...), los pasos de la historia (goals.json), los lideres, el Alto Mando y
 // el Campeon, y en el pueblo de salida
 // el primer Pokemon y el combate con el rival.
 // Tambien los combates con el rival y todas las MO (Destello no abre nada, pero

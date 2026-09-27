@@ -36,6 +36,10 @@ export const METHODS:Record<string,string>={walk:'Grass','old-rod':'Old Rod','go
 // Un solo cargador: cada juego se genera desde su decompilacion (scripts/frlg,
 // scripts/yellow) con los mismos archivos. FireRed y LeafGreen comparten
 // mapas y marcadores; los exclusivos de cada version llevan `version`.
+// Numero estable para guardar el progreso: el mismo FNV-1a de 31 bits que
+// scripts/common/world.py (uid_of), para que un paso valga lo mismo en los dos.
+const uidOf=(text:string)=>{let h=2166136261;for(const b of new TextEncoder().encode(text)){h^=b;h=Math.imul(h,16777619)>>>0}return h&0x7fffffff};
+
 export async function loadGame(game:Game):Promise<World>{
  const {data,version}=game;
  const [a,markers,enc,checklist,dex]=await Promise.all([
@@ -46,17 +50,31 @@ export async function loadGame(game:Game):Promise<World>{
  const fileOf=(file:string)=>json<{gates:Gate[];choices?:Choice[]}>(`${data}/${file}`).catch(()=>({gates:[] as Gate[],choices:[] as Choice[]}));
  const [story,hm]=await Promise.all([fileOf('gates.json'),fileOf('hm-gates.json')]);
  const gates=[...story.gates,...hm.gates],choices=story.choices??[];
- // Pasos de historia (story.json): marcadores como los demas, con su zona y su
- // piso en la checklist; su texto en espanol se registra para traducirlo.
- const steps=await json<{steps:(Marker&{zone:string;floor:string|null;es:{name:string;detail:string}})[]}>(`${data}/story.json`).then(s=>s.steps).catch(()=>[]);
- registerStory(steps.map(s=>[s.name,s.es.name,s.detail??'',s.es.detail]));
+ // Objetivos (goals.json, a mano), en orden. Cada uno es un marcador de la
+ // checklist ("id") o un paso propio ("step" con su mapa y casilla): este se
+ // vuelve un marcador mas, un check de verdad, colocado con la rejilla de los
+ // mapas (nav.json) y con su piso en la checklist. Su uid sale de su nombre,
+ // como el de cualquier marcador, para que el progreso no se pierda.
+ type Goal={id:string;name?:string}|{step:string;map:string;x:number;y:number;name:{en:string;es:string};detail:{en:string;es:string}};
+ const [goalList,nav]=await Promise.all([
+  json<{goals:Goal[]}>(`${data}/goals.json`).then(g=>g.goals).catch(()=>[] as Goal[]),
+  json<{maps:Record<string,{zone:string;area:string;x:number;y:number}>}>(`${data}/nav.json`).then(n=>n.maps).catch(()=>({} as Record<string,{zone:string;area:string;x:number;y:number}>))]);
+ const prefix=data.split('/').filter(Boolean)[0],areaById=new Map(a.areas.map(x=>[x.id,x]));
+ const steps:(Marker&{zone:string;floor:string|null})[]=[];
+ for(const g of goalList){
+  if(!('step' in g))continue;
+  const m=nav[g.map];if(!m)continue;
+  const inside=areaById.get(m.area)?.kind==='interior',floor=inside?areaById.get(m.area)!.label:null;
+  steps.push({id:`${g.map}:story:${g.step}`,uid:uidOf(`${prefix}:story:${g.step}`),category:'Story',name:g.name.en,detail:g.detail.en,
+   location:floor??m.zone,area:m.area,at:[(m.x+g.x)*16+8,(m.y+g.y)*16+8],icon:null,zone:m.zone,floor});
+ }
+ registerStory(goalList.flatMap(g=>'step' in g?[[g.name.en,g.name.es,g.detail.en,g.detail.es] as [string,string,string,string]]:[]));
  const list={...checklist,markers:{...checklist.markers},zones:checklist.zones.map(z=>({...z,floors:[...z.floors]}))};
  for(const s of steps){
   list.markers[s.id]=s.floor?{zone:s.zone,floor:s.floor}:{zone:s.zone};
   const z=list.zones.find(x=>x.name===s.zone);if(z&&s.floor&&!z.floors.includes(s.floor))z.floors.push(s.floor);
  }
- // Objetivos de la tarjeta, en orden (goals.json, a mano). Sin el, se deducen.
- const goals=await json<{goals:{id:string}[]}>(`${data}/goals.json`).then(g=>g.goals.map(x=>x.id)).catch(()=>[] as string[]);
+ const goals=goalList.map(g=>'step' in g?`${g.map}:story:${g.step}`:g.id);
  return {...a,markers:[...markers.filter(m=>!m.version||m.version===version),...steps],zones:enc.zones,checklist:list,dex,gates,choices,goals};
 }
 // Datos de combate y, si las reglas los tienen, textos de los ataques.
