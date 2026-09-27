@@ -388,15 +388,19 @@ export default function Home(){
  // Al marcar el destino, la ruta termina: la barra vuelve al siguiente objetivo.
  useEffect(()=>{if(routeTo&&(done.includes(routeTo.uid)||taken.has(routeTo.id))){setRouteTo(null);setToast(t('routeDone'))}},[routeTo,done,taken,t]);
  const startRoute=(m:Marker)=>{setRouteTo(m);setTab('mapa');setSelected(null);setStack(null);setEncounterZone(null)};
- // Al calcularse (o cambiar de donde sales), la camara va al inicio del camino.
+ // Zoom al mover la camara a un punto del camino: el que tenias si sigues en la
+ // misma area (sin alejarte), si no uno de cerca.
+ const keepZoom=useCallback((to:string)=>{const z=map.current?.getZoom();return to===area?.id&&z!==undefined?Math.max(z,-.5):.5},[area]);
+ // Al empezar una ruta, la camara va a su inicio. Solo entonces: marcar algo con
+ // la ruta abierta cambia de donde sales, pero no te mueve el mapa.
  const framed=useRef('');
  useEffect(()=>{
   const first=trip?.items?.[0];if(!routeTo||!first)return;
-  const k=`${routeTo.id}|${from}`;if(framed.current===k)return;framed.current=k;
-  setView({area:first.area,focus:first.pts[0],zoom:-1});setArrival(null);
- },[trip,routeTo,from]);
+  if(framed.current===routeTo.id)return;framed.current=routeTo.id;
+  setView({area:first.area,focus:first.pts[0],zoom:keepZoom(first.area)});setArrival(null);
+ },[trip,routeTo,keepZoom]);
  useEffect(()=>{if(!routeTo)framed.current=''},[routeTo]);
- const stepTo=(item:TripItem)=>{setSelected(null);setStack(null);setView({area:item.area,focus:item.pts[Math.floor(item.pts.length/2)],zoom:-1})};
+ const stepTo=(item:TripItem)=>{setSelected(null);setStack(null);setView({area:item.area,focus:item.pts[Math.floor(item.pts.length/2)],zoom:keepZoom(item.area)})};
 
  // Los pines llaman a la version mas reciente de enter/exitTo sin redibujarse
  // en cada render (se recrean con cada render).
