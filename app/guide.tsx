@@ -1,7 +1,7 @@
 'use client';
 // Guia para quien empieza: que hacer ahora y, si toca un lider, como prepararse.
 import {useMemo,useState} from 'react';
-import {ChevronDown,KeyRound,List,Lock,MapPin,Target} from 'lucide-react';
+import {ChevronDown,Footprints,KeyRound,List,Lock,MapPin,Target} from 'lucide-react';
 import {Figure,type Gate,type Marker} from './shared';
 import type {T} from './i18n';
 import type {Checklist,Dex} from './lists';
@@ -21,7 +21,7 @@ export function storyOrder(markers:Marker[],checklist:Checklist){
 // el Te...) y los lideres, el Alto Mando y el Campeon.
 const milestone=(m:Marker,needed:Set<string>)=>needed.has(m.name)||(m.category==='Battle'&&LEADER.test(m.name));
 
-export function NextGoal({markers,checklist,gates,done,unavailable,battle,dex,teamKey,onList,onMap,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;tr:T}){
+export function NextGoal({markers,checklist,gates,done,unavailable,battle,dex,teamKey,onList,onMap,onRoute,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
  const {t,name,place}=tr;
  const order=useMemo(()=>storyOrder(markers,checklist),[markers,checklist]);
  const story=useMemo(()=>gates.filter(g=>!g.id.startsWith('hm-')),[gates]);
@@ -51,7 +51,8 @@ export function NextGoal({markers,checklist,gates,done,unavailable,battle,dex,te
    :opens&&<p className="goal-why"><KeyRound/>{opens.why[tr.lang==='es'?'es':'en']}</p>}
   <div className="goal-actions">
    <button onClick={()=>onList(goal)}><List/>{t('goalList')}</button>
-   {goal.area&&<button onClick={()=>onMap(goal)}><MapPin/>{t('goalMap')}</button>}
+   {/* Como llegar ensena ademas el sitio en el mapa; si aun no se puede, solo el sitio. */}
+   {goal.area&&(blockedBy?<button onClick={()=>onMap(goal)}><MapPin/>{t('goalMap')}</button>:<button className="goal-go" onClick={()=>onRoute(goal)}><Footprints/>{t('routeHow')}</button>)}
   </div>
   {leader&&!blockedBy&&<Prepare goal={goal} order={order} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onMap={onMap} tr={tr}/>}
  </section>;

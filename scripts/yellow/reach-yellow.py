@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import decomp as d
 from common.reach import Area, FLOOR, WALL, WATER, near, needs_by_marker
-from common.hm_gates import write_gates
+from common.hm_gates import MOVES as HM_MOVES, write_gates
+from common.nav import write_nav
 
 _spec = importlib.util.spec_from_file_location('build_yellow', os.path.join(os.path.dirname(__file__), 'build-yellow.py'))
 by = importlib.util.module_from_spec(_spec)
@@ -86,6 +87,25 @@ def world():
     return areas
 
 
+def placed():
+    """Mapa -> (zona, area de la app, x, y en casillas), como en build-yellow.py."""
+    maps = d.maps()
+    outdoor, indoor = by.zone_names()
+
+    def zone(c):
+        m = maps[c]
+        if not m['indoor']:
+            return outdoor[m['index']] if m['index'] < len(outdoor) else by.title(c.replace('_', ' '))
+        return indoor.get(m.get('outside'), by.title((m.get('outside') or c).replace('_', ' ')))
+
+    out = {c: (zone(c), 'kanto', x * 2, y * 2) for c, (x, y) in by.place_kanto(maps).items()}
+    reachable = {dest for c, m in maps.items() for _, _, dest, _ in by.parse_objects(m['label'])[0]}
+    for c in maps:
+        if c not in out and c in reachable and not c.startswith(('UNUSED', 'TRADE_CENTER', 'COLOSSEUM')):
+            out[c] = (zone(c), c, 0, 0)
+    return out
+
+
 def main():
     areas = world()
     markers = json.load(open(f'{OUT}/markers.json', encoding='utf-8'))
@@ -104,6 +124,7 @@ def main():
         for m in lost:
             print('   ', by_id[m[0]]['name'], '@', by_id[m[0]]['location'])
     write_gates(f'{OUT}/hm-gates.json', needs, 'Yellow')
+    write_nav(f'{OUT}/nav.json', areas, placed(), {mv: HM_MOVES[mv] for mv in MOVES}, starts=[('PALLET_TOWN', home[0], home[1])])
 
 
 if __name__ == '__main__':

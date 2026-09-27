@@ -14,14 +14,15 @@ sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import decomp as d
 from common.reach import Area, FLOOR, WALL, WATER, WATERFALL, near, needs_by_marker
-from common.hm_gates import write_gates
+from common.hm_gates import MOVES as HM_MOVES, write_gates
+from common.nav import write_nav
+import importlib.util
+_spec = importlib.util.spec_from_file_location('build_frlg', os.path.join(os.path.dirname(__file__), 'build-frlg.py'))
+bf = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(bf)
 
 OUT = 'public/frlg/data'
 START = ('MAP_PALLET_TOWN', 6, 8)
-# Llegadas en barco o por script, que no son puertas del mapa: el ferry de las
-# Islas Sete sale de Puerto Carmin y atraca en cada puerto.
-FERRY = ['MAP_VERMILION_CITY', 'MAP_ONE_ISLAND_HARBOR', 'MAP_TWO_ISLAND_HARBOR', 'MAP_THREE_ISLAND_HARBOR',
-         'MAP_FOUR_ISLAND_HARBOR', 'MAP_FIVE_ISLAND_HARBOR', 'MAP_SIX_ISLAND_HARBOR', 'MAP_SEVEN_ISLAND_HARBOR']
 OBSTACLE = {'OBJ_EVENT_GFX_CUT_TREE': 'cut', 'OBJ_EVENT_GFX_ROCK_SMASH_ROCK': 'smash', 'OBJ_EVENT_GFX_PUSHABLE_BOULDER': 'strength'}
 MOVES = ['cut', 'surf', 'strength', 'smash', 'waterfall']
 
@@ -89,12 +90,30 @@ def world():
 
 
 def ferry_starts(areas):
-    """Una casilla pisable de cada puerto, junto a su primera puerta."""
-    out = []
-    for mid in FERRY:
-        a = areas.get(mid)
-        if a and a.warps:
-            out.append((mid, a.warps[0][0], a.warps[0][1]))
+    """Donde atraca el barco de las Islas Sete (src/seagallop.c): Carmin, Canela
+    y cada puerto. No son puertas del mapa, asi que se siembran a mano. Sin los
+    islotes de evento (Ombligo, Isla Origen) ni Canela: su muelle solo se usa
+    despues de las islas, y a Canela se llega antes con Surf."""
+    text = open(d.path('src/seagallop.c'), encoding='utf-8').read()
+    return [(mid, int(x, 16), int(y, 16)) for mid, x, y in re.findall(r'\{MAP\((MAP_\w+)\),\s*(0x\w+),\s*(0x\w+)\}', text)
+            if mid in areas and not re.search('NAVEL|BIRTH|CINNABAR', mid)]
+
+
+def placed():
+    """Mapa -> (zona, area de la app, x, y en casillas), como en build-frlg.py."""
+    maps = d.maps()
+    mapsecs = {s['id']: bf.title(s['name']) for s in json.load(open(d.path('src/data/region_map/region_map_sections.json'), encoding='utf-8'))['map_sections'] if 'name' in s}
+    zone = lambda mid: mapsecs.get(maps[mid]['region_map_section'], 'Other')
+    out = {}
+    for rid, r in bf.build_regions().items():
+        for m, (x, y) in r['maps'].items():
+            out[m] = (zone(m), rid, x, y)
+    for alias, (target, dx, dy) in bf.ALIAS.items():
+        _, rid, x, y = out[target]
+        out[alias] = (zone(alias), rid, x - dx, y - dy)
+    for mid in maps:
+        if mid not in out and not bf.SKIP.match(mid):
+            out[mid] = (zone(mid), mid, 0, 0)
     return out
 
 
@@ -116,6 +135,7 @@ def main():
         for m in lost:
             print('   ', by_id[m[0]]['name'], '@', by_id[m[0]]['location'])
     write_gates(f'{OUT}/hm-gates.json', needs, 'FireRed/LeafGreen')
+    write_nav(f'{OUT}/nav.json', areas, placed(), {mv: HM_MOVES[mv] for mv in MOVES}, starts=[START], ferry=ferry_starts(areas))
 
 
 if __name__ == '__main__':

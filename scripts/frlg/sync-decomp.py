@@ -52,6 +52,7 @@ PATHS = [
     '/include/constants/items.h',
     '/include/constants/metatile_behaviors.h',
     '/src/metatile_behavior.c',
+    '/src/seagallop.c',
 ]
 
 

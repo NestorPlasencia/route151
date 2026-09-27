@@ -24,7 +24,7 @@ const focusOf=(m:Marker):Focus[]=>m.category==='Battle'?[LEADER.test(m.name)?'le
 const FOCUS:[Focus,'filterAll'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'][]=[
  ['all','filterAll'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts']];
 
-export function ChecklistView({markers,checklist,gates,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
+export function ChecklistView({markers,checklist,gates,onRoute,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];onRoute:(m:Marker)=>void;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
  const {t,category,place,name}=tr;
  const isDone=(m:Marker)=>done.includes(m.uid);
  // No disponible todavia (y sin marcar): sale en gris y no cuenta para la zona.
@@ -64,7 +64,7 @@ export function ChecklistView({markers,checklist,gates,done,toggleDone,onShow,on
    </div>
   </div>
   <div className="list-body">
-   {!q&&focus==='all'&&<NextGoal markers={markers} checklist={checklist} gates={gates} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} tr={tr}/>}
+   {!q&&focus==='all'&&<NextGoal markers={markers} checklist={checklist} gates={gates} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} onRoute={onRoute} tr={tr}/>}
    {checklist.parts.map(part=>{
     const zones=checklist.zones.filter(z=>z.part===part.n&&byZone.has(z.name));
     const all=zones.flatMap(z=>[...byZone.get(z.name)!.values()].flat());

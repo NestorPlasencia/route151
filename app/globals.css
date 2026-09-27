@@ -141,6 +141,43 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .prep-catch button{width:32px;height:32px;border:0;border-radius:8px;background:#eef3fb;color:var(--blue);display:grid;place-items:center;cursor:pointer}
 .prep-catch button svg{width:15px}
 .prep .battle-advice{background:#fff;border-radius:9px;padding:4px 6px}
+.goal-actions .goal-go{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:bold}
+/* Como llegar: panel sobre el mapa con los pasos; el camino va dibujado. */
+.trip{position:absolute;left:12px;right:64px;bottom:14px;z-index:760;background:#fff;border-radius:14px;box-shadow:0 12px 36px #0007;border:1px solid var(--line);max-height:48%;display:flex;flex-direction:column;overflow:hidden}
+.trip-head{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 10px}
+.trip-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:9px;border:0;background:none;padding:4px 0;cursor:pointer;text-align:left;color:var(--ink)}
+.trip-toggle>svg{width:18px;flex:none;color:var(--blue)}
+.trip-toggle>svg:last-child{width:15px;color:var(--muted);transition:.15s}
+.trip.open .trip-toggle>svg:last-child{transform:rotate(180deg)}
+.trip-toggle span{flex:1;min-width:0}
+.trip-toggle small{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:bold}
+.trip-toggle b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trip-close{width:34px;height:34px;border:0;border-radius:9px;background:#f0f3f7;display:grid;place-items:center;cursor:pointer;flex:none}
+.trip-close svg{width:16px}
+.trip-body{overflow:auto;padding:0 10px 10px}
+.trip-from{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.trip-from label{flex:1;min-width:0;position:relative;display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:9px;padding:0 28px 0 9px;height:36px;background:#f8fafc}
+.trip-from label span{font-size:11px;color:var(--muted)}
+.trip-from select{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:13px;font-weight:bold;color:var(--ink);appearance:none;outline:0}
+.trip-from label svg{position:absolute;right:8px;width:14px;pointer-events:none;color:var(--muted)}
+.trip-from button{display:flex;align-items:center;gap:5px;height:36px;padding:0 10px;border-radius:9px;border:1px solid var(--line);background:#fff;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--ink)}
+.trip-from button svg{width:14px;color:var(--blue)}
+.trip-note{font-size:12px;color:var(--muted);margin:8px 2px}
+.trip-none{color:#8a5a08}
+.trip-steps{list-style:none;margin:0;padding:0;counter-reset:step}
+.trip-steps li{position:relative;padding-left:30px;counter-increment:step}
+.trip-steps li::before{content:counter(step);position:absolute;left:0;top:9px;width:21px;height:21px;border-radius:50%;background:#e8effd;color:var(--blue);font-size:11px;font-weight:bold;display:grid;place-items:center}
+.trip-steps li:not(:last-child)::after{content:'';position:absolute;left:10px;top:31px;bottom:-9px;width:2px;background:#dbe5f6}
+.trip-steps button{width:100%;text-align:left;border:0;background:none;padding:9px 4px;border-radius:8px;cursor:pointer;color:var(--ink)}
+.trip-steps button:hover{background:#f3f7fd}
+.trip-steps b{display:block;font-size:13px}
+.trip-steps small{display:block;font-size:11px;color:#8a5a08;margin-top:2px}
+.trip-end{padding-top:9px;padding-bottom:4px}
+.trip-end::before{content:'★'!important;background:#ffd936!important;color:#172034!important}
+.trip-end b{font-size:13px}
+.map-stage:has(.trip) .map-note{display:none}
+.pop-route{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;height:36px;border:0;border-radius:9px;background:var(--blue);color:#fff;font-weight:bold;font-size:12px;cursor:pointer}
+.pop-route svg{width:15px}
 /* Fila a la que lleva el siguiente objetivo: un destello para encontrarla. */
 .row-flash{animation:row-flash 1.6s ease}
 @keyframes row-flash{0%,40%{background:#fff3b0}100%{background:transparent}}

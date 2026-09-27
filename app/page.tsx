@@ -2,7 +2,7 @@
 import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
-import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,Sparkles,Swords,X} from 'lucide-react';
+import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Footprints,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,Sparkles,Swords,X} from 'lucide-react';
 import {Credits,Figure,checkOrder,colorOf,groupsOf,haveNames,missingTool,unmetGate,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
@@ -10,6 +10,8 @@ import {RankingView} from './ranking';
 import {GameHome} from './home';
 import {BattleAdvice,TeamView,effortText,trainerOpponents,type Battle,type Opponent} from './team';
 import {GAMES,METHODS,battleUrl,loadGame,moveTextUrl,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
+import {findRoute,legsOf,movesYouHave,prepare,type Nav,type World as RouteWorld} from './pathfind';
+import {RoutePanel,tripItems,withoutGates,type TripItem} from './trip';
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
 const span=(e:Encounter)=>`${e.min}${e.max!==e.min?`–${e.max}`:''}`;
@@ -18,6 +20,8 @@ const ll=(p:Pt):[number,number]=>[-p[1],p[0]];
 // "Silph Co. 7F" -> "7F": quita las palabras que comparten todos los pisos.
 const shortLabels=(list:Area[])=>{const words=list.map(f=>f.label.split(' '));let n=0;while(words.every(w=>w.length>n+1&&w[n]===words[0][n]))n++;return new Map(list.map((f,i)=>[f.id,words[i].slice(n).join(' ')]))};
 const GAME_KEY='ruta151-game';
+// A la gente se le habla tambien por encima de un mostrador (a dos casillas).
+const PEOPLE=['Item Gift','In-Game Trade','Battle','In-Game Gift Pokémon','Shop'];
 // Candado de lucide para los pines bloqueados: el pin es HTML de Leaflet, no React.
 const LOCK_SVG='<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
@@ -227,12 +231,68 @@ export default function Home(){
   saved.current=null;setArrival(null);setView(loc.at?{area:loc.area,focus:loc.at,zoom:-1}:{area:loc.area});
  };
 
+ // Como llegar: al siguiente objetivo o a cualquier marcador del mapa. La app no
+ // sabe donde estas en tu partida: por defecto, la ultima zona de la historia
+ // donde marcaste algo; se cambia en el panel o con "Estoy aqui".
+ const [routeTo,setRouteTo]=useState<Marker|null>(null),[routeFrom,setRouteFrom]=useState<string|null>(null),[navData,setNavData]=useState<{url:string;w:RouteWorld}|null>(null);
+ const navUrl=`${game.data}/nav.json`,navWorld=navData?.url===navUrl?navData.w:null;
+ useEffect(()=>{if(!routeTo||navWorld)return;let live=true;
+  fetch(navUrl).then(r=>r.json()).then((n:Nav)=>{if(live)setNavData({url:navUrl,w:prepare(n)})}).catch(e=>console.error('No se pudo cargar la rejilla de rutas',e));
+  return()=>{live=false};
+ },[routeTo,navWorld,navUrl]);
+ useEffect(()=>{setRouteTo(null);setRouteFrom(null)},[game]);
+ const lastZone=useMemo(()=>{
+  if(!world)return '';
+  const zones=new Set(world.markers.filter(m=>done.includes(m.uid)).map(m=>world.checklist.markers[m.id]?.zone));
+  return world.checklist.zones.reduce((last,z)=>zones.has(z.name)?z.name:last,world.checklist.zones[0]?.name??'');
+ },[world,done]);
+ const from=routeFrom??lastZone;
+ // items null: no hay camino con lo que tienes (falta una MO o un paso de la historia).
+ const trip=useMemo(()=>{
+  if(!routeTo||!navWorld||!world||!routeTo.area||!routeTo.at)return null;
+  const [px,py]=routeTo.at;
+  const g=[...navWorld.grids.values()].find(g=>g.m.area===routeTo.area&&px>=g.m.x*16&&py>=g.m.y*16&&px<(g.m.x+g.m.w)*16&&py<(g.m.y+g.m.h)*16);
+  if(!g)return {items:null,partial:false};
+  const story=world.gates.filter(x=>!x.id.startsWith('hm-')&&x.needs.some(n=>!have.has(n)));
+  const closed=(map:string)=>{const z=navWorld.grids.get(map)?.m.zone;return story.some(x=>!!x.maps?.includes(map)||(!!z&&!!x.zones?.includes(z)))};
+  // Ancla: el centro de la zona de salida en el mapa de la region, si lo tiene.
+  const spot=world.places.find(p=>p.name===from&&p.at&&isRegion(p.area));
+  const ag=spot&&[...navWorld.grids.values()].find(g=>g.m.area===spot.area&&g.m.zone===from&&spot.at![0]>=g.m.x*16&&spot.at![1]>=g.m.y*16&&spot.at![0]<(g.m.x+g.m.w)*16&&spot.at![1]<(g.m.y+g.m.h)*16);
+  const anchor=spot&&ag?{map:ag.id,x:Math.floor(spot.at![0]/16)-ag.m.x,y:Math.floor(spot.at![1]/16)-ag.m.y}:undefined;
+  const found=findRoute(navWorld,from,{map:g.id,x:Math.floor(px/16)-g.m.x,y:Math.floor(py/16)-g.m.y,far:PEOPLE.includes(routeTo.category)},movesYouHave(navWorld.nav,have),closed,anchor);
+  return {items:found?withoutGates(tripItems(legsOf(navWorld,found.path)),a=>!isRegion(a)):null,partial:!!found?.partial};
+ },[routeTo,navWorld,world,have,from,isRegion]);
+ const startRoute=(m:Marker)=>{setRouteTo(m);setTab('mapa');setSelected(null);setStack(null);setEncounterZone(null)};
+ // Al calcularse (o cambiar de donde sales), la camara va al inicio del camino.
+ const framed=useRef('');
+ useEffect(()=>{
+  const first=trip?.items?.[0];if(!routeTo||!first)return;
+  const k=`${routeTo.id}|${from}`;if(framed.current===k)return;framed.current=k;
+  setView({area:first.area,focus:first.pts[0],zoom:-1});setArrival(null);
+ },[trip,routeTo,from]);
+ useEffect(()=>{if(!routeTo)framed.current=''},[routeTo]);
+ const stepTo=(item:TripItem)=>{setSelected(null);setStack(null);setView({area:item.area,focus:item.pts[Math.floor(item.pts.length/2)],zoom:-1})};
+ const imHere=()=>{
+  if(here){setRouteFrom(navWorld?.grids.get(here.id)?.m.zone??here.zone??here.label);return}
+  const m=map.current;if(!m||!area)return;const c=m.getCenter(),near=placeAt(area.id,[c.lng,-c.lat]);if(near)setRouteFrom(near);
+ };
+
  // Los pines llaman a la version mas reciente de enter/exitTo sin redibujarse
  // en cada render (se recrean con cada render).
  const nav=useRef({enter,exitTo});
  useEffect(()=>{nav.current={enter,exitTo}});
  useEffect(()=>{
   const L=leaflet.current,g=layer.current;if(!L||!g||!world||!area)return;g.clearLayers();
+  // El camino de "Como llegar" en esta area: linea azul con borde blanco, y un
+  // punto donde empieza. Al cruzar a otra zona por el borde, la linea sigue.
+  const items=trip?.items??[];
+  items.forEach((it,i)=>{
+   if(it.area!==area.id)return;
+   const prev=items[i-1],pts=(prev&&prev.area===it.area&&it.enter==='edge'?[prev.pts[prev.pts.length-1],...it.pts]:it.pts).map(ll);
+   L.polyline(pts,{color:'#fff',weight:10,opacity:.95,interactive:false,lineCap:'round',lineJoin:'round'}).addTo(g);
+   L.polyline(pts,{color:'#2d6df6',weight:5,opacity:1,interactive:false,lineCap:'round',lineJoin:'round'}).addTo(g);
+  });
+  if(items[0]?.area===area.id)L.circleMarker(ll(items[0].pts[0]),{radius:8,color:'#fff',weight:3,fillColor:'#2d6df6',fillOpacity:1,interactive:false}).addTo(g);
   for(const {at,items} of stacks){
    // Verde si todo esta hecho; gris con candado si lo que falta aun no se puede hacer.
    const completed=items.every(m=>done.includes(m.uid)),locked=!completed&&!items.some(pending);
@@ -250,7 +310,7 @@ export default function Home(){
     .on('click',()=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})).addTo(g);
   }
   if(arrival&&arrival.area===area.id)L.marker(ll(arrival.at),{icon:L.divIcon({className:'arrive',html:'<span></span><i></i>',iconSize:[0,0]}),title:arrival.label,interactive:false,zIndexOffset:1000}).addTo(g);
- },[stacks,done,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place]);
+ },[stacks,done,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place,trip]);
 
  useLayoutEffect(()=>{
   const m=map.current,p=popup.current;if(!m||!p)return;
@@ -358,14 +418,17 @@ export default function Home(){
  {here&&<div className="floorbar"><button onClick={leave}><ArrowLeft/>{place(areaById.get(exitRegion??'')?.label??t('back'))}</button>{floors.length>1&&floors.map(f=><button key={f.id} className={f.id===here.id?'on':''} onClick={()=>switchFloor(f.id)}>{place(short.get(f.id)||f.label)}</button>)}</div>}
  {!here&&regions.length>1&&<div className="floorbar">{regions.map(r=><button key={r.id} className={r.id===area?.id?'on':''} onClick={()=>showRegion(r.id)}><MapIcon/>{place(r.label)}</button>)}</div>}
  {toast&&<output className="toast" key={toast}>{toast}</output>}
+ {routeTo&&world&&<RoutePanel target={name(routeTo.name)} from={from} zones={world.checklist.zones.map(z=>z.name)} onFrom={setRouteFrom} onHere={imHere}
+  items={trip?.items??[]} partial={!!trip?.partial} status={!trip?'loading':trip.items?'ok':'none'} onStep={stepTo} onClose={()=>setRouteTo(null)}
+  labelOf={it=>isRegion(it.area)?place(it.zone):place(areaById.get(it.area)?.label??it.zone)} isInterior={a=>!isRegion(a)} tr={tr}/>}
  {!world&&<div className="loading">{t('loadingGame',{game:game.short})}</div>}<div className="map-note">{t('mapNote')}</div></div>
  {locations&&world&&<div className="locations">{here&&<button className="leave-inline" onClick={()=>{leave();setLocations(false)}}><ArrowLeft/>{t('backToMap',{region:place(areaById.get(exitRegion??'')?.label??'')})}</button>}
   {regions.map((r,i)=><Fragment key={r.id}><h3>{place(r.label).toUpperCase()}</h3><button className={area?.id===r.id?'current':''} onClick={()=>showRegion(r.id)}><MapIcon/>{t('wholeMap')}</button>{world.places.filter(p=>p.area===r.id||(i===0&&!isRegion(p.area))).map(loc=><button key={loc.name} onClick={()=>go(loc)}><MapPin/>{place(loc.name)}</button>)}</Fragment>)}
   <h3>{t('interiors')}</h3>{[...zoneFloors].map(([zone,list])=><div key={zone} className="dungeon"><h4>{place(zone)}</h4>{list.map(f=><button key={f.id} onClick={()=>enter(f.id)} className={here?.id===f.id?'current':''}><DoorOpen/>{place(f.label)}<b>{inArea.get(f.id)?.length??0}</b></button>)}</div>)}</div>}
- {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRowWithAdvice(selected)}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{checkOrder(stack!,m=>!!whyLocked(m)).map(m=><Fragment key={m.id}>{popRowWithAdvice(m,true)}</Fragment>)}</div>,popupBox)}
+ {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRowWithAdvice(selected)}{!done.includes(selected.uid)&&<button className="pop-route" onClick={()=>startRoute(selected)}><Footprints/>{t('routeHow')}</button>}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{checkOrder(stack!,m=>!!whyLocked(m)).map(m=><Fragment key={m.id}>{popRowWithAdvice(m,true)}</Fragment>)}</div>,popupBox)}
  {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={place(encounterZone.name)}><button className="close" onClick={()=>setEncounterZone(null)} aria-label={t('close')}><X/></button><small>{t('encountersWild').toUpperCase()}</small><h2>{place(encounterZone.name)}</h2><p>{t('availableHere',{n:encounterZone.pokemon.length})}</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>{t('encounterRate',{levels:`${min}${max!==min?`–${max}`:''}`,chance,methods:[...new Set(variants.map(v=>method(METHODS[v.method]??v.method)))].join(' · ')})}</span></div></article>})}</div></dialog></div>}
  </div>
- {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} gates={world.gates} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} unavailable={unavailable} hideUnavailable={hideUnavailable} setHideUnavailable={setHideUnavailable} battle={battle} dex={world.dex} teamKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
+ {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} gates={world.gates} onRoute={startRoute} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} unavailable={unavailable} hideUnavailable={hideUnavailable} setHideUnavailable={setHideUnavailable} battle={battle} dex={world.dex} teamKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
  {/* La Pokedex y el ranking comparten pestana, cada uno con su lista: se
      cambia con el selector de arriba (el ranking solo en FireRed/LeafGreen). */}
  {tab==='pokedex'&&(()=>{
