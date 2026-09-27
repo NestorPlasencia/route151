@@ -267,6 +267,7 @@ const TEXT = {
  goalFirst: ['First: {why}', 'Antes: {why}'],
  goalThen: ["Next: {name}", "Después: {name}"],
  routeDone: ["Done!", "¡Hecho!"],
+ goalMark: ["Mark as done", "Marcar como hecho"],
  routeSteps: ["{n} steps · tap to see them", "{n} pasos · toca para verlos"],
  routeNoneShort: ["No way there yet · tap to see why", "Aún no hay camino · toca para ver por qué"],
  routeStepsOne: ["1 step · tap to see it", "1 paso · toca para verlo"],

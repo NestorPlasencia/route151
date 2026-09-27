@@ -426,8 +426,11 @@ export default function Home(){
    // Varias categorias en el mismo punto: el pin se reparte en sectores de color.
    const colors=[...new Set(items.map(m=>colorOf(m.category)))];
    const fill=colors.length>1?`conic-gradient(${colors.map((c,i)=>`${c} ${i*100/colors.length}% ${(i+1)*100/colors.length}%`).join(',')})`:colors[0];
-   const icon=L.divIcon({className:'pin-wrap',html:`<span class="pin ${completed?'pin-done':locked?'pin-locked':''}" style="--pin:${fill}">${completed?'✓':locked?LOCK_SVG:''}</span>${items.length>1?`<b class="pin-count">${items.length}</b>`:''}`,iconSize:[20,20],iconAnchor:[10,10]});
-   L.marker(ll(at),{icon}).on('click',()=>{if(items.length>1){setSelected(null);setStack(items)}else{setStack(null);setSelected(items[0])}}).addTo(g);
+   // Un pin sobre una puerta (los pasos de historia en una salida) se corre a un
+   // costado, arriba a la derecha: asi se ven y se tocan los dos.
+   const onDoor=world.warps.some(w=>w.area===area.id&&Math.abs(w.at[0]-at[0])<12&&Math.abs(w.at[1]-at[1])<12);
+   const icon=L.divIcon({className:`pin-wrap ${onDoor?'pin-aside':''}`,html:`<span class="pin ${completed?'pin-done':locked?'pin-locked':''}" style="--pin:${fill}">${completed?'✓':locked?LOCK_SVG:''}</span>${items.length>1?`<b class="pin-count">${items.length}</b>`:''}`,iconSize:[20,20],iconAnchor:onDoor?[-6,26]:[10,10]});
+   L.marker(ll(at),{icon,zIndexOffset:onDoor?600:0}).on('click',()=>{if(items.length>1){setSelected(null);setStack(items)}else{setStack(null);setSelected(items[0])}}).addTo(g);
   }
   // Puertas: hacia un interior (o a otro piso) se entra; hacia una region se sale.
   const door=(cls:string)=>L.divIcon({className:'pin-wrap',html:`<span class="door ${cls}"></span>`,iconSize:[26,26],iconAnchor:[13,13]});
@@ -559,12 +562,14 @@ export default function Home(){
  {!here&&regions.length>1&&<div className="floorbar">{regions.map(r=><button key={r.id} className={r.id===area?.id?'on':''} onClick={()=>showRegion(r.id)}><MapIcon/>{place(r.label)}</button>)}</div>}
  {toast&&<output className="toast" key={toast}>{toast}</output>}
  {/* El siguiente objetivo, arriba del mapa: verlo o trazar el camino. */}
- {nextGoal&&world&&!routeTo&&<div className="map-goal"><Figure m={nextGoal}/>
-  <span><small>{t('goalTitle')}</small><b>{goalTitle(nextGoal,world.markers,world.checklist,tr)}</b></span>
-  <button className="map-goal-go" onClick={()=>startRoute(nextGoal)} aria-label={t('routeHow')} title={t('routeHow')}><Footprints/></button>
+ {nextGoal&&world&&<div className={`map-goal ${routeTo?'with-trip':''}`}><Figure m={nextGoal}/>
+  <span className="map-goal-text"><small>{t('goalTitle')}</small><b>{goalTitle(nextGoal,world.markers,world.checklist,tr)}</b></span>
+  {/* Marcarlo aqui mismo: la barra pasa sola al siguiente objetivo. */}
+  <button className="map-goal-tick" disabled={!!unavailable(nextGoal)} title={unavailable(nextGoal)??t('goalMark')} aria-label={t('goalMark')} onClick={()=>toggleDone(nextGoal.uid)}>{unavailable(nextGoal)?<Lock/>:<Check/>}</button>
+  {routeTo?.id!==nextGoal.id&&<button className="map-goal-go" onClick={()=>startRoute(nextGoal)} aria-label={t('routeHow')} title={t('routeHow')}><Footprints/></button>}
   <button onClick={()=>reveal(nextGoal,true)} aria-label={t('goalShow')} title={t('goalShow')}><MapPin/></button>
  </div>}
- {routeTo&&world&&<RoutePanel target={name(routeTo.name)} done={settled(routeTo)} next={nextGoal&&nextGoal.id!==routeTo.id?goalTitle(nextGoal,world.markers,world.checklist,tr):null} onNext={()=>nextGoal&&startRoute(nextGoal)} from={from} fromRoom={routeFrom===null&&!startAt&&!!lastSpot?.room} zones={world.checklist.zones.map(z=>z.name)} onFrom={setRouteFrom} onHere={imHere} picking={picking} onCancelPick={()=>setPicking(false)}
+ {routeTo&&world&&<RoutePanel target={name(routeTo.name)} done={settled(routeTo)} canTick={!unavailable(routeTo)} onTick={()=>toggleDone(routeTo.uid)} next={nextGoal&&nextGoal.id!==routeTo.id?goalTitle(nextGoal,world.markers,world.checklist,tr):null} onNext={()=>nextGoal&&startRoute(nextGoal)} from={from} fromRoom={routeFrom===null&&!startAt&&!!lastSpot?.room} zones={world.checklist.zones.map(z=>z.name)} onFrom={setRouteFrom} onHere={imHere} picking={picking} onCancelPick={()=>setPicking(false)}
   items={trip?.items??[]} partial={!!trip?.partial} status={!trip?'loading':trip.items?'ok':'none'} onStep={stepTo} onClose={()=>setRouteTo(null)}
   labelOf={it=>isRegion(it.area)?place(it.zone):place(areaById.get(it.area)?.label??it.zone)} isInterior={a=>!isRegion(a)} tr={tr}/>}
  {!world&&<div className="loading">{t('loadingGame',{game:game.short})}</div>}<div className="map-note">{t('mapNote')}</div></div>

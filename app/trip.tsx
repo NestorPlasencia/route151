@@ -43,8 +43,8 @@ export function withoutGates(items:TripItem[],isInterior:(area:string)=>boolean)
 
 const USE:Partial<Record<How,Key>>={surf:'moveSurf',cut:'moveCut',strength:'moveStrength',smash:'moveSmash',waterfall:'moveWaterfall',jump:'moveJump'};
 
-export function RoutePanel({target,done,next,onNext,from,fromRoom,zones,onFrom,onHere,picking,onCancelPick,items,partial,status,onStep,onClose,labelOf,isInterior,tr}:{
- target:string;done:boolean;next:string|null;onNext:()=>void;from:string;fromRoom:boolean;zones:string[];onFrom:(zone:string)=>void;onHere:()=>void;picking:boolean;onCancelPick:()=>void;items:TripItem[];partial:boolean;status:'loading'|'none'|'ok';
+export function RoutePanel({target,done,canTick,onTick,next,onNext,from,fromRoom,zones,onFrom,onHere,picking,onCancelPick,items,partial,status,onStep,onClose,labelOf,isInterior,tr}:{
+ target:string;done:boolean;canTick:boolean;onTick:()=>void;next:string|null;onNext:()=>void;from:string;fromRoom:boolean;zones:string[];onFrom:(zone:string)=>void;onHere:()=>void;picking:boolean;onCancelPick:()=>void;items:TripItem[];partial:boolean;status:'loading'|'none'|'ok';
  onStep:(item:TripItem)=>void;onClose:()=>void;labelOf:(item:TripItem)=>string;isInterior:(area:string)=>boolean;tr:T}){
  const {t,place}=tr;
  // Plegado de inicio: una linea, para que se vea el mapa y el camino dibujado.
@@ -63,6 +63,8 @@ export function RoutePanel({target,done,next,onNext,from,fromRoom,zones,onFrom,o
  return <section className={`trip ${open?'open':''}`} aria-label={t('routeHow')}>
   <div className="trip-head">
    <button className="trip-toggle" onClick={()=>setOpen(v=>!v)} aria-expanded={open}><Footprints/><span><small>{t('routeHow')}</small><b>{target}</b>{!open&&!done&&status==='ok'&&<em>{t(items.length+1===1?'routeStepsOne':'routeSteps',{n:items.length+1})}</em>}{!open&&!done&&status==='none'&&<em className="trip-none">{t('routeNoneShort')}</em>}</span><ChevronDown/></button>
+   {/* Al llegar se marca aqui mismo, sin buscar el pin. */}
+   {!done&&canTick&&<button className="trip-tick" onClick={onTick} aria-label={t('goalMark')} title={t('goalMark')}><Check/></button>}
    <button className="trip-close" onClick={onClose} aria-label={t('routeClose')}><X/></button>
   </div>
   {/* Eligiendo donde estas: el panel se encoge para dejar ver el mapa. */}

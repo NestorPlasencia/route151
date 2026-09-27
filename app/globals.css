@@ -272,13 +272,17 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .fig-story svg{width:55%;height:55%}
 .row-story .row-text small{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.35}
 /* Siguiente objetivo arriba del mapa, y su bandera sobre el pin. */
-.map-goal{position:absolute;left:12px;right:12px;top:62px;z-index:750;display:flex;align-items:center;gap:9px;padding:7px 8px 7px 10px;background:#fff8d6;border:1px solid #f1d977;border-radius:12px;box-shadow:0 8px 24px #0006}
-.map-goal>span{flex:1;min-width:0}
-.map-goal small{display:block;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;color:#8a6a08}
+.map-goal{position:absolute;left:0;right:0;top:0;z-index:750;display:flex;align-items:center;gap:9px;padding:6px 10px;background:#fff8d6;border-bottom:1px solid #f1d977;box-shadow:0 4px 14px #0005}
+.map-goal-text{flex:1;min-width:0}
+.map-goal>.fig{width:32px;height:32px;flex:none}
+.map-goal small{display:block;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;color:#8a6a08;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .map-goal b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
 .map-goal button{width:36px;height:36px;border-radius:10px;border:1px solid #e3cf7a;background:#fff;display:grid;place-items:center;cursor:pointer;color:var(--ink);flex:none}
 .map-goal button svg{width:17px}
 .map-goal .map-goal-go{background:var(--blue);border-color:var(--blue);color:#fff}
+/* Con el objetivo arriba, las regiones o los pisos y los avisos van debajo. */
+.map-stage:has(.map-goal) .floorbar{top:58px}
+.map-stage:has(.map-goal) .toast{top:110px}
 .goal-flag{display:block;filter:drop-shadow(0 2px 3px #000a);animation:goal-bob 1.6s ease-in-out infinite}
 .goal-flag svg{width:26px;height:26px}
 @keyframes goal-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
@@ -287,6 +291,16 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .trip-done>b svg{width:17px}
 .trip-done button{margin-top:8px;width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-weight:bold;font-size:13px;cursor:pointer;text-align:left}
 .trip-done button svg{width:17px;flex:none}
+.goal-mini{position:sticky;top:-10px;z-index:30;display:flex;align-items:center;gap:8px;margin:-10px -8px 10px;padding:8px 10px;background:#fff8d6;border-bottom:1px solid #f1d977;box-shadow:0 4px 12px #0002}
+.goal-mini>svg{width:15px;flex:none;color:#8a6a08}
+.goal-mini b{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.goal-mini button{display:flex;align-items:center;gap:5px;height:32px;padding:0 10px;border:0;border-radius:9px;background:var(--blue);color:#fff;font-size:12px;font-weight:bold;cursor:pointer;white-space:nowrap;flex:none}
+.goal-mini button svg{width:14px}
+.map-goal .map-goal-tick{color:#1d7a47}
+.map-goal .map-goal-tick:disabled{color:#9aa6b8;cursor:not-allowed}
+.trip-tick{width:34px;height:34px;border:0;border-radius:9px;background:#e8f8ef;color:#1d7a47;display:grid;place-items:center;cursor:pointer;flex:none}
+.trip-tick svg{width:17px}
+.pin-aside .pin{box-shadow:0 2px 7px #000b,0 0 0 2px #2d6df6}
 /* Fila a la que lleva el siguiente objetivo: un destello para encontrarla. */
 .row-flash{animation:row-flash 1.6s ease}
 @keyframes row-flash{0%,40%{background:#fff3b0}100%{background:transparent}}
