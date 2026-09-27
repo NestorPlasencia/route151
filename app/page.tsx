@@ -371,11 +371,13 @@ export default function Home(){
  const from=lastSpot?.zone??lastZone;
  // items null: no hay camino con lo que tienes (falta una MO o un paso de la historia).
  // Vuelo (MO02 y la Medalla Trueno): los pueblos de Kanto que ya visitaste (con
- // algo marcado en ellos; Pueblo Paleta siempre), frente a su Centro Pokemon o,
+ // algo marcado en ellos que no sea un Pokemon; Pueblo Paleta siempre), frente a su Centro Pokemon o,
  // en Paleta, a tu casa. Una ruta puede empezar volando a uno.
  const flySpots=useMemo(()=>{
   if(!navWorld||!world||!FLY_NEEDS.every(n=>have.has(n)))return [];
-  const visited=new Set(world.markers.filter(m=>done.includes(m.uid)).map(m=>world.checklist.markers[m.id]?.zone));
+  // Un Pokemon marcado no cuenta: la marca es de la especie y sale en todas sus
+  // zonas (atrapar un Tentacool marca tambien el de Canela sin haber ido).
+  const visited=new Set(world.markers.filter(m=>m.category!=='Pokémon'&&done.includes(m.uid)).map(m=>world.checklist.markers[m.id]?.zone));
   const home=world.checklist.zones[0]?.name;
   return navWorld.list.flatMap(g=>{
    if(g.m.area!=='kanto'||!/(City|Town|Island)$/.test(g.m.zone)||!(visited.has(g.m.zone)||g.m.zone===home))return [];
@@ -405,9 +407,16 @@ export default function Home(){
   const canFly=flown?.path[0]?.how==='fly',flying=flyOn&&canFly,found=flying?flown:walk;
   // Los pasos en palabras se resumen (sin casetas ni pisos de paso); el dibujo
   // usa el camino entero, para que salga la linea tambien dentro de tu casa.
-  const all=found?tripItems(legsOf(navWorld,found.path)):null;
+  // Un Snorlax que ya despertaste (su paso de historia marcado, en su casilla) ya
+  // no esta: no se dice que uses la flauta.
+  const awake=new Set(world.markers.filter(m=>m.category==='Story'&&m.at&&done.includes(m.uid)).map(m=>`${m.area}:${m.at!.join(",")}`));
+  const legs=found?legsOf(navWorld,found.path).map(l=>{
+   const acts=l.acts.filter(a=>!(a.how==='flute'&&awake.has(`${l.area}:${a.at.join(",")}`)));
+   return {...l,acts,uses:l.uses.filter(u=>u!=='flute'||acts.some(a=>a.how==='flute'))};
+  }):null;
+  const all=legs?tripItems(legs):null;
   return {items:all?withoutGates(all,a=>!isRegion(a),a=>{const l=areaById.get(a)?.label??'';return FLOOR_RE.test(l)?l.replace(FLOOR_RE,''):null}):null,draw:all??[],partial:!!found?.partial,canFly,flying};
- },[routeTo,navWorld,world,have,from,isRegion,lastSpot,areaById,flySpots,flyOn]);
+ },[routeTo,navWorld,world,have,done,from,isRegion,lastSpot,areaById,flySpots,flyOn]);
  const [tripOpen,setTripOpen]=useState(false);
  useEffect(()=>setTripOpen(false),[routeTo]);
  // Al marcar el destino, la ruta termina: la barra vuelve al siguiente objetivo.

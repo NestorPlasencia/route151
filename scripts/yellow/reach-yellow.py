@@ -66,6 +66,11 @@ def world():
                     obstacles[(x, y)] = 'cut'
                 elif ts in wet and t == WATER_TILE:
                     line.append(WATER)
+                # La orilla ($48, $32) tambien se surfea (IsNextTileShoreOrWater),
+                # salvo en el muelle, los gimnasios y el Dojo: por ahi se desembarca
+                # en la isla de las Islas Espuma viniendo de Fucsia.
+                elif ts in wet and ts not in ('SHIP_PORT', 'GYM', 'DOJO') and t in (0x48, 0x32) and t not in ok:
+                    line.append(WATER)
                 elif ts == 'OVERWORLD' and t in ledge:
                     line.append(ledge[t])
                 else:

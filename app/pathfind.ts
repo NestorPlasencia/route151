@@ -43,14 +43,23 @@ const unkey=(k:number)=>{const s=k%2,e=Math.floor(k/2)%16,x=Math.floor(k/32)%256
 
 type Search={parent:Map<number,number>;how:Map<number,Step['how']>;side:Map<number,string>;order:number[]};
 
-// Recorrido en anchura desde varias casillas a la vez. `stop` corta al llegar.
+// Recorrido desde varias casillas a la vez, del camino mas corto al mas largo.
+// Un paso surfeando cuesta como tres andando: si da casi igual, se va por tierra
+// (no se bordea la costa por el agua). `stop` corta al llegar.
 // `late`: salidas que entran tarde, cuando el recorrido va por `after` pasos
 // (volar cuesta: no se vuela para cruzar la calle).
 function explore(w:World,starts:number[],can:Set<string>,closed:(map:string)=>boolean,stop?:(k:number)=>boolean,late?:{keys:number[];after:number}):Search&{end:number|null}{
  const parent=new Map<number,number>(),how=new Map<number,Step['how']>(),side=new Map<number,string>(),order:number[]=[];
- const queue:number[]=[];let head=0;
- const depth=new Map<number,number>();let injected=!late?.keys.length;
- const push=(k:number,from:number,h:How,sd?:string)=>{if(parent.has(k))return;parent.set(k,from);how.set(k,h);if(sd)side.set(k,sd);depth.set(k,from===-1?0:(depth.get(from)??0)+1);queue.push(k)};
+ // Cubos por coste (los costes son enteros pequenos): el de menor coste primero.
+ const buckets:number[][]=[],dist=new Map<number,number>(),seen=new Set<number>();let cur=0,pending=0;
+ let injected=!late?.keys.length;
+ const put=(k:number,cost:number)=>{(buckets[cost]??=[]).push(k);pending++};
+ const push=(k:number,from:number,h:How,sd?:string)=>{
+  if(seen.has(k))return;
+  const cost=from===-1?0:(dist.get(from)??0)+(k%2===1?3:1),old=dist.get(k);
+  if(old!==undefined&&old<=cost)return;
+  dist.set(k,cost);parent.set(k,from);how.set(k,h);if(sd)side.set(k,sd);else side.delete(k);put(k,cost);
+ };
  const arrive=(g:Grid,x:number,y:number,from:number,h:How)=>{
   if(x<0||y<0||x>=g.m.w||y>=g.m.h||closed(g.id))return;
   const t=g.kind[y*g.m.w+x]&7;push(key(g.i,x,y,g.elev?g.elev[y*g.m.w+x]:0,t===WATER||t===WATERFALL),from,h);
@@ -76,12 +85,16 @@ function explore(w:World,starts:number[],can:Set<string>,closed:(map:string)=>bo
   if(!surf&&!elevOk(e,ne))return null;
   return [nx,ny,ne===15?e:ne,false,(ob as How|undefined)??(surf?'land':'walk')];
  };
- while(head<queue.length||!injected){
-  if(!injected&&(head>=queue.length||(depth.get(queue[head])??0)>=late!.after)){
-   injected=true;for(const lk of late!.keys)if(!parent.has(lk)){parent.set(lk,-1);how.set(lk,'walk');depth.set(lk,late!.after);queue.push(lk)}
-   if(head>=queue.length)break;
+ for(;;){
+  if(!injected&&(pending===0||cur>=late!.after)){
+   injected=true;const at=Math.max(cur,late!.after);
+   for(const lk of late!.keys)if(!seen.has(lk)&&!(dist.get(lk)!<=at)){dist.set(lk,at);parent.set(lk,-1);how.set(lk,'walk');side.delete(lk);put(lk,at)}
   }
-  const k=queue[head++];order.push(k);
+  if(pending===0)break;
+  if(!buckets[cur]?.length){cur++;continue}
+  const k=buckets[cur].pop()!;pending--;
+  if(seen.has(k)||dist.get(k)!==cur)continue;
+  seen.add(k);order.push(k);
   if(stop?.(k))return {parent,how,side,order,end:k};
   const {gi,x,y,e,s}=unkey(k),g=w.list[gi],at=y*g.m.w+x;
   // Sobre una puerta: se cruza a la casilla donde aparece en el otro mapa.
