@@ -1,8 +1,10 @@
 'use client';
 // Pestanas de lista: la checklist por zonas (en orden de juego) y la Pokedex.
 import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
-import {Check,ChevronDown,MapPin,Search} from 'lucide-react';
-import {Figure,type Marker} from './shared';
+import {Check,ChevronDown,Lock,MapPin,Search} from 'lucide-react';
+import {Figure,TOOLS,type Marker} from './shared';
+
+const TOOL_ORDER=Object.values(TOOLS);
 import type {T} from './i18n';
 import {BattleAdvice,trainerOpponents,type Battle} from './team';
 
@@ -24,7 +26,7 @@ const focusOf=(m:Marker):Focus[]=>m.category==='Battle'?[LEADER.test(m.name)?'le
 const FOCUS:[Focus,'filterAll'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'][]=[
  ['all','filterAll'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts']];
 
-export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZone,detail,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
+export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZone,detail,locked,catchable,setCatchable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;locked:(m:Marker)=>string|null;catchable:boolean;setCatchable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
  const {t,category,place,name}=tr;
  const isDone=(m:Marker)=>done.includes(m.uid);
  // Se abre sola la primera zona con algo pendiente: Pueblo Paleta si empiezas,
@@ -43,7 +45,7 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
  const byZone=useMemo(()=>{const out=new Map<string,Map<string,Marker[]>>();for(const m of markers){const z=checklist.markers[m.id];if(!z)continue;const floors=out.get(z.zone)??out.set(z.zone,new Map()).get(z.zone)!;const k=z.floor??'';(floors.get(k)??floors.set(k,[]).get(k)!).push(m)}return out},[markers,checklist]);
  const q=query.trim().toLowerCase();
  // Se busca por el nombre que se ve y por el original en ingles.
- const keep=(m:Marker)=>(focus==='all'||focusOf(m).includes(focus))&&(!hideDone||!isDone(m))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
+ const keep=(m:Marker)=>!locked(m)&&(focus==='all'||focusOf(m).includes(focus))&&(!hideDone||!isDone(m))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
  const total=markers.length,completed=markers.filter(isDone).length;
  const toggle=(z:string)=>setOpen(o=>o.includes(z)?o.filter(x=>x!==z):[...o,z]);
  return <div className="listview">
@@ -52,6 +54,7 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
    <label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('searchChecklist')}/></label>
    <div className="list-filters">
     <button className={`chip ${hideDone?'on':''}`} onClick={()=>setHideDone(v=>!v)}><Check/>{t('hideCompleted')}</button>
+    <button className={`chip ${catchable?'on':''}`} aria-pressed={catchable} title={t('catchableHelp')} onClick={()=>setCatchable(!catchable)}><Lock/>{t('catchableNow')}</button>
     {FOCUS.filter(([f])=>counts.get(f)).map(([f,label])=><button key={f} className={`chip ${focus===f?'on':''}`} aria-pressed={focus===f} onClick={()=>setFocus(f)}>{t(label)}<b>{counts.get(f)}</b></button>)}
    </div>
   </div>
@@ -73,6 +76,11 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
         <button className="zone-head" onClick={()=>toggle(z.name)} aria-expanded={expanded}><b>{place(z.name)}</b><Progress done={items.filter(isDone).length} total={items.length}/></button>
         <button className="show" onClick={()=>onShowZone(z.name)} aria-label={t('showOnMap',{name:place(z.name)})} title={t('showOnMap',{name:place(z.name)})}><MapPin/></button>
        </div>
+       {/* Lo que queda oculto por falta de herramienta, para que no parezca que falta. */}
+       {expanded&&(notes=>notes.length>0&&<p className="zone-locked"><Lock/>{notes.map(([tool,n])=>t(n===1?'lockedNoteOne':'lockedNote',{n,tool:name(tool)})).join(' · ')}</p>)(
+        // En el orden en que se consiguen: Cana Vieja, Buena, Super, Surf...
+        [...items.reduce((c,m)=>{const tool=locked(m);return tool&&(!hideDone||!isDone(m))?c.set(tool,(c.get(tool)??0)+1):c},new Map<string,number>())]
+         .sort((a,b)=>TOOL_ORDER.indexOf(a[0])-TOOL_ORDER.indexOf(b[0])))}
        {expanded&&order.map(f=>{const rows=floors.get(f)!.filter(keep);if(!rows.length)return null;return <div key={f||'_'} className="floor">
         {f&&<h4>{place(f.startsWith(z.name+' ')?f.slice(z.name.length+1):f)}</h4>}
         {rows.map(m=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id);return <div key={m.id} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''}`}>

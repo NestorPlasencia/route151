@@ -19,6 +19,7 @@ declare module 'lucide-react' {
   export const Info: Icon;
   export const Layers: Icon;
   export const ListChecks: Icon;
+  export const Lock: Icon;
   export const Map: Icon;
   export const MapPin: Icon;
   export const Plus: Icon;
