@@ -301,6 +301,11 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .trip-tick{width:34px;height:34px;border:0;border-radius:9px;background:#e8f8ef;color:#1d7a47;display:grid;place-items:center;cursor:pointer;flex:none}
 .trip-tick svg{width:17px}
 .pin-aside .pin{box-shadow:0 2px 7px #000b,0 0 0 2px #2d6df6}
+.refresh-button+.about-button{margin-left:6px}
+/* En el movil la cabecera del mapa va llena: menos aire entre botones. */
+@media (max-width:480px){header{gap:7px;padding:0 10px}.refresh-button+.about-button{margin-left:0}}
+.refresh-button.spin svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 /* Fila a la que lleva el siguiente objetivo: un destello para encontrarla. */
 .row-flash{animation:row-flash 1.6s ease}
 @keyframes row-flash{0%,40%{background:#fff3b0}100%{background:transparent}}

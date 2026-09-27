@@ -2,7 +2,7 @@
 import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
-import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Footprints,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,Sparkles,Swords,X} from 'lucide-react';
+import {ArrowLeft,BookOpen,Check,RefreshCw,ChevronDown,DoorOpen,Footprints,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,Sparkles,Swords,X} from 'lucide-react';
 import {Credits,FIELD_MOVES,Figure,checkOrder,choicesTaken,colorOf,groupsOf,haveNames,missingTool,obstacleMove,unmetGate,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
@@ -13,6 +13,7 @@ import {GAMES,METHODS,battleUrl,loadGame,moveTextUrl,type Area,type EncounterZon
 import {blockerOf,findRoute,legsOf,movesYouHave,openTree,prepare,reachTiles,reached,targetAt,type Nav,type Target,type Tree,type World as RouteWorld} from './pathfind';
 import {RoutePanel,tripItems,withoutGates,type TripItem} from './trip';
 import {BackupBox} from './backup';
+import {refreshApp} from './service-worker';
 import {LearnView} from './learn';
 import {goalTitle,nextGoalOf,storyOrder,type Unlock} from './guide';
 import {TOUR_KEY,Tour} from './tour';
@@ -203,6 +204,7 @@ export default function Home(){
  const doorLocked=useCallback((area:string,at:Pt)=>{if(!navWorld||!reachNow)return false;const x=targetAt(navWorld,area,at,false);return !!x&&!reached(navWorld,reachNow.tiles,x)},[navWorld,reachNow]);
  // Lo que abre el ultimo marcador que marcaste (una MO, una medalla, una llave).
  const [unlock,setUnlock]=useState<Unlock|null>(null);
+ const [refreshing,setRefreshing]=useState(false);
  // Bienvenida: sale una vez, la primera vez que se entra a un juego.
  const [tour,setTour]=useState(false);
  useEffect(()=>{if(home||!world)return;try{if(!localStorage.getItem(TOUR_KEY))setTour(true)}catch{}},[home,world]);
@@ -555,7 +557,7 @@ export default function Home(){
  <label className="game-select"><span className="sr-only">{t('game')}</span><select value={game.id} onChange={e=>pickGame(e.target.value)} aria-label={t('game')}>{GAMES.map(g=><option key={g.id} value={g.id}>{g.short}</option>)}</select><ChevronDown/></label>
  <label className="game-select lang-select"><span className="sr-only">{t('language')}</span><select value={lang} onChange={e=>pickLang(e.target.value as Lang)} aria-label={t('language')}>{LANGS.map(l=><option key={l} value={l}>{LANG_NAMES[l]}</option>)}</select><ChevronDown/></label>
  {tab==='mapa'&&<div className="map-controls"><button className="location-button" onClick={()=>setLocations(!locations)} aria-expanded={locations}>{here?<DoorOpen/>:<MapPin/>}<span>{here?place(here.label):area?<>{place(area.label)}<small>{t('allAreas')}</small></>:t('loading')}</span><ChevronDown/></button><button className={`layers-button ${active.length<groups.length?'filtered':''}`} onClick={()=>setLayersOpen(v=>!v)} aria-pressed={layersOpen} aria-label={t('mapLayers')}><Layers/></button></div>}
- <nav>{tabs.map(([k,t])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}>{t}</button>)}</nav><div className="counter"><span>{t('completed',{n:completed})}</span><i><em style={{width:`${pct}%`}}/></i><b>{pct}%</b></div><button className="about-button" onClick={()=>setAbout(true)} aria-label={t('credits')}><Info/></button></header>
+ <nav>{tabs.map(([k,t])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}>{t}</button>)}</nav><div className="counter"><span>{t('completed',{n:completed})}</span><i><em style={{width:`${pct}%`}}/></i><b>{pct}%</b></div><button className={`about-button refresh-button ${refreshing?'spin':''}`} onClick={()=>{setRefreshing(true);void refreshApp()}} aria-label={t('refreshApp')} title={t('refreshApp')}><RefreshCw/></button><button className="about-button" onClick={()=>setAbout(true)} aria-label={t('credits')}><Info/></button></header>
  <div className={`app ${layersOpen?'layers-open':''}`} hidden={tab!=='mapa'}><aside><h3>{t('layers')}</h3>{groups.map(([name,Icon,color])=><button key={name} onClick={()=>toggleGroup(name)} className={active.includes(name)?'enabled':''}><i style={{'--color':color} as React.CSSProperties}>{active.includes(name)&&<Check/>}</i><Icon/><span>{layerName(name)}</span><b>{counts[name]??0}</b></button>)}<div className="source"><Sparkles/><p><b>{t('separateTitle')}</b>{t('separateText',{regions:regions.map(r=>r.label).join(' + ')})}</p></div></aside>
  <div className="map-stage"><div ref={el} className="leaflet-map"/>
  {here&&<div className="floorbar"><button onClick={leave}><ArrowLeft/>{place(areaById.get(exitRegion??'')?.label??t('back'))}</button>{floors.length>1&&floors.map(f=><button key={f.id} className={f.id===here.id?'on':''} onClick={()=>switchFloor(f.id)}>{place(short.get(f.id)||f.label)}</button>)}</div>}
