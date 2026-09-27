@@ -342,6 +342,7 @@ const TEXT = {
  moveStrength: ['Strength', 'Fuerza'],
  moveSmash: ['Rock Smash', 'Golpe Roca'],
  moveWaterfall: ['Waterfall', 'Cascada'],
+ moveFlute: ['the Poké Flute (wake Snorlax)', 'la Poké Flauta (despierta a Snorlax)'],
  moveJump: ['jump down the ledges', 'salta los salientes'],
  backupTitle: ["Backup of your progress", "Copia de tu progreso"],
  backupNever: ["Your progress lives only in this browser: save a copy.", "Tu progreso vive solo en este navegador: guarda una copia."],

@@ -24,8 +24,8 @@ _spec.loader.exec_module(bf)
 OUT = 'public/frlg/data'
 # Donde empieza la partida: tu cuarto, en el piso de arriba de tu casa.
 START = ('MAP_PALLET_TOWN_PLAYERS_HOUSE_2F', 6, 6)
-OBSTACLE = {'OBJ_EVENT_GFX_CUT_TREE': 'cut', 'OBJ_EVENT_GFX_ROCK_SMASH_ROCK': 'smash', 'OBJ_EVENT_GFX_PUSHABLE_BOULDER': 'strength'}
-MOVES = ['cut', 'surf', 'strength', 'smash', 'waterfall']
+OBSTACLE = {'OBJ_EVENT_GFX_CUT_TREE': 'cut', 'OBJ_EVENT_GFX_ROCK_SMASH_ROCK': 'smash', 'OBJ_EVENT_GFX_PUSHABLE_BOULDER': 'strength', 'OBJ_EVENT_GFX_SNORLAX': 'flute'}
+MOVES = ['cut', 'flute', 'surf', 'strength', 'smash', 'waterfall']  # en el orden en que se consiguen
 
 
 def behaviors():

@@ -14,10 +14,7 @@
     "CELADON_GYM:Battle:9,5",
     "CELADON_GYM:gift:TM_MEGA_DRAIN:4,3",
     "MUSEUM_1F:gift:OLD_AMBER:16,2",
-    "ROUTE_12:Battle:6,87",
-    "ROUTE_12:Item In Map:5,89",
-    "ROUTE_15:Battle:37,5",
-    "ROUTE_15:Item In Map:18,5",
+    "ROUTE_16:Battle:6,10",
     "ROUTE_16_FLY_HOUSE:gift:HM_FLY:2,3",
     "ROUTE_2:Item In Map:13,45",
     "ROUTE_2:Item In Map:13,54",
@@ -38,17 +35,99 @@
    }
   },
   {
-   "id": "hm-strength",
+   "id": "hm-flute",
    "markers": [
-    "WARDENS_HOUSE:Item In Map:8,3"
+    "FUCHSIA_GOOD_ROD_HOUSE:gift:GOOD_ROD:5,3",
+    "FUCHSIA_GYM:Battle:1,12",
+    "FUCHSIA_GYM:Battle:2,7",
+    "FUCHSIA_GYM:Battle:3,5",
+    "FUCHSIA_GYM:Battle:4,10",
+    "FUCHSIA_GYM:Battle:7,8",
+    "FUCHSIA_GYM:Battle:8,13",
+    "FUCHSIA_GYM:Battle:8,2",
+    "FUCHSIA_GYM:gift:TM_TOXIC:4,10",
+    "FUCHSIA_MART:Shop:0,5",
+    "ROUTE_12:Battle:11,92",
+    "ROUTE_12:Battle:14,76",
+    "ROUTE_12_SUPER_ROD_HOUSE:gift:SUPER_ROD:2,4",
+    "ROUTE_13:Battle:10,7",
+    "ROUTE_13:Battle:12,4",
+    "ROUTE_13:Battle:23,10",
+    "ROUTE_13:Battle:27,9",
+    "ROUTE_13:Battle:32,6",
+    "ROUTE_13:Battle:33,6",
+    "ROUTE_13:Battle:48,10",
+    "ROUTE_13:Battle:49,10",
+    "ROUTE_13:Battle:50,5",
+    "ROUTE_13:Battle:7,13",
+    "ROUTE_13:Hidden Item:1,14",
+    "ROUTE_13:Hidden Item:16,13",
+    "ROUTE_14:Battle:12,11",
+    "ROUTE_14:Battle:14,15",
+    "ROUTE_14:Battle:15,30",
+    "ROUTE_14:Battle:15,31",
+    "ROUTE_14:Battle:15,6",
+    "ROUTE_14:Battle:4,30",
+    "ROUTE_14:Battle:4,31",
+    "ROUTE_14:Battle:4,4",
+    "ROUTE_14:Battle:5,39",
+    "ROUTE_14:Battle:6,49",
+    "ROUTE_15:Battle:18,13",
+    "ROUTE_15:Battle:31,13",
+    "ROUTE_15:Battle:35,13",
+    "ROUTE_15:Battle:41,10",
+    "ROUTE_15:Battle:41,11",
+    "ROUTE_15:Battle:46,10",
+    "ROUTE_15:Battle:48,10",
+    "ROUTE_15:Battle:53,10",
+    "ROUTE_15:Battle:53,11",
+    "ROUTE_16:Battle:11,12",
+    "ROUTE_16:Battle:14,13",
+    "ROUTE_16:Battle:17,12",
+    "ROUTE_16:Battle:3,12",
+    "ROUTE_16:Battle:9,11",
+    "ROUTE_17:Battle:10,118",
+    "ROUTE_17:Battle:11,16",
+    "ROUTE_17:Battle:12,19",
+    "ROUTE_17:Battle:14,34",
+    "ROUTE_17:Battle:14,98",
+    "ROUTE_17:Battle:17,58",
+    "ROUTE_17:Battle:2,68",
+    "ROUTE_17:Battle:4,18",
+    "ROUTE_17:Battle:5,98",
+    "ROUTE_17:Battle:7,32",
+    "ROUTE_17:Hidden Item:15,14",
+    "ROUTE_17:Hidden Item:17,72",
+    "ROUTE_17:Hidden Item:4,91",
+    "ROUTE_17:Hidden Item:8,121",
+    "ROUTE_17:Hidden Item:8,45",
+    "ROUTE_18:Battle:36,11",
+    "ROUTE_18:Battle:40,15",
+    "ROUTE_18:Battle:42,13",
+    "ROUTE_18_GATE_2F:trade:PARASECT:4,2",
+    "ROUTE_19:Battle:12,9",
+    "ROUTE_19:Battle:9,13",
+    "ROUTE_19:Battle:9,7",
+    "SAFARI_ZONE_EAST:Item In Map:15,12",
+    "SAFARI_ZONE_EAST:Item In Map:20,13",
+    "SAFARI_ZONE_EAST:Item In Map:21,10",
+    "SAFARI_ZONE_EAST:Item In Map:3,7",
+    "SAFARI_ZONE_NORTH:Item In Map:19,7",
+    "SAFARI_ZONE_NORTH:Item In Map:25,1",
+    "SAFARI_ZONE_SECRET_HOUSE:gift:HM_SURF:3,3",
+    "SAFARI_ZONE_WEST:Hidden Item:6,5",
+    "SAFARI_ZONE_WEST:Item In Map:18,18",
+    "SAFARI_ZONE_WEST:Item In Map:19,7",
+    "SAFARI_ZONE_WEST:Item In Map:8,20",
+    "SAFARI_ZONE_WEST:Item In Map:9,7",
+    "WARDENS_HOUSE:gift:HM_STRENGTH:2,3"
    ],
    "needs": [
-    "HM04",
-    "Leader Erika"
+    "Poké Flute"
    ],
    "why": {
-    "en": "Behind an obstacle: Strength (HM04) and the Rainbow Badge",
-    "es": "Detrás de un obstáculo: Fuerza (MO04) y la Medalla Arcoíris"
+    "en": "Behind an obstacle: the Poké Flute to wake Snorlax",
+    "es": "Detrás de un obstáculo: la Poké Flauta para despertar a Snorlax"
    }
   },
   {
@@ -158,6 +237,39 @@
    "why": {
     "en": "Behind an obstacle: Surf (HM03) and the Soul Badge",
     "es": "Detrás de un obstáculo: Surf (MO03) y la Medalla Alma"
+   }
+  },
+  {
+   "id": "hm-cut-flute",
+   "markers": [
+    "ROUTE_12:Battle:6,87",
+    "ROUTE_12:Item In Map:5,89",
+    "ROUTE_15:Battle:37,5",
+    "ROUTE_15:Item In Map:18,5"
+   ],
+   "needs": [
+    "HM01",
+    "Leader Misty",
+    "Poké Flute"
+   ],
+   "why": {
+    "en": "Behind an obstacle: Cut (HM01) and the Cascade Badge + the Poké Flute to wake Snorlax",
+    "es": "Detrás de un obstáculo: Corte (MO01) y la Medalla Cascada + la Poké Flauta para despertar a Snorlax"
+   }
+  },
+  {
+   "id": "hm-flute-strength",
+   "markers": [
+    "WARDENS_HOUSE:Item In Map:8,3"
+   ],
+   "needs": [
+    "Poké Flute",
+    "HM04",
+    "Leader Erika"
+   ],
+   "why": {
+    "en": "Behind an obstacle: the Poké Flute to wake Snorlax + Strength (HM04) and the Rainbow Badge",
+    "es": "Detrás de un obstáculo: la Poké Flauta para despertar a Snorlax + Fuerza (MO04) y la Medalla Arcoíris"
    }
   },
   {

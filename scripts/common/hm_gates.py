@@ -13,6 +13,8 @@ MOVES = {
     'strength': (['HM04', 'Leader Erika'], 'Strength (HM04) and the Rainbow Badge', 'Fuerza (MO04) y la Medalla Arcoíris'),
     'smash': (['HM06', 'Leader Sabrina'], 'Rock Smash (HM06) and the Marsh Badge', 'Golpe Roca (MO06) y la Medalla Pantano'),
     'waterfall': (['HM07', 'Leader Blaine'], 'Waterfall (HM07) and the Volcano Badge', 'Cascada (MO07) y la Medalla Volcán'),
+    # Snorlax dormido corta el paso igual que un arbol: se quita con la flauta.
+    'flute': (['Poké Flute'], 'the Poké Flute to wake Snorlax', 'la Poké Flauta para despertar a Snorlax'),
 }
 
 

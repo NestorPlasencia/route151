@@ -8,7 +8,7 @@ export type NavMap={zone:string;area:string;x:number;y:number;w:number;h:number;
 export type Nav={moves:Record<string,string[]>;starts:[string,number,number][];ferry:[string,number,number][];maps:Record<string,NavMap>};
 // Como se llega a cada casilla: andando, surfeando, saltando un saliente, por una
 // puerta, cruzando el borde del mapa, en barco, o quitando un obstaculo.
-export type How='walk'|'surf'|'land'|'jump'|'door'|'edge'|'ferry'|'cut'|'strength'|'smash'|'waterfall';
+export type How='walk'|'surf'|'land'|'jump'|'door'|'edge'|'ferry'|'cut'|'strength'|'smash'|'waterfall'|'flute';
 export type Step={map:string;x:number;y:number;how:How;side?:string};
 
 const FLOOR=1,WATER=2,WATERFALL=3;

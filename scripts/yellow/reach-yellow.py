@@ -20,7 +20,7 @@ by = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(by)
 
 OUT = 'public/yellow/data'
-MOVES = ['cut', 'surf', 'strength']
+MOVES = ['cut', 'flute', 'surf', 'strength']  # en el orden en que se consiguen
 # Donde empieza la partida: tu cuarto, en el piso de arriba de tu casa.
 START = ('REDS_HOUSE_2F', 3, 6)
 WATER_TILE = 0x14
@@ -75,6 +75,8 @@ def world():
         for o in objs:
             if o['sprite'] == 'SPRITE_BOULDER':
                 obstacles[(o['x'], o['y'])] = 'strength'
+            elif o['sprite'] == 'SPRITE_SNORLAX':
+                obstacles[(o['x'], o['y'])] = 'flute'
         conns = [(SIDES[s], 2 * o, t) for s, t, o in m['connections'] if s in SIDES]
         areas[c] = Area(kind, None, obstacles, [(x, y, dest, n - 1) for x, y, dest, n in warps], conns, grid, pair.get(ts, set()))
     # LAST_MAP: la salida vuelve al exterior del que viniste; se enlaza con cada

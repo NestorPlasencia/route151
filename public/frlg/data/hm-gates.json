@@ -16,14 +16,6 @@
     "MAP_FIVE_ISLAND_MEADOW:Item In Map:12,11",
     "MAP_PEWTER_CITY_MUSEUM_1F:gift:ITEM_OLD_AMBER:21,3",
     "MAP_ROUTE10:Hidden Item:10,19",
-    "MAP_ROUTE12:Battle:10,99",
-    "MAP_ROUTE12:Hidden Item:9,116",
-    "MAP_ROUTE12:Item In Map:9,101",
-    "MAP_ROUTE14:Hidden Item:9,20",
-    "MAP_ROUTE15:Battle:28,6",
-    "MAP_ROUTE15:Battle:39,7",
-    "MAP_ROUTE15:Battle:40,7",
-    "MAP_ROUTE15:Item In Map:20,6",
     "MAP_ROUTE16:Battle:30,5",
     "MAP_ROUTE16:Battle:31,5",
     "MAP_ROUTE16_HOUSE:gift:ITEM_HM02:4,2",
@@ -50,6 +42,108 @@
    }
   },
   {
+   "id": "hm-flute",
+   "markers": [
+    "MAP_FUCHSIA_CITY:Hidden Item:33,26",
+    "MAP_FUCHSIA_CITY_GYM:Battle:11,11",
+    "MAP_FUCHSIA_CITY_GYM:Battle:12,16",
+    "MAP_FUCHSIA_CITY_GYM:Battle:13,4",
+    "MAP_FUCHSIA_CITY_GYM:Battle:2,16",
+    "MAP_FUCHSIA_CITY_GYM:Battle:2,9",
+    "MAP_FUCHSIA_CITY_GYM:Battle:4,6",
+    "MAP_FUCHSIA_CITY_GYM:Battle:7,13",
+    "MAP_FUCHSIA_CITY_GYM:gift:ITEM_TM06:7,13",
+    "MAP_FUCHSIA_CITY_HOUSE2:gift:ITEM_GOOD_ROD:6,5",
+    "MAP_FUCHSIA_CITY_MART:shop:2,3",
+    "MAP_FUCHSIA_CITY_WARDENS_HOUSE:gift:ITEM_HM04:3,5",
+    "MAP_ROUTE12:Battle:13,92",
+    "MAP_ROUTE12:Battle:18,108",
+    "MAP_ROUTE12_FISHING_HOUSE:gift:ITEM_NET_BALL:4,4",
+    "MAP_ROUTE12_FISHING_HOUSE:gift:ITEM_SUPER_ROD:4,4",
+    "MAP_ROUTE13:Battle:14,8",
+    "MAP_ROUTE13:Battle:16,5",
+    "MAP_ROUTE13:Battle:29,11",
+    "MAP_ROUTE13:Battle:35,10",
+    "MAP_ROUTE13:Battle:42,7",
+    "MAP_ROUTE13:Battle:43,7",
+    "MAP_ROUTE13:Battle:54,11",
+    "MAP_ROUTE13:Battle:62,6",
+    "MAP_ROUTE13:Battle:63,12",
+    "MAP_ROUTE13:Battle:9,14",
+    "MAP_ROUTE13:Hidden Item:23,14",
+    "MAP_ROUTE14:Battle:10,14",
+    "MAP_ROUTE14:Battle:10,37",
+    "MAP_ROUTE14:Battle:12,51",
+    "MAP_ROUTE14:Battle:13,51",
+    "MAP_ROUTE14:Battle:16,16",
+    "MAP_ROUTE14:Battle:18,35",
+    "MAP_ROUTE14:Battle:18,47",
+    "MAP_ROUTE14:Battle:7,31",
+    "MAP_ROUTE14:Battle:7,34",
+    "MAP_ROUTE14:Battle:7,37",
+    "MAP_ROUTE14:Battle:7,6",
+    "MAP_ROUTE14:Battle:8,9",
+    "MAP_ROUTE14:Hidden Item:19,53",
+    "MAP_ROUTE15:Battle:22,13",
+    "MAP_ROUTE15:Battle:31,12",
+    "MAP_ROUTE15:Battle:37,14",
+    "MAP_ROUTE15:Battle:44,13",
+    "MAP_ROUTE15:Battle:50,12",
+    "MAP_ROUTE15:Battle:52,8",
+    "MAP_ROUTE15:Battle:54,12",
+    "MAP_ROUTE15:Battle:59,12",
+    "MAP_ROUTE15:Battle:63,13",
+    "MAP_ROUTE15_WEST_ENTRANCE_2F:gift:ITEM_EXP_SHARE:5,5",
+    "MAP_ROUTE16:Battle:10,14",
+    "MAP_ROUTE16:Battle:12,12",
+    "MAP_ROUTE16:Battle:14,14",
+    "MAP_ROUTE16:Battle:16,12",
+    "MAP_ROUTE16:Battle:6,14",
+    "MAP_ROUTE16:Battle:8,12",
+    "MAP_ROUTE16_NORTH_ENTRANCE_2F:gift:ITEM_AMULET_COIN:10,6",
+    "MAP_ROUTE17:Battle:11,15",
+    "MAP_ROUTE17:Battle:15,24",
+    "MAP_ROUTE17:Battle:16,134",
+    "MAP_ROUTE17:Battle:18,41",
+    "MAP_ROUTE17:Battle:18,94",
+    "MAP_ROUTE17:Battle:2,61",
+    "MAP_ROUTE17:Battle:21,61",
+    "MAP_ROUTE17:Battle:4,116",
+    "MAP_ROUTE17:Battle:4,18",
+    "MAP_ROUTE17:Battle:7,38",
+    "MAP_ROUTE17:Hidden Item:10,53",
+    "MAP_ROUTE17:Hidden Item:14,157",
+    "MAP_ROUTE17:Hidden Item:18,83",
+    "MAP_ROUTE17:Hidden Item:4,125",
+    "MAP_ROUTE17:Hidden Item:4,68",
+    "MAP_ROUTE18:Battle:39,12",
+    "MAP_ROUTE18:Battle:41,15",
+    "MAP_ROUTE18:Battle:46,14",
+    "MAP_ROUTE19:Battle:10,9",
+    "MAP_ROUTE19:Battle:15,10",
+    "MAP_SAFARI_ZONE_EAST:Item In Map:13,12",
+    "MAP_SAFARI_ZONE_EAST:Item In Map:31,18",
+    "MAP_SAFARI_ZONE_EAST:Item In Map:36,17",
+    "MAP_SAFARI_ZONE_EAST:Item In Map:37,15",
+    "MAP_SAFARI_ZONE_NORTH:Item In Map:28,9",
+    "MAP_SAFARI_ZONE_NORTH:Item In Map:29,17",
+    "MAP_SAFARI_ZONE_NORTH:Item In Map:33,5",
+    "MAP_SAFARI_ZONE_SECRET_HOUSE:gift:ITEM_HM03:6,5",
+    "MAP_SAFARI_ZONE_WEST:Hidden Item:13,11",
+    "MAP_SAFARI_ZONE_WEST:Item In Map:16,27",
+    "MAP_SAFARI_ZONE_WEST:Item In Map:17,13",
+    "MAP_SAFARI_ZONE_WEST:Item In Map:27,24",
+    "MAP_SAFARI_ZONE_WEST:Item In Map:28,14"
+   ],
+   "needs": [
+    "Poké Flute"
+   ],
+   "why": {
+    "en": "Behind an obstacle: the Poké Flute to wake Snorlax",
+    "es": "Detrás de un obstáculo: la Poké Flauta para despertar a Snorlax"
+   }
+  },
+  {
    "id": "hm-smash",
    "markers": [
     "MAP_FOUR_ISLAND:Item In Map:5,6"
@@ -66,7 +160,6 @@
   {
    "id": "hm-strength",
    "markers": [
-    "MAP_FUCHSIA_CITY_WARDENS_HOUSE:Item In Map:11,5",
     "MAP_SIX_ISLAND_RUIN_VALLEY:Item In Map:19,11",
     "MAP_SIX_ISLAND_RUIN_VALLEY:Item In Map:43,32",
     "MAP_SIX_ISLAND_RUIN_VALLEY:Item In Map:5,33"
@@ -300,6 +393,28 @@
    }
   },
   {
+   "id": "hm-cut-flute",
+   "markers": [
+    "MAP_ROUTE12:Battle:10,99",
+    "MAP_ROUTE12:Hidden Item:9,116",
+    "MAP_ROUTE12:Item In Map:9,101",
+    "MAP_ROUTE14:Hidden Item:9,20",
+    "MAP_ROUTE15:Battle:28,6",
+    "MAP_ROUTE15:Battle:39,7",
+    "MAP_ROUTE15:Battle:40,7",
+    "MAP_ROUTE15:Item In Map:20,6"
+   ],
+   "needs": [
+    "HM01",
+    "Leader Misty",
+    "Poké Flute"
+   ],
+   "why": {
+    "en": "Behind an obstacle: Cut (HM01) and the Cascade Badge + the Poké Flute to wake Snorlax",
+    "es": "Detrás de un obstáculo: Corte (MO01) y la Medalla Cascada + la Poké Flauta para despertar a Snorlax"
+   }
+  },
+  {
    "id": "hm-cut-surf",
    "markers": [
     "MAP_THREE_ISLAND_BERRY_FOREST:Item In Map:12,43"
@@ -313,6 +428,21 @@
    "why": {
     "en": "Behind an obstacle: Cut (HM01) and the Cascade Badge + Surf (HM03) and the Soul Badge",
     "es": "Detrás de un obstáculo: Corte (MO01) y la Medalla Cascada + Surf (MO03) y la Medalla Alma"
+   }
+  },
+  {
+   "id": "hm-flute-strength",
+   "markers": [
+    "MAP_FUCHSIA_CITY_WARDENS_HOUSE:Item In Map:11,5"
+   ],
+   "needs": [
+    "Poké Flute",
+    "HM04",
+    "Leader Erika"
+   ],
+   "why": {
+    "en": "Behind an obstacle: the Poké Flute to wake Snorlax + Strength (HM04) and the Rainbow Badge",
+    "es": "Detrás de un obstáculo: la Poké Flauta para despertar a Snorlax + Fuerza (MO04) y la Medalla Arcoíris"
    }
   },
   {
