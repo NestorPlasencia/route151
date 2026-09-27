@@ -24,15 +24,25 @@ export const colorOf=(category:string)=>frlgGroups.find(g=>g[0]===category)?.[2]
 // marcador en la checklist (el mismo en todos los juegos): la cana para pescar,
 // la MO para surfear o romper rocas. Andar por hierba o cueva no pide nada.
 export const TOOLS:Record<string,string>={'Old Rod':'Old Rod','Good Rod':'Good Rod','Super Rod':'Super Rod',Surf:'HM03','Rock Smash':'HM06'};
-// Lo que ya tienes: las herramientas cuyo marcador esta marcado en tu checklist.
-export const toolsOwned=(markers:Marker[],done:number[])=>new Set(markers.filter(m=>Object.values(TOOLS).includes(m.name)&&done.includes(m.uid)).map(m=>m.name));
+// Lo que ya tienes: los nombres de los marcadores marcados en tu checklist (la
+// Cana Vieja, la MO03, "Leader Brock"...). De ahi salen herramientas y bloqueos.
+export const haveNames=(markers:Marker[],done:number[])=>new Set(markers.filter(m=>done.includes(m.uid)).map(m=>m.name));
 // La herramienta que te falta para atrapar este Pokemon, o null si alguna de sus
 // formas de encontrarlo ya te sirve (hierba y pesca: con la hierba basta).
 export const missingTool=(m:Marker,owned:Set<string>)=>{
  const methods=m.category==='Pokémon'?m.encounter?.methods??[]:[];
  if(!methods.length||methods.some(method=>!TOOLS[method]||owned.has(TOOLS[method])))return null;
- return TOOLS[methods[0]];
+ // La primera que se consigue de las que sirven: si vale la Cana Buena, no pide la Super.
+ const order=Object.values(TOOLS);
+ return methods.map(method=>TOOLS[method]).sort((x,y)=>order.indexOf(x)-order.indexOf(y))[0];
 };
+
+// Bloqueos de la historia de cada juego (gates.json): zonas o mapas que no se
+// pueden hacer hasta tener ciertos marcadores (el gimnasio de Verde pide las
+// otras 7 medallas). El primero sin cumplir que afecte al marcador, o null.
+export type Gate={id:string;zones?:string[];maps?:string[];needs:string[];why:{en:string;es:string}};
+export const unmetGate=(m:Marker&{map?:string;zone?:string},gates:Gate[],have:Set<string>)=>gates.find(g=>
+ (g.zones?.includes(m.zone??'')||g.maps?.includes(m.map??''))&&!g.needs.includes(m.name)&&g.needs.some(n=>!have.has(n)))??null;
 
 // Todos los marcadores traen su figurita: los combates, el sprite del mapa.
 export const iconOf=(m:{icon?:string|null})=>m.icon??undefined;

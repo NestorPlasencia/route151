@@ -2,7 +2,7 @@
 // areas con imagen propia (regiones y pisos), puertas entre areas, lugares a
 // los que ir, marcadores con su area y su punto, encuentros por zona, checklist
 // y Pokedex. Asi el mapa y las listas son los mismos para todos los juegos.
-import type {Marker} from './shared';
+import type {Gate,Marker} from './shared';
 import type {Checklist,Dex} from './lists';
 import {rulesFor,type Gen} from './rules';
 
@@ -12,7 +12,7 @@ export type Warp={area:string;at:Pt;to:string;toAt:Pt};
 export type Place={name:string;area:string;at?:Pt};
 export type EncounterMon={id:number;name:string;sprite:string;types:string[];areas:{area:string;maxChance:number;encounters:{chance:number;minLevel:number;maxLevel:number;method:string}[]}[]};
 export type EncounterZone={name:string;pokemon:EncounterMon[]};
-export type World={areas:Area[];warps:Warp[];places:Place[];markers:Marker[];zones:EncounterZone[];checklist:Checklist;dex:Dex};
+export type World={areas:Area[];warps:Warp[];places:Place[];markers:Marker[];zones:EncounterZone[];checklist:Checklist;dex:Dex;gates:Gate[]};
 export type Game={
  id:string;short:string;title:string;
  // Claves de localStorage con el progreso.
@@ -40,7 +40,9 @@ export async function loadGame(game:Game):Promise<World>{
  const [a,markers,enc,checklist,dex]=await Promise.all([
   json<{areas:Area[];warps:Warp[];places:Place[]}>(`${data}/areas.json`),json<(Marker&{version?:string})[]>(`${data}/markers.json`),
   json<{zones:EncounterZone[]}>(`${data}/encounters-${version}.json`),json<Checklist>(`${data}/checklist.json`),json<Dex>(`${data}/pokedex-${version}.json`)]);
- return {...a,markers:markers.filter(m=>!m.version||m.version===version),zones:enc.zones,checklist,dex};
+ // Bloqueos de la historia: si un juego aun no los tiene, no se bloquea nada.
+ const gates=await json<{gates:Gate[]}>(`${data}/gates.json`).then(g=>g.gates).catch(()=>[]);
+ return {...a,markers:markers.filter(m=>!m.version||m.version===version),zones:enc.zones,checklist,dex,gates};
 }
 // Datos de combate y, si las reglas los tienen, textos de los ataques.
 export const battleUrl=(game:Game)=>`${game.data}/battle.json`;

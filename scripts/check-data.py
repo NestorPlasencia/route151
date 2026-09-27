@@ -169,6 +169,24 @@ def check(game):
                 # Aviso, no error: el consejo de combate del mapa no puede con ellos.
                 if re.sub(r'[^a-z0-9]', '', name.lower().replace('♀', 'f').replace('♂', 'm')) not in names:
                     warn(f'especie de un equipo fuera de la Pokedex (sin consejo de combate): {name} de {m["name"]} @ {m.get("location")}')
+    # Bloqueos de la historia (opcionales): lo que piden son nombres de marcadores
+    # del juego, y sus zonas y mapas existen; si no, nunca se abririan o no harian nada.
+    if os.path.exists(f'{base}/gates.json'):
+        marker_names = {m['name'] for m in markers}
+        zones = {m.get('zone') for m in markers}
+        maps = {m.get('map') for m in markers}
+        for g in load(f'{base}/gates.json')['gates']:
+            for n in g['needs']:
+                if n not in marker_names:
+                    err(f"bloqueo {g['id']}: pide {n}, que no es ningun marcador")
+            for z in g.get('zones', []):
+                if z not in zones:
+                    err(f"bloqueo {g['id']}: zona inexistente {z}")
+            for mp in g.get('maps', []):
+                if mp not in maps:
+                    err(f"bloqueo {g['id']}: mapa sin marcadores {mp}")
+            if not all(g['why'].get(lang) for lang in ('en', 'es')):
+                err(f"bloqueo {g['id']}: falta el motivo en algun idioma")
     return errors, warnings
 
 

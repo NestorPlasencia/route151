@@ -97,7 +97,15 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .zone.open .zone-top{border-bottom:1px solid var(--line);background:#fbfcfe}
 .floor h4{margin:0;padding:7px 13px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);background:#f7f9fc;border-top:1px solid #eef2f6}
 .row{display:grid;grid-template-columns:28px 40px minmax(0,1fr) 34px;align-items:center;gap:8px;padding:6px 10px 6px 12px;border-top:1px solid #eef2f6}
-/* Aviso de Pokemon ocultos por falta de cana o MO, al abrir la zona. */
+/* No disponible todavia (falta una herramienta o un paso de la historia): en gris,
+   con candado en la casilla y el motivo debajo del nombre. */
+.row-locked>.fig,.row-locked .row-text>b{opacity:.5}
+.row-locked .tick{background:#f1f4f8;border-color:#d5dde8;color:#9aa6b8;cursor:not-allowed}
+.row-locked .tick svg{width:12px}
+.row-why{display:block;color:#8a5a08!important;white-space:normal!important}
+.zone-lockbadge{display:flex;align-items:center;gap:5px;font-size:11px;color:#8a5a08;font-weight:normal}
+.zone-lockbadge svg{width:13px}
+/* Aviso de lo no disponible oculto, al abrir la zona. */
 .zone-locked{display:flex;align-items:center;gap:6px;margin:0;padding:7px 13px;font-size:11px;color:#8a5a08;background:#fdf6e6;border-bottom:1px solid var(--line)}
 .zone-locked svg{width:13px;flex:none}
 .chip svg{width:13px}

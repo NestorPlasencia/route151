@@ -3,7 +3,7 @@ import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} 
 import {createPortal} from 'react-dom';
 import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
 import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Map as MapIcon,MapPin,Sparkles,Swords,X} from 'lucide-react';
-import {Credits,Figure,colorOf,groupsOf,missingTool,toolsOwned,type Encounter,type Marker} from './shared';
+import {Credits,Figure,colorOf,groupsOf,haveNames,missingTool,unmetGate,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
 import {RankingView} from './ranking';
@@ -151,15 +151,19 @@ export default function Home(){
   else m.fitBounds(b,{animate:!changed});
  },[view,area,mapReady,tab]);
 
- // Solo lo que ya puedes atrapar: sin cana no salen los Pokemon de pesca, sin la
- // MO de Surf los del agua. Lo que tienes sale de tu checklist (la Cana Vieja
- // marcada = la tienes). Se puede apagar para verlo todo.
- const [catchable,setCatchableState]=useState(true);
- useEffect(()=>{try{setCatchableState(localStorage.getItem('ruta151-catchable')!=='all')}catch{}},[]);
- const setCatchable=(on:boolean)=>{setCatchableState(on);try{localStorage.setItem('ruta151-catchable',on?'now':'all')}catch{}};
- const owned=useMemo(()=>toolsOwned(world?.markers??[],done),[world,done]);
- const locked=useCallback((m:Marker)=>catchable?missingTool(m,owned):null,[catchable,owned]);
- const shown=useMemo(()=>(area?inArea.get(area.id)??[]:[]).filter(m=>active.includes(m.category)&&!locked(m)),[area,inArea,active,locked]);
+ // Lo que aun no se puede hacer, y por que: falta una herramienta (sin cana no
+ // se pesca) o un paso de la historia (el gimnasio de Verde pide 7 medallas). Lo
+ // que tienes sale de tu checklist. No se oculta: sale como no disponible, y se
+ // puede ocultar con un interruptor que se recuerda.
+ const [hideUnavailable,setHideState]=useState(false);
+ useEffect(()=>{try{setHideState(localStorage.getItem('ruta151-unavailable')==='hide')}catch{}},[]);
+ const setHideUnavailable=(on:boolean)=>{setHideState(on);try{localStorage.setItem('ruta151-unavailable',on?'hide':'show')}catch{}};
+ const have=useMemo(()=>haveNames(world?.markers??[],done),[world,done]);
+ const unavailable=useCallback((m:Marker)=>{
+  const gate=unmetGate(m,world?.gates??[],have);if(gate)return gate.why[lang];
+  const tool=missingTool(m,have);return tool?t('needsTool',{tool:name(tool)}):null;
+ },[world,have,lang,t,name]);
+ const shown=useMemo(()=>(area?inArea.get(area.id)??[]:[]).filter(m=>active.includes(m.category)&&!(hideUnavailable&&unavailable(m))),[area,inArea,active,hideUnavailable,unavailable]);
  // Muchos objetos comparten punto exacto (hasta 14): se pintan como un solo pin
  // con su recuento, o el de arriba taparia a los demas.
  const stacks=useMemo(()=>{const g=new Map<string,{at:Pt;items:Marker[]}>();for(const m of shown){const k=m.at!.join(','),s=g.get(k);if(s)s.items.push(m);else g.set(k,{at:m.at!,items:[m]})}return [...g.values()]},[shown]);
@@ -350,7 +354,7 @@ export default function Home(){
  {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRowWithAdvice(selected)}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{stack!.map(m=><Fragment key={m.id}>{popRowWithAdvice(m,true)}</Fragment>)}</div>,popupBox)}
  {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={place(encounterZone.name)}><button className="close" onClick={()=>setEncounterZone(null)} aria-label={t('close')}><X/></button><small>{t('encountersWild').toUpperCase()}</small><h2>{place(encounterZone.name)}</h2><p>{t('availableHere',{n:encounterZone.pokemon.length})}</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>{t('encounterRate',{levels:`${min}${max!==min?`–${max}`:''}`,chance,methods:[...new Set(variants.map(v=>method(METHODS[v.method]??v.method)))].join(' · ')})}</span></div></article>})}</div></dialog></div>}
  </div>
- {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} locked={locked} catchable={catchable} setCatchable={setCatchable} battle={battle} dex={world.dex} teamKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
+ {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} unavailable={unavailable} hideUnavailable={hideUnavailable} setHideUnavailable={setHideUnavailable} battle={battle} dex={world.dex} teamKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
  {/* La Pokedex y el ranking comparten pestana, cada uno con su lista: se
      cambia con el selector de arriba (el ranking solo en FireRed/LeafGreen). */}
  {tab==='pokedex'&&(()=>{

@@ -2,9 +2,7 @@
 // Pestanas de lista: la checklist por zonas (en orden de juego) y la Pokedex.
 import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
 import {Check,ChevronDown,Lock,MapPin,Search} from 'lucide-react';
-import {Figure,TOOLS,type Marker} from './shared';
-
-const TOOL_ORDER=Object.values(TOOLS);
+import {Figure,type Marker} from './shared';
 import type {T} from './i18n';
 import {BattleAdvice,trainerOpponents,type Battle} from './team';
 
@@ -26,13 +24,16 @@ const focusOf=(m:Marker):Focus[]=>m.category==='Battle'?[LEADER.test(m.name)?'le
 const FOCUS:[Focus,'filterAll'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'][]=[
  ['all','filterAll'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts']];
 
-export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZone,detail,locked,catchable,setCatchable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;locked:(m:Marker)=>string|null;catchable:boolean;setCatchable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
+export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
  const {t,category,place,name}=tr;
  const isDone=(m:Marker)=>done.includes(m.uid);
- // Se abre sola la primera zona con algo pendiente: Pueblo Paleta si empiezas,
- // o donde te quedaste. Es la ruta para quien no conoce el mapa.
+ // No disponible todavia (y sin marcar): sale en gris y no cuenta para la zona.
+ const blocked=(m:Marker)=>!isDone(m)&&!!unavailable(m);
+ const counted=(list:Marker[])=>list.filter(m=>!blocked(m));
+ // Se abre sola la primera zona con algo pendiente que se pueda hacer: Pueblo
+ // Paleta si empiezas, o donde te quedaste. Es la ruta para quien no conoce el mapa.
  const [query,setQuery]=useState(''),[hideDone,setHideDone]=useState(false),[focus,setFocus]=useState<Focus>('all'),[open,setOpen]=useState<string[]>(()=>{
-  const next=checklist.zones.find(z=>markers.some(m=>checklist.markers[m.id]?.zone===z.name&&!isDone(m)));
+  const next=checklist.zones.find(z=>markers.some(m=>checklist.markers[m.id]?.zone===z.name&&!isDone(m)&&!unavailable(m)));
   return next?[next.name]:[];
  });
  // Equipos de entrenadores desplegados: plegados de inicio, se abren al tocar la fila.
@@ -45,7 +46,7 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
  const byZone=useMemo(()=>{const out=new Map<string,Map<string,Marker[]>>();for(const m of markers){const z=checklist.markers[m.id];if(!z)continue;const floors=out.get(z.zone)??out.set(z.zone,new Map()).get(z.zone)!;const k=z.floor??'';(floors.get(k)??floors.set(k,[]).get(k)!).push(m)}return out},[markers,checklist]);
  const q=query.trim().toLowerCase();
  // Se busca por el nombre que se ve y por el original en ingles.
- const keep=(m:Marker)=>!locked(m)&&(focus==='all'||focusOf(m).includes(focus))&&(!hideDone||!isDone(m))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
+ const keep=(m:Marker)=>!(hideUnavailable&&blocked(m))&&(focus==='all'||focusOf(m).includes(focus))&&(!hideDone||!isDone(m))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
  const total=markers.length,completed=markers.filter(isDone).length;
  const toggle=(z:string)=>setOpen(o=>o.includes(z)?o.filter(x=>x!==z):[...o,z]);
  return <div className="listview">
@@ -54,7 +55,7 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
    <label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('searchChecklist')}/></label>
    <div className="list-filters">
     <button className={`chip ${hideDone?'on':''}`} onClick={()=>setHideDone(v=>!v)}><Check/>{t('hideCompleted')}</button>
-    <button className={`chip ${catchable?'on':''}`} aria-pressed={catchable} title={t('catchableHelp')} onClick={()=>setCatchable(!catchable)}><Lock/>{t('catchableNow')}</button>
+    <button className={`chip ${hideUnavailable?'on':''}`} aria-pressed={hideUnavailable} title={t('hideUnavailableHelp')} onClick={()=>setHideUnavailable(!hideUnavailable)}><Lock/>{t('hideUnavailable')}</button>
     {FOCUS.filter(([f])=>counts.get(f)).map(([f,label])=><button key={f} className={`chip ${focus===f?'on':''}`} aria-pressed={focus===f} onClick={()=>setFocus(f)}>{t(label)}<b>{counts.get(f)}</b></button>)}
    </div>
   </div>
@@ -64,7 +65,7 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
     const all=zones.flatMap(z=>[...byZone.get(z.name)!.values()].flat());
     if(!all.some(keep))return null;
     return <section key={part.n} className="part">
-     <h3><span className="part-n">{t('part',{n:part.n})}</span>{part.title.split('→').map(x=>place(x.trim())).join(' → ')}<Progress done={all.filter(isDone).length} total={all.length}/></h3>
+     <h3><span className="part-n">{t('part',{n:part.n})}</span>{part.title.split('→').map(x=>place(x.trim())).join(' → ')}<Progress done={all.filter(isDone).length} total={counted(all).length}/></h3>
      {zones.map(z=>{
       const floors=byZone.get(z.name)!,items=[...floors.values()].flat();
       if(!items.some(keep))return null;
@@ -73,24 +74,27 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
       const order=['',...z.floors].filter(f=>floors.has(f));
       return <div key={z.name} id={`zone-${z.name}`} className={`zone ${expanded?'open':''}`}>
        <div className="zone-top">
-        <button className="zone-head" onClick={()=>toggle(z.name)} aria-expanded={expanded}><b>{place(z.name)}</b><Progress done={items.filter(isDone).length} total={items.length}/></button>
+        {/* La zona cuenta lo que ya se puede hacer: completa en verde hasta que algo
+            nuevo se desbloquea. Si aun no se puede hacer nada, un candado. */}
+        <button className="zone-head" onClick={()=>toggle(z.name)} aria-expanded={expanded}><b>{place(z.name)}</b>{counted(items).length
+         ?<Progress done={items.filter(isDone).length} total={counted(items).length}/>
+         :<span className="zone-lockbadge"><Lock/>{t('unavailable')}</span>}</button>
         <button className="show" onClick={()=>onShowZone(z.name)} aria-label={t('showOnMap',{name:place(z.name)})} title={t('showOnMap',{name:place(z.name)})}><MapPin/></button>
        </div>
-       {/* Lo que queda oculto por falta de herramienta, para que no parezca que falta. */}
-       {expanded&&(notes=>notes.length>0&&<p className="zone-locked"><Lock/>{notes.map(([tool,n])=>t(n===1?'lockedNoteOne':'lockedNote',{n,tool:name(tool)})).join(' · ')}</p>)(
-        // En el orden en que se consiguen: Cana Vieja, Buena, Super, Surf...
-        [...items.reduce((c,m)=>{const tool=locked(m);return tool&&(!hideDone||!isDone(m))?c.set(tool,(c.get(tool)??0)+1):c},new Map<string,number>())]
-         .sort((a,b)=>TOOL_ORDER.indexOf(a[0])-TOOL_ORDER.indexOf(b[0])))}
+       {/* Con lo no disponible oculto, que se sepa cuanto hay y por que. */}
+       {expanded&&hideUnavailable&&(notes=>notes.length>0&&<p className="zone-locked"><Lock/>{notes.map(([why,n])=>t('hiddenNote',{n,why})).join(' · ')}</p>)(
+        [...items.reduce((c,m)=>{const why=blocked(m)&&unavailable(m);return why?c.set(why,(c.get(why)??0)+1):c},new Map<string,number>())])}
        {expanded&&order.map(f=>{const rows=floors.get(f)!.filter(keep);if(!rows.length)return null;return <div key={f||'_'} className="floor">
         {f&&<h4>{place(f.startsWith(z.name+' ')?f.slice(z.name.length+1):f)}</h4>}
-        {rows.map(m=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id);return <div key={m.id} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''}`}>
-         <button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{isDone(m)&&<Check/>}</button>
+        {rows.map(m=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id),why=blocked(m)?unavailable(m):null;return <div key={m.id} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''} ${why?'row-locked':''}`}>
+         {/* No disponible: no se puede marcar hasta cumplir lo que pide. */}
+         <button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid)}>{isDone(m)?<Check/>:why?<Lock/>:null}</button>
          <Figure m={m}/>
          {/* Un entrenador muestra su equipo en una linea; tocandolo se despliega la
              ficha como en el mapa: cada Pokemon con su nivel, lo que da y con que atacarle. */}
          {foes.length?<button className={`row-text row-toggle ${shown?'on':''}`} aria-expanded={shown} onClick={()=>toggleTeam(m.id)}>
-           <b>{name(m.name)}<ChevronDown/></b><small>{d}</small></button>
-          :<span className="row-text"><b>{name(m.name)}</b><small>{d??category(m.category)}</small></span>}
+           <b>{name(m.name)}<ChevronDown/></b><small>{d}</small>{why&&<small className="row-why">{why}</small>}</button>
+          :<span className="row-text"><b>{name(m.name)}</b><small>{d??category(m.category)}</small>{why&&<small className="row-why">{why}</small>}</span>}
          <button className="show" onClick={()=>onShow(m)} aria-label={t('showOnMap',{name:name(m.name)})}><MapPin/></button>
          {shown&&battle&&<div className="row-team"><BattleAdvice opponents={foes} dex={dex} battle={battle} storageKey={teamKey} tr={tr}/></div>}
         </div>})}
