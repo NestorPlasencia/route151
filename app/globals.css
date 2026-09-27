@@ -105,6 +105,14 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .row-why{display:block;color:#8a5a08!important;white-space:normal!important}
 .zone-lockbadge{display:flex;align-items:center;gap:5px;font-size:11px;color:#8a5a08;font-weight:normal}
 .zone-lockbadge svg{width:13px}
+/* En el mapa: pin gris con candado si lo que falta aun no se puede hacer, y en
+   la ficha la casilla bloqueada con el motivo. */
+.pin.pin-locked{background:#b9c3d1;color:#4b566a}
+.pop-locked .fig,.pop-locked .pop-head b{opacity:.55}
+.pop-locked .tick{background:#f1f4f8;border-color:#d5dde8;color:#9aa6b8;cursor:not-allowed}
+.pop-locked .tick svg{width:12px}
+.pop-why{display:flex;gap:5px;align-items:flex-start;color:#8a5a08!important}
+.pop-why svg{width:12px;flex:none;margin-top:2px}
 /* Aviso de lo no disponible oculto, al abrir la zona. */
 .zone-locked{display:flex;align-items:center;gap:6px;margin:0;padding:7px 13px;font-size:11px;color:#8a5a08;background:#fdf6e6;border-bottom:1px solid var(--line)}
 .zone-locked svg{width:13px;flex:none}
@@ -222,6 +230,8 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .battle-context.good{color:#218653}.battle-context.poor{color:#a34a29}
 .battle-wild-row{display:flex;align-items:flex-start;gap:8px;padding:7px 0}
 .battle-wild-row .tick{margin-left:0}
+.battle-wild-row.pop-locked{flex-wrap:wrap}
+.battle-wild-row .pop-why{flex-basis:100%;margin:2px 0 0 40px}
 .battle-advice.inline{flex:1;min-width:0;margin:0;padding:0;border:0}
 .battle-match.inline{gap:7px;min-width:0}
 .battle-match.inline .battle-mon{flex:0 1 auto;min-width:0}

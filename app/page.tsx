@@ -2,8 +2,8 @@
 import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
-import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Map as MapIcon,MapPin,Sparkles,Swords,X} from 'lucide-react';
-import {Credits,Figure,colorOf,groupsOf,haveNames,missingTool,unmetGate,type Encounter,type Marker} from './shared';
+import {ArrowLeft,BookOpen,Check,ChevronDown,DoorOpen,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,Sparkles,Swords,X} from 'lucide-react';
+import {Credits,Figure,checkOrder,colorOf,groupsOf,haveNames,missingTool,unmetGate,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
 import {RankingView} from './ranking';
@@ -18,6 +18,8 @@ const ll=(p:Pt):[number,number]=>[-p[1],p[0]];
 // "Silph Co. 7F" -> "7F": quita las palabras que comparten todos los pisos.
 const shortLabels=(list:Area[])=>{const words=list.map(f=>f.label.split(' '));let n=0;while(words.every(w=>w.length>n+1&&w[n]===words[0][n]))n++;return new Map(list.map((f,i)=>[f.id,words[i].slice(n).join(' ')]))};
 const GAME_KEY='ruta151-game';
+// Candado de lucide para los pines bloqueados: el pin es HTML de Leaflet, no React.
+const LOCK_SVG='<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
 export default function Home(){
  const popup=useRef<Popup|null>(null),[popupBox,setPopupBox]=useState<HTMLDivElement|null>(null);
@@ -96,11 +98,25 @@ export default function Home(){
    cache.set(key,out);return out;
   };
  },[linked]);
+ // Lo que aun no se puede hacer, y por que: falta una herramienta (sin cana no
+ // se pesca) o un paso de la historia (el gimnasio de Verde pide 7 medallas). Lo
+ // que tienes sale de tu checklist. No se oculta: sale como no disponible, y se
+ // puede ocultar con un interruptor que se recuerda.
+ const [hideUnavailable,setHideState]=useState(false);
+ useEffect(()=>{try{setHideState(localStorage.getItem('ruta151-unavailable')==='hide')}catch{}},[]);
+ const setHideUnavailable=(on:boolean)=>{setHideState(on);try{localStorage.setItem('ruta151-unavailable',on?'hide':'show')}catch{}};
+ const have=useMemo(()=>haveNames(world?.markers??[],done),[world,done]);
+ const unavailable=useCallback((m:Marker)=>{
+  const gate=unmetGate(m,world?.gates??[],have);if(gate)return gate.why[lang];
+  const tool=missingTool(m,have);return tool?t('needsTool',{tool:name(tool)}):null;
+ },[world,have,lang,t,name]);
+ // Sin marcar ni bloqueado: lo que de verdad queda por hacer.
+ const pending=useCallback((m:Marker)=>!done.includes(m.uid)&&!unavailable(m),[done,unavailable]);
  const left=useMemo(()=>{
   const n=new Map<string,number>();
-  for(const m of world?.markers??[])if(m.area&&!game.untracked.includes(m.category)&&!done.includes(m.uid))n.set(m.area,(n.get(m.area)??0)+1);
+  for(const m of world?.markers??[])if(m.area&&!game.untracked.includes(m.category)&&pending(m))n.set(m.area,(n.get(m.area)??0)+1);
   return n;
- },[world,game.untracked,done]);
+ },[world,game.untracked,pending]);
  const finished=useCallback((from:string,to:string)=>behind(from,to).every(a=>!left.get(a)),[behind,left]);
 
  useEffect(()=>{
@@ -151,18 +167,6 @@ export default function Home(){
   else m.fitBounds(b,{animate:!changed});
  },[view,area,mapReady,tab]);
 
- // Lo que aun no se puede hacer, y por que: falta una herramienta (sin cana no
- // se pesca) o un paso de la historia (el gimnasio de Verde pide 7 medallas). Lo
- // que tienes sale de tu checklist. No se oculta: sale como no disponible, y se
- // puede ocultar con un interruptor que se recuerda.
- const [hideUnavailable,setHideState]=useState(false);
- useEffect(()=>{try{setHideState(localStorage.getItem('ruta151-unavailable')==='hide')}catch{}},[]);
- const setHideUnavailable=(on:boolean)=>{setHideState(on);try{localStorage.setItem('ruta151-unavailable',on?'hide':'show')}catch{}};
- const have=useMemo(()=>haveNames(world?.markers??[],done),[world,done]);
- const unavailable=useCallback((m:Marker)=>{
-  const gate=unmetGate(m,world?.gates??[],have);if(gate)return gate.why[lang];
-  const tool=missingTool(m,have);return tool?t('needsTool',{tool:name(tool)}):null;
- },[world,have,lang,t,name]);
  const shown=useMemo(()=>(area?inArea.get(area.id)??[]:[]).filter(m=>active.includes(m.category)&&!(hideUnavailable&&unavailable(m))),[area,inArea,active,hideUnavailable,unavailable]);
  // Muchos objetos comparten punto exacto (hasta 14): se pintan como un solo pin
  // con su recuento, o el de arriba taparia a los demas.
@@ -230,11 +234,12 @@ export default function Home(){
  useEffect(()=>{
   const L=leaflet.current,g=layer.current;if(!L||!g||!world||!area)return;g.clearLayers();
   for(const {at,items} of stacks){
-   const completed=items.every(m=>done.includes(m.uid));
+   // Verde si todo esta hecho; gris con candado si lo que falta aun no se puede hacer.
+   const completed=items.every(m=>done.includes(m.uid)),locked=!completed&&!items.some(pending);
    // Varias categorias en el mismo punto: el pin se reparte en sectores de color.
    const colors=[...new Set(items.map(m=>colorOf(m.category)))];
    const fill=colors.length>1?`conic-gradient(${colors.map((c,i)=>`${c} ${i*100/colors.length}% ${(i+1)*100/colors.length}%`).join(',')})`:colors[0];
-   const icon=L.divIcon({className:'pin-wrap',html:`<span class="pin ${completed?'pin-done':''}" style="--pin:${fill}">${completed?'✓':''}</span>${items.length>1?`<b class="pin-count">${items.length}</b>`:''}`,iconSize:[20,20],iconAnchor:[10,10]});
+   const icon=L.divIcon({className:'pin-wrap',html:`<span class="pin ${completed?'pin-done':locked?'pin-locked':''}" style="--pin:${fill}">${completed?'✓':locked?LOCK_SVG:''}</span>${items.length>1?`<b class="pin-count">${items.length}</b>`:''}`,iconSize:[20,20],iconAnchor:[10,10]});
    L.marker(ll(at),{icon}).on('click',()=>{if(items.length>1){setSelected(null);setStack(items)}else{setStack(null);setSelected(items[0])}}).addTo(g);
   }
   // Puertas: hacia un interior (o a otro piso) se entra; hacia una region se sale.
@@ -245,7 +250,7 @@ export default function Home(){
     .on('click',()=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})).addTo(g);
   }
   if(arrival&&arrival.area===area.id)L.marker(ll(arrival.at),{icon:L.divIcon({className:'arrive',html:'<span></span><i></i>',iconSize:[0,0]}),title:arrival.label,interactive:false,zIndexOffset:1000}).addTo(g);
- },[stacks,done,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place]);
+ },[stacks,done,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place]);
 
  useLayoutEffect(()=>{
   const m=map.current,p=popup.current;if(!m||!p)return;
@@ -286,7 +291,7 @@ export default function Home(){
  const showZone=(zone:string)=>{
   const spot=world?.places.find(p=>p.name===zone);
   const items=listed.filter(m=>world?.checklist.markers[m.id]?.zone===zone&&m.area);
-  const next=items.find(m=>!done.includes(m.uid))??items[0];
+  const next=items.find(pending)??items.find(m=>!done.includes(m.uid))??items[0];
   const loc=spot??(next?{name:zone,area:next.area!,at:isRegion(next.area!)?next.at:undefined}:null);
   if(loc){setTab('mapa');go(loc,false)}
  };
@@ -326,14 +331,20 @@ export default function Home(){
  // Linea de detalle: niveles y probabilidad, equipo, lo que vende, lo que pide un
  // intercambio, o el texto largo de Yellow.
  // En un grupo el lugar va una vez en el titulo; cada fila, sin subtitulo.
- const popRow=(m:Marker,compact=false)=><div className="pop-item"><div className="pop-head">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<Figure m={m}/><div><b>{name(m.name)}</b>{!compact&&<small>{m.encounter?`${category(m.category)} · ${place(m.encounter.zone)}`:shortPlace(m)?`${category(m.category)} · ${place(m.location)}`:category(m.category)}</small>}</div></div>{popLine(m)&&<p>{popLine(m)}</p>}{evs(m)&&<p className="pop-ev">{evs(m)}</p>}</div>;
+ // Casilla de la ficha, como en la checklist: sin marcar y bloqueado, candado y
+ // no se puede marcar.
+ const whyLocked=(m:Marker)=>done.includes(m.uid)?null:unavailable(m);
+ const popTick=(m:Marker)=>{if(game.untracked.includes(m.category))return null;const why=whyLocked(m),on=done.includes(m.uid);
+  return <button className={`tick ${on?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid)}>{on?<Check/>:why?<Lock/>:null}</button>};
+ const popWhy=(m:Marker)=>{const why=whyLocked(m);return why&&<p className="pop-why"><Lock/>{why}</p>};
+ const popRow=(m:Marker,compact=false)=><div className={`pop-item ${whyLocked(m)?'pop-locked':''}`}><div className="pop-head">{popTick(m)}<Figure m={m}/><div><b>{name(m.name)}</b>{!compact&&<small>{m.encounter?`${category(m.category)} · ${place(m.encounter.zone)}`:shortPlace(m)?`${category(m.category)} · ${place(m.location)}`:category(m.category)}</small>}</div></div>{popWhy(m)}{popLine(m)&&<p>{popLine(m)}</p>}{evs(m)&&<p className="pop-ev">{evs(m)}</p>}</div>;
  // Lo que gana tu Pokemon al derrotar a un salvaje, segun las reglas del juego:
  // EVs ("+1 At. Esp." en un Oddish) o Stat Exp.
  const evs=(m:Marker)=>{const n=m.encounter&&battle?speciesByName.get(speciesKey(m.name)):undefined;
   return n?effortText(battle!,[n],tr):null};
  const popLine=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):info(m)??(shortPlace(m)?null:place(m.location)||null)};
  const popRowWithAdvice=(m:Marker,compact=false)=>{const opponents=opponentsOf(m);
-  if(m.encounter&&battle)return <div className="pop-item battle-wild-row">{!game.untracked.includes(m.category)&&<button className={`tick ${done.includes(m.uid)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{done.includes(m.uid)&&<Check/>}</button>}<BattleAdvice opponents={opponents} dex={world!.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr} inline foeLevel={t('encounterLevels',{levels:span(m.encounter)})} foeDetail={t('encounterChance',{chance:m.encounter.chance,methods:m.encounter.methods.map(x=>method(x).replace(/ /g,String.fromCharCode(160))).join(' · ')})}/></div>;
+  if(m.encounter&&battle)return <div className={`pop-item battle-wild-row ${whyLocked(m)?'pop-locked':''}`}>{popTick(m)}<BattleAdvice opponents={opponents} dex={world!.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr} inline foeLevel={t('encounterLevels',{levels:span(m.encounter)})} foeDetail={t('encounterChance',{chance:m.encounter.chance,methods:m.encounter.methods.map(x=>method(x).replace(/ /g,String.fromCharCode(160))).join(' · ')})}/>{popWhy(m)}</div>;
   return <div className="pop-advised">{popRow(m,compact)}{opponents.length>0&&<BattleAdvice opponents={opponents} dex={world!.dex} battle={battle} storageKey={`${game.storage.done}-team`} tr={tr}/>}</div>};
  const exitRegion=here?exitOf(here).region:null;
  const floors=here?zoneFloors.get(here.zone??here.label)??[here]:[];
@@ -351,7 +362,7 @@ export default function Home(){
  {locations&&world&&<div className="locations">{here&&<button className="leave-inline" onClick={()=>{leave();setLocations(false)}}><ArrowLeft/>{t('backToMap',{region:place(areaById.get(exitRegion??'')?.label??'')})}</button>}
   {regions.map((r,i)=><Fragment key={r.id}><h3>{place(r.label).toUpperCase()}</h3><button className={area?.id===r.id?'current':''} onClick={()=>showRegion(r.id)}><MapIcon/>{t('wholeMap')}</button>{world.places.filter(p=>p.area===r.id||(i===0&&!isRegion(p.area))).map(loc=><button key={loc.name} onClick={()=>go(loc)}><MapPin/>{place(loc.name)}</button>)}</Fragment>)}
   <h3>{t('interiors')}</h3>{[...zoneFloors].map(([zone,list])=><div key={zone} className="dungeon"><h4>{place(zone)}</h4>{list.map(f=><button key={f.id} onClick={()=>enter(f.id)} className={here?.id===f.id?'current':''}><DoorOpen/>{place(f.label)}<b>{inArea.get(f.id)?.length??0}</b></button>)}</div>)}</div>}
- {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRowWithAdvice(selected)}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{stack!.map(m=><Fragment key={m.id}>{popRowWithAdvice(m,true)}</Fragment>)}</div>,popupBox)}
+ {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRowWithAdvice(selected)}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{checkOrder(stack!,m=>!!whyLocked(m)).map(m=><Fragment key={m.id}>{popRowWithAdvice(m,true)}</Fragment>)}</div>,popupBox)}
  {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={place(encounterZone.name)}><button className="close" onClick={()=>setEncounterZone(null)} aria-label={t('close')}><X/></button><small>{t('encountersWild').toUpperCase()}</small><h2>{place(encounterZone.name)}</h2><p>{t('availableHere',{n:encounterZone.pokemon.length})}</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>{t('encounterRate',{levels:`${min}${max!==min?`–${max}`:''}`,chance,methods:[...new Set(variants.map(v=>method(METHODS[v.method]??v.method)))].join(' · ')})}</span></div></article>})}</div></dialog></div>}
  </div>
  {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} unavailable={unavailable} hideUnavailable={hideUnavailable} setHideUnavailable={setHideUnavailable} battle={battle} dex={world.dex} teamKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}

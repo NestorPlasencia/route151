@@ -46,6 +46,14 @@ export type Gate={id:string;zones?:string[];maps?:string[];markers?:string[];nee
 export const unmetGate=(m:Marker&{map?:string;zone?:string},gates:Gate[],have:Set<string>)=>gates.find(g=>
  (g.zones?.includes(m.zone??'')||g.maps?.includes(m.map??'')||g.markers?.includes(m.id))&&!g.needs.includes(m.name)&&g.needs.some(n=>!have.has(n)))??null;
 
+// Orden dentro de cada seccion: primero lo que se recoge (objetos, regalos,
+// tiendas), luego los combates y al final lo que se captura (salvajes, Pokemon
+// de regalo, intercambios). Lo no disponible, detras de todo. Estable: dentro
+// de cada grupo se queda el orden del juego.
+const KIND:Record<string,number>={Battle:1,'Pokémon':2,'In-Game Gift Pokémon':2,'In-Game Trade':2};
+export const checkOrder=<T extends Marker>(list:T[],blocked:(m:T)=>boolean)=>
+ list.map((m,i)=>({m,i,k:(blocked(m)?10:0)+(KIND[m.category]??0)})).sort((a,b)=>a.k-b.k||a.i-b.i).map(x=>x.m);
+
 // Todos los marcadores traen su figurita: los combates, el sprite del mapa.
 export const iconOf=(m:{icon?:string|null})=>m.icon??undefined;
 

@@ -2,7 +2,7 @@
 // Pestanas de lista: la checklist por zonas (en orden de juego) y la Pokedex.
 import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
 import {Check,ChevronDown,Lock,MapPin,Search} from 'lucide-react';
-import {Figure,type Marker} from './shared';
+import {Figure,checkOrder,type Marker} from './shared';
 import type {T} from './i18n';
 import {BattleAdvice,trainerOpponents,type Battle} from './team';
 
@@ -84,7 +84,7 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
        {/* Con lo no disponible oculto, que se sepa cuanto hay y por que. */}
        {expanded&&hideUnavailable&&(notes=>notes.length>0&&<p className="zone-locked"><Lock/>{notes.map(([why,n])=>t('hiddenNote',{n,why})).join(' · ')}</p>)(
         [...items.reduce((c,m)=>{const why=blocked(m)&&unavailable(m);return why?c.set(why,(c.get(why)??0)+1):c},new Map<string,number>())])}
-       {expanded&&order.map(f=>{const rows=floors.get(f)!.filter(keep);if(!rows.length)return null;return <div key={f||'_'} className="floor">
+       {expanded&&order.map(f=>{const rows=checkOrder(floors.get(f)!.filter(keep),blocked);if(!rows.length)return null;return <div key={f||'_'} className="floor">
         {f&&<h4>{place(f.startsWith(z.name+' ')?f.slice(z.name.length+1):f)}</h4>}
         {rows.map(m=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id),why=blocked(m)?unavailable(m):null;return <div key={m.id} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''} ${why?'row-locked':''}`}>
          {/* No disponible: no se puede marcar hasta cumplir lo que pide. */}
