@@ -37,12 +37,14 @@ export const missingTool=(m:Marker,owned:Set<string>)=>{
  return methods.map(method=>TOOLS[method]).sort((x,y)=>order.indexOf(x)-order.indexOf(y))[0];
 };
 
-// Bloqueos de la historia de cada juego (gates.json): zonas o mapas que no se
-// pueden hacer hasta tener ciertos marcadores (el gimnasio de Verde pide las
-// otras 7 medallas). El primero sin cumplir que afecte al marcador, o null.
-export type Gate={id:string;zones?:string[];maps?:string[];needs:string[];why:{en:string;es:string}};
+// Bloqueos de cada juego: zonas, mapas o marcadores sueltos que no se pueden
+// hacer hasta tener ciertos marcadores. Los de la historia van a mano en
+// gates.json (el gimnasio de Verde pide las otras 7 medallas); los de las MO
+// salen de los mapas en hm-gates.json (los objetos de la Ruta 2 tras un arbol
+// de Corte). El primero sin cumplir que afecte al marcador, o null.
+export type Gate={id:string;zones?:string[];maps?:string[];markers?:string[];needs:string[];why:{en:string;es:string}};
 export const unmetGate=(m:Marker&{map?:string;zone?:string},gates:Gate[],have:Set<string>)=>gates.find(g=>
- (g.zones?.includes(m.zone??'')||g.maps?.includes(m.map??''))&&!g.needs.includes(m.name)&&g.needs.some(n=>!have.has(n)))??null;
+ (g.zones?.includes(m.zone??'')||g.maps?.includes(m.map??'')||g.markers?.includes(m.id))&&!g.needs.includes(m.name)&&g.needs.some(n=>!have.has(n)))??null;
 
 // Todos los marcadores traen su figurita: los combates, el sprite del mapa.
 export const iconOf=(m:{icon?:string|null})=>m.icon??undefined;

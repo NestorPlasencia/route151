@@ -40,8 +40,10 @@ export async function loadGame(game:Game):Promise<World>{
  const [a,markers,enc,checklist,dex]=await Promise.all([
   json<{areas:Area[];warps:Warp[];places:Place[]}>(`${data}/areas.json`),json<(Marker&{version?:string})[]>(`${data}/markers.json`),
   json<{zones:EncounterZone[]}>(`${data}/encounters-${version}.json`),json<Checklist>(`${data}/checklist.json`),json<Dex>(`${data}/pokedex-${version}.json`)]);
- // Bloqueos de la historia: si un juego aun no los tiene, no se bloquea nada.
- const gates=await json<{gates:Gate[]}>(`${data}/gates.json`).then(g=>g.gates).catch(()=>[]);
+ // Bloqueos: los de la historia (a mano) y los de las MO (sacados de los mapas:
+ // lo que queda detras de un arbol o del agua). Si un juego no los tiene, nada.
+ const gatesOf=(file:string)=>json<{gates:Gate[]}>(`${data}/${file}`).then(g=>g.gates).catch(()=>[] as Gate[]);
+ const gates=(await Promise.all([gatesOf('gates.json'),gatesOf('hm-gates.json')])).flat();
  return {...a,markers:markers.filter(m=>!m.version||m.version===version),zones:enc.zones,checklist,dex,gates};
 }
 // Datos de combate y, si las reglas los tienen, textos de los ataques.

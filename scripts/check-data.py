@@ -171,11 +171,17 @@ def check(game):
                     warn(f'especie de un equipo fuera de la Pokedex (sin consejo de combate): {name} de {m["name"]} @ {m.get("location")}')
     # Bloqueos de la historia (opcionales): lo que piden son nombres de marcadores
     # del juego, y sus zonas y mapas existen; si no, nunca se abririan o no harian nada.
-    if os.path.exists(f'{base}/gates.json'):
+    # hm-gates.json sale de los scripts reach-* y nombra marcadores sueltos.
+    for file in ('gates.json', 'hm-gates.json'):
+        if not os.path.exists(f'{base}/{file}'):
+            continue
         marker_names = {m['name'] for m in markers}
         zones = {m.get('zone') for m in markers}
         maps = {m.get('map') for m in markers}
-        for g in load(f'{base}/gates.json')['gates']:
+        for g in load(f'{base}/{file}')['gates']:
+            for mid in g.get('markers', []):
+                if mid not in by_id:
+                    err(f"bloqueo {g['id']}: marcador inexistente {mid}")
             for n in g['needs']:
                 if n not in marker_names:
                     err(f"bloqueo {g['id']}: pide {n}, que no es ningun marcador")

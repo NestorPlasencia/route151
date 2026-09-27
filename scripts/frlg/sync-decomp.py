@@ -50,6 +50,8 @@ PATHS = [
     '/include/constants/abilities.h',
     '/include/constants/pokemon.h',
     '/include/constants/items.h',
+    '/include/constants/metatile_behaviors.h',
+    '/src/metatile_behavior.c',
 ]
 
 
