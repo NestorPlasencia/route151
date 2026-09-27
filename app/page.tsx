@@ -25,6 +25,8 @@ const ll=(p:Pt):[number,number]=>[-p[1],p[0]];
 // "Silph Co. 7F" -> "7F": quita las palabras que comparten todos los pisos.
 const shortLabels=(list:Area[])=>{const words=list.map(f=>f.label.split(' '));let n=0;while(words.every(w=>w.length>n+1&&w[n]===words[0][n]))n++;return new Map(list.map((f,i)=>[f.id,words[i].slice(n).join(' ')]))};
 const GAME_KEY='ruta151-game';
+// Un piso: la ultima palabra de su nombre es 1F, B2F, Roof...
+const FLOOR_RE=/\s+(B?\d+F|Roof|Rooftop)$/i;
 // A la gente se le habla tambien por encima de un mostrador (a dos casillas).
 const PEOPLE=['Item Gift','In-Game Trade','Battle','In-Game Gift Pokémon','Shop'];
 const MOVE_KEY:Record<string,'moveSurf'|'moveCut'|'moveStrength'|'moveSmash'|'moveWaterfall'|'moveFlute'>={surf:'moveSurf',cut:'moveCut',strength:'moveStrength',smash:'moveSmash',waterfall:'moveWaterfall',flute:'moveFlute'};
@@ -381,8 +383,8 @@ export default function Home(){
   // Los pasos en palabras se resumen (sin casetas ni pisos de paso); el dibujo
   // usa el camino entero, para que salga la linea tambien dentro de tu casa.
   const all=found?tripItems(legsOf(navWorld,found.path)):null;
-  return {items:all?withoutGates(all,a=>!isRegion(a)):null,draw:all??[],partial:!!found?.partial};
- },[routeTo,navWorld,world,have,from,isRegion,lastSpot]);
+  return {items:all?withoutGates(all,a=>!isRegion(a),a=>{const l=areaById.get(a)?.label??'';return FLOOR_RE.test(l)?l.replace(FLOOR_RE,''):null}):null,draw:all??[],partial:!!found?.partial};
+ },[routeTo,navWorld,world,have,from,isRegion,lastSpot,areaById]);
  const [tripOpen,setTripOpen]=useState(false);
  useEffect(()=>setTripOpen(false),[routeTo]);
  // Al marcar el destino, la ruta termina: la barra vuelve al siguiente objetivo.

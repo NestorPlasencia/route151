@@ -166,8 +166,8 @@ export function legsOf(w:World,path:Step[]):Leg[]{
   const g=w.grids.get(s.map)!,p=pointOf(w,s)!.at;
   let leg=legs[legs.length-1];
   if(!leg||leg.map!==s.map){leg={map:s.map,zone:g.m.zone,area:g.m.area,enter:legs.length?s.how:'walk',side:s.side,uses:[],pts:[],acts:[]};legs.push(leg)}
-  else if(['surf','cut','strength','smash','waterfall','jump'].includes(s.how)&&!leg.uses.includes(s.how))leg.uses.push(s.how);
-  if(['cut','strength','smash'].includes(s.how))leg.acts.push({how:s.how,at:p});
+  else if(['surf','cut','strength','smash','waterfall','flute','jump'].includes(s.how)&&!leg.uses.includes(s.how))leg.uses.push(s.how);
+  if(['cut','strength','smash','flute'].includes(s.how))leg.acts.push({how:s.how,at:p});
   leg.pts.push(p);
  }
  return legs;

@@ -24,11 +24,15 @@ export function tripItems(legs:Leg[]):TripItem[]{
 // vienes, o de la del exterior al que sales. Una cueva de su propia zona (la
 // Cueva Diglett) se queda. Si al quitarla quedan dos pasos del mismo sitio
 // seguidos, se juntan.
-export function withoutGates(items:TripItem[],isInterior:(area:string)=>boolean){
+// Los pisos de un mismo edificio (Guarida Rocket B1F, B2F...) si se dicen: en
+// una mazmorra hace falta saber por que pisos se baja. `building` da el edificio
+// de un piso (null si no es un piso).
+export function withoutGates(items:TripItem[],isInterior:(area:string)=>boolean,building:(area:string)=>string|null=()=>null){
  const out:TripItem[]=[];
  items.forEach((it,i)=>{
-  const prev=out[out.length-1],next=items[i+1];
-  if(prev&&next&&isInterior(it.area)&&it.enter==='door'&&next.enter==='door'&&!it.uses.length
+  const prev=out[out.length-1],next=items[i+1],b=building(it.area);
+  const floor=!!b&&((!!next&&building(next.area)===b)||(!!prev&&building(prev.area)===b));
+  if(prev&&next&&!floor&&isInterior(it.area)&&it.enter==='door'&&next.enter==='door'&&!it.uses.length
    &&(it.zone===prev.zone||(it.zone===next.zone&&!isInterior(next.area))))return;
   if(prev&&prev.area===it.area&&prev.zone===it.zone){
    for(const u of it.uses)if(!prev.uses.includes(u))prev.uses.push(u);
