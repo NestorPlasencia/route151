@@ -10,6 +10,7 @@ import {ScanCard} from './scan';
 import type {T} from './i18n';
 import {rulesFor,type Gen} from './rules';
 import type {Dex} from './lists';
+import {Help} from './learn';
 
 export type Move={name:string;type:string;power:number;accuracy:number;pp:number;effect?:string;category:'physical'|'special'};
 type MoveKind=Move['category']|'status';
@@ -444,7 +445,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
  const {t,lang,type:typeName,move:moveName,ability:abilityName,nature:natureName}=tr;
  // Lo que se muestra depende de las reglas del juego (rules.ts), no del juego:
  // Especial unica o separada, genes DV o IV, naturalezas, habilidades, juez...
- const rules=rulesOf(battle),single=rules.special==='single',dv=rules.genes.name==='DV';
+ const rules=rulesOf(battle),single=rules.special==='single',dv=rules.genes.name==='DV',gen:Gen=battle?.gen??3;
  const statLabel=(stat?:string|null)=>t((single&&stat==='spa'?'stat_spc':'stat_'+stat) as never);
  const describe=(key:string)=>moveText?.[key]?.[lang==='es'?'es':'en']??null;
  const statusSummary=(key:string,move:Move)=>{
@@ -618,8 +619,8 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
    </div>
    <div className="team-fields">
     <label>{t('level')}{guessed(mon,'level')}<Num value={mon.level} min={1} max={100} label={t('level')} onChange={n=>update(mon.id,{level:n})}/></label>
-    {rules.natures&&<label>{t('nature')}{guessed(mon,'nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${statLabel(up)} −${statLabel(down)})`:''}</option>)}</select></label>}
-    {rules.abilities&&<label>{t('ability')}{guessed(mon,'ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{[...new Set([...s.abilities,mon.ability].filter(Boolean))].map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>}
+    {rules.natures&&<label>{t('nature')}<Help term="nature" gen={gen} tr={tr}/>{guessed(mon,'nature')}<select value={mon.nature} onChange={e=>update(mon.id,{nature:e.target.value})}>{Object.entries(battle.natures).map(([n,[up,down]])=><option key={n} value={n}>{natureName(n)}{up?` (+${statLabel(up)} −${statLabel(down)})`:''}</option>)}</select></label>}
+    {rules.abilities&&<label>{t('ability')}<Help term="ability" gen={gen} tr={tr}/>{guessed(mon,'ability')}<select value={mon.ability} onChange={e=>update(mon.id,{ability:e.target.value})}>{[...new Set([...s.abilities,mon.ability].filter(Boolean))].map(a=><option key={a} value={a}>{abilityName(battle.abilities[a]??a)}</option>)}</select></label>}
    </div>
    {/* Con Especial unica se muestra una vez y se escribe en las dos casillas. */}
    <dl className={`team-stats ${own?'own':''}`}>{STATS.flatMap((stat,i)=>single&&stat==='spd'?[]:[<div key={stat}>
@@ -628,9 +629,9 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
      onChange={n=>update(mon.id,{stats:stats.map((v,j)=>j===i||(single&&i===3&&j===4)?n:v)})}/></dd>
     <small>{t('baseStat',{n:s.base[i]})}{own&&' · '}{own&&(fit=>fit?ivLabel(fit):<span title={t('ivNoFitHelp')}>{t('ivNoFit')}</span>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}</small>
    </div>])}</dl>
-   <p className="team-note">{own&&<span className="team-iv">{t(dv?'dvNote':'ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
+   <p className="team-note"><Help term="stats" gen={gen} tr={tr}/><Help term={dv?'dv':'iv'} gen={gen} tr={tr}/>{own&&<span className="team-iv">{t(dv?'dvNote':'ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
    {value&&band&&<div className="training">
-    <h4>{t('training')}</h4>
+    <h4>{t('training')}<Help term="training" gen={gen} tr={tr}/></h4>
     <div className="training-head">
      <b className={`team-score ${band}`}>{value.score}</b>
      <span><strong>{t(band)}</strong>
@@ -679,7 +680,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
      <button key={n} className="team-reset" onClick={()=>update(mon.id,{nature:n})}>{natureName(n)}</button>)}</p>:null)(fittingNatures(mon))}
    </div>}
    {own&&rules.judge&&(ivs=>ivs?<div className="judge">
-    <h4>{t('judge')}<small>{t('judgeTotal',{n:ivs.reduce((a,b)=>a+b,0)})}</small></h4>
+    <h4>{t('judge')}<Help term="judge" gen={gen} tr={tr}/><small>{t('judgeTotal',{n:ivs.reduce((a,b)=>a+b,0)})}</small></h4>
     <div className="judge-chart">
      <svg viewBox="0 0 340 250" aria-labelledby={`judge-radar-${mon.id}`}>
       <title id={`judge-radar-${mon.id}`}>{t('judge')}</title>

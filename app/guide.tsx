@@ -1,7 +1,8 @@
 'use client';
 // Guia para quien empieza: que hacer ahora y, si toca un lider, como prepararse.
 import {useMemo,useState} from 'react';
-import {ChevronDown,Footprints,KeyRound,List,Lock,MapPin,Target} from 'lucide-react';
+import {ChevronDown,Footprints,KeyRound,List,Lock,LockOpen,MapPin,Target,X} from 'lucide-react';
+import {Help} from './learn';
 import {Figure,type Gate,type Marker} from './shared';
 import type {T} from './i18n';
 import type {Checklist,Dex} from './lists';
@@ -93,7 +94,7 @@ function Prepare({goal,order,unavailable,battle,dex,teamKey,onMap,tr}:{goal:Mark
    {!team.length?<p className="prep-note">{t('prepNoTeam')}</p>
     :<p className={mine<ace-2?'prep-warn':'prep-ok'}>{t(mine<ace-2?'prepLow':'prepOk',{mine,theirs:ace})}</p>}
    {catchable.length>0&&<>
-    <p className="prep-sub">{t('prepCatch')}</p>
+    <p className="prep-sub">{t('prepCatch')}<Help term="effective" gen={battle?.gen??3} tr={tr}/></p>
     <ul className="prep-catch">{catchable.map(({m,s})=><li key={m.id}>
      <Figure m={{icon:s.icon,category:'Pokémon'}}/><span><b>{name(s.name)}</b><small>{s.types.map(type).join(' · ')} · {place(m.encounter!.zone)}</small></span>
      {m.area&&<button onClick={()=>onMap(m)} aria-label={t('showOnMap',{name:name(s.name)})}><MapPin/></button>}
@@ -103,4 +104,19 @@ function Prepare({goal,order,unavailable,battle,dex,teamKey,onMap,tr}:{goal:Mark
    {team.length>0&&<><p className="prep-sub">{t('prepAdvice')}</p><BattleAdvice opponents={foes} dex={dex} battle={battle} storageKey={teamKey} tr={tr}/></>}
   </div>}
  </div>;
+}
+
+// Lo que acaba de abrir un marcador (la MO01 abre lo que hay tras los arboles,
+// una medalla el siguiente gimnasio): por zonas, en orden de historia, para
+// volver a por ello. Se queda hasta que se cierra.
+export type Unlock={by:string;items:Marker[]};
+export function Unlocked({unlock,checklist,onZone,onDismiss,tr}:{unlock:Unlock;checklist:Checklist;onZone:(zone:string)=>void;onDismiss:()=>void;tr:T}){
+ const {t,name,place}=tr;
+ const zones=checklist.zones.map(z=>[z.name,unlock.items.filter(m=>checklist.markers[m.id]?.zone===z.name).length] as const).filter(([,n])=>n>0);
+ const n=unlock.items.length;
+ return <section className="unlock">
+  <div className="unlock-head"><LockOpen/><b>{t(n===1?'unlockTitleOne':'unlockTitle',{name:name(unlock.by),n})}</b>
+   <button className="unlock-close" onClick={onDismiss} aria-label={t('dismiss')}><X/></button></div>
+  <div className="unlock-zones">{zones.map(([z,count])=><button key={z} onClick={()=>onZone(z)}>{t('unlockZone',{zone:place(z),n:count})}</button>)}</div>
+ </section>;
 }

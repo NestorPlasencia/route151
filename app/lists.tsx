@@ -3,7 +3,7 @@
 import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
 import {Check,ChevronDown,Lock,MapPin,Search} from 'lucide-react';
 import {Figure,checkOrder,type Gate,type Marker} from './shared';
-import {LEADER,NextGoal} from './guide';
+import {LEADER,NextGoal,Unlocked,type Unlock} from './guide';
 import type {T} from './i18n';
 import {BattleAdvice,trainerOpponents,type Battle} from './team';
 
@@ -24,7 +24,7 @@ const focusOf=(m:Marker):Focus[]=>m.category==='Battle'?[LEADER.test(m.name)?'le
 const FOCUS:[Focus,'filterAll'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'][]=[
  ['all','filterAll'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts']];
 
-export function ChecklistView({markers,checklist,gates,onRoute,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];onRoute:(m:Marker)=>void;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
+export function ChecklistView({markers,checklist,gates,onRoute,unlock,onUnlockDismiss,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];onRoute:(m:Marker)=>void;unlock:Unlock|null;onUnlockDismiss:()=>void;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
  const {t,category,place,name}=tr;
  const isDone=(m:Marker)=>done.includes(m.uid);
  // No disponible todavia (y sin marcar): sale en gris y no cuenta para la zona.
@@ -49,6 +49,9 @@ export function ChecklistView({markers,checklist,gates,onRoute,done,toggleDone,o
  const keep=(m:Marker)=>!(hideUnavailable&&blocked(m))&&(focus==='all'||focusOf(m).includes(focus))&&(!hideDone||!isDone(m))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
  const total=markers.length,completed=markers.filter(isDone).length;
  const toggle=(z:string)=>setOpen(o=>o.includes(z)?o.filter(x=>x!==z):[...o,z]);
+ // A una zona de la checklist, abierta y sin filtros que la escondan.
+ const goToZone=(z:string)=>{setQuery('');setFocus('all');setHideDone(false);setOpen(o=>o.includes(z)?o:[...o,z]);
+  setTimeout(()=>document.getElementById(`zone-${z}`)?.scrollIntoView({block:'start',behavior:'smooth'}),60)};
  // Del siguiente objetivo a su fila: se abre su zona, sin filtros que la escondan.
  const goToRow=(m:Marker)=>{const z=checklist.markers[m.id]?.zone;if(!z)return;
   setQuery('');setFocus('all');setHideDone(false);setOpen(o=>o.includes(z)?o:[...o,z]);
@@ -64,6 +67,7 @@ export function ChecklistView({markers,checklist,gates,onRoute,done,toggleDone,o
    </div>
   </div>
   <div className="list-body">
+   {unlock&&<Unlocked unlock={unlock} checklist={checklist} onZone={goToZone} onDismiss={onUnlockDismiss} tr={tr}/>}
    {!q&&focus==='all'&&<NextGoal markers={markers} checklist={checklist} gates={gates} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} onRoute={onRoute} tr={tr}/>}
    {checklist.parts.map(part=>{
     const zones=checklist.zones.filter(z=>z.part===part.n&&byZone.has(z.name));

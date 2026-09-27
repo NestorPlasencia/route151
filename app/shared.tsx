@@ -37,6 +37,16 @@ export const missingTool=(m:Marker,owned:Set<string>)=>{
  return methods.map(method=>TOOLS[method]).sort((x,y)=>order.indexOf(x)-order.indexOf(y))[0];
 };
 
+// MO de campo que quitan un obstaculo del mapa, con lo que piden (la MO y la
+// medalla que deja usarla fuera de combate; igual en los juegos de Kanto, como
+// en scripts/common/hm_gates.py) y el nombre de su obstaculo en los marcadores.
+export const FIELD_MOVES:Record<string,{needs:string[];obstacle:string}>={
+ cut:{needs:['HM01','Leader Misty'],obstacle:'Cut tree'},
+ strength:{needs:['HM04','Leader Erika'],obstacle:'Strength boulder'},
+ smash:{needs:['HM06','Leader Sabrina'],obstacle:'Rock Smash rock'},
+};
+export const obstacleMove=(name:string)=>Object.entries(FIELD_MOVES).find(([,f])=>f.obstacle===name)?.[0]??null;
+
 // Bloqueos de cada juego: zonas, mapas o marcadores sueltos que no se pueden
 // hacer hasta tener ciertos marcadores. Los de la historia van a mano en
 // gates.json (el gimnasio de Verde pide las otras 7 medallas); los de las MO

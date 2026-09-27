@@ -158,14 +158,16 @@ export const pointOf=(w:World,s:{map:string;x:number;y:number}):{area:string;at:
 
 // El camino en tramos para leerlo: uno por mapa, con como se entra en el y lo
 // que hay que usar dentro (Surf, Corte...).
-export type Leg={map:string;zone:string;area:string;enter:How;side?:string;uses:How[];pts:[number,number][]};
+// acts: donde se quita un obstaculo (un arbol, una roca), para marcarlo en el camino.
+export type Leg={map:string;zone:string;area:string;enter:How;side?:string;uses:How[];pts:[number,number][];acts:{how:How;at:[number,number]}[]};
 export function legsOf(w:World,path:Step[]):Leg[]{
  const legs:Leg[]=[];
  for(const s of path){
   const g=w.grids.get(s.map)!,p=pointOf(w,s)!.at;
   let leg=legs[legs.length-1];
-  if(!leg||leg.map!==s.map){leg={map:s.map,zone:g.m.zone,area:g.m.area,enter:legs.length?s.how:'walk',side:s.side,uses:[],pts:[]};legs.push(leg)}
+  if(!leg||leg.map!==s.map){leg={map:s.map,zone:g.m.zone,area:g.m.area,enter:legs.length?s.how:'walk',side:s.side,uses:[],pts:[],acts:[]};legs.push(leg)}
   else if(['surf','cut','strength','smash','waterfall','jump'].includes(s.how)&&!leg.uses.includes(s.how))leg.uses.push(s.how);
+  if(['cut','strength','smash'].includes(s.how))leg.acts.push({how:s.how,at:p});
   leg.pts.push(p);
  }
  return legs;

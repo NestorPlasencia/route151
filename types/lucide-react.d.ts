@@ -8,6 +8,10 @@ declare module 'lucide-react' {
   export const List: Icon;
   export const Target: Icon;
   export const Footprints: Icon;
+  export const Download: Icon;
+  export const Upload: Icon;
+  export const CircleHelp: Icon;
+  export const LockOpen: Icon;
   export const ArrowDown: Icon;
   export const ArrowLeft: Icon;
   export const ArrowUp: Icon;

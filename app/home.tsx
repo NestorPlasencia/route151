@@ -6,6 +6,7 @@ import {useEffect,useState} from 'react';
 import {Map as MapIcon} from 'lucide-react';
 import {GAMES} from './games';
 import {LANGS,LANG_NAMES,type Lang,type T} from './i18n';
+import {BackupBox} from './backup';
 
 // Portada y consola de cada juego: la mascota de su caja.
 const COVER:Record<string,{icon:string;color:string;system:string}>={
@@ -38,6 +39,7 @@ export function GameHome({current,last,lang,onLang,onPick,tr}:{current:string;la
      </span>
     </button>;
    })}</div>
+   <BackupBox tr={tr} compact/>
   </div>
  </section>;
 }
