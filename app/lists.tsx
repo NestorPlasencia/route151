@@ -1,7 +1,7 @@
 'use client';
 // Pestanas de lista: la checklist por zonas (en orden de juego) y la Pokedex.
 import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
-import {Check,MapPin,Search} from 'lucide-react';
+import {Check,ChevronDown,MapPin,Search} from 'lucide-react';
 import {Figure,type Marker} from './shared';
 import type {T} from './i18n';
 import {BattleAdvice,trainerOpponents,type Battle} from './team';
@@ -33,6 +33,9 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
   const next=checklist.zones.find(z=>markers.some(m=>checklist.markers[m.id]?.zone===z.name&&!isDone(m)));
   return next?[next.name]:[];
  });
+ // Equipos de entrenadores desplegados: plegados de inicio, se abren al tocar la fila.
+ const [teams,setTeams]=useState<string[]>([]);
+ const toggleTeam=(id:string)=>setTeams(list=>list.includes(id)?list.filter(x=>x!==id):[...list,id]);
  const first=useRef(open[0]);
  useEffect(()=>{if(first.current)document.getElementById(`zone-${first.current}`)?.scrollIntoView({block:'start'})},[]);
  const counts=useMemo(()=>{const c=new Map<Focus,number>([['all',markers.length]]);markers.forEach(m=>focusOf(m).forEach(f=>c.set(f,(c.get(f)??0)+1)));return c},[markers]);
@@ -72,13 +75,16 @@ export function ChecklistView({markers,checklist,done,toggleDone,onShow,onShowZo
        </div>
        {expanded&&order.map(f=>{const rows=floors.get(f)!.filter(keep);if(!rows.length)return null;return <div key={f||'_'} className="floor">
         {f&&<h4>{place(f.startsWith(z.name+' ')?f.slice(z.name.length+1):f)}</h4>}
-        {rows.map(m=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[];return <div key={m.id} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''}`}>
+        {rows.map(m=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id);return <div key={m.id} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''}`}>
          <button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} onClick={()=>toggleDone(m.uid)}>{isDone(m)&&<Check/>}</button>
          <Figure m={m}/>
-         <span className="row-text"><b>{name(m.name)}</b><small>{foes.length?category(m.category):d??category(m.category)}</small></span>
+         {/* Un entrenador muestra su equipo en una linea; tocandolo se despliega la
+             ficha como en el mapa: cada Pokemon con su nivel, lo que da y con que atacarle. */}
+         {foes.length?<button className={`row-text row-toggle ${shown?'on':''}`} aria-expanded={shown} onClick={()=>toggleTeam(m.id)}>
+           <b>{name(m.name)}<ChevronDown/></b><small>{d}</small></button>
+          :<span className="row-text"><b>{name(m.name)}</b><small>{d??category(m.category)}</small></span>}
          <button className="show" onClick={()=>onShow(m)} aria-label={t('showOnMap',{name:name(m.name)})}><MapPin/></button>
-         {/* Su equipo como en el mapa: cada Pokemon con su nivel, lo que da y con que atacarle. */}
-         {foes.length>0&&battle&&<div className="row-team"><BattleAdvice opponents={foes} dex={dex} battle={battle} storageKey={teamKey} tr={tr}/></div>}
+         {shown&&battle&&<div className="row-team"><BattleAdvice opponents={foes} dex={dex} battle={battle} storageKey={teamKey} tr={tr}/></div>}
         </div>})}
        </div>})}
       </div>})}

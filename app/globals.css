@@ -97,6 +97,11 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .zone.open .zone-top{border-bottom:1px solid var(--line);background:#fbfcfe}
 .floor h4{margin:0;padding:7px 13px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);background:#f7f9fc;border-top:1px solid #eef2f6}
 .row{display:grid;grid-template-columns:28px 40px minmax(0,1fr) 34px;align-items:center;gap:8px;padding:6px 10px 6px 12px;border-top:1px solid #eef2f6}
+/* Fila de un entrenador: se toca para desplegar su equipo. */
+.row-toggle{border:0;background:none;padding:0;text-align:left;color:inherit;font:inherit;cursor:pointer;min-width:0}
+.row-text.row-toggle b{display:flex;align-items:center;gap:4px}
+.row-text.row-toggle b svg{width:14px;flex:none;color:var(--muted);transition:transform .15s}
+.row-text.row-toggle.on b svg{transform:rotate(180deg)}
 /* Equipo del rival bajo su fila de la checklist, a lo ancho y con sangria. */
 .row-team{grid-column:2/-1;min-width:0}
 .row-team .battle-advice{margin-top:0}
