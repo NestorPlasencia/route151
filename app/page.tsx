@@ -31,7 +31,7 @@ const FLY_NEEDS=['HM02','Leader Lt. Surge'];
 const FLOOR_RE=/\s+(B?\d+F|Roof|Rooftop|Elevator)$/i;
 // A la gente se le habla tambien por encima de un mostrador (a dos casillas).
 const PEOPLE=['Item Gift','In-Game Trade','Battle','In-Game Gift Pokémon','Shop'];
-const MOVE_KEY:Record<string,'moveSurf'|'moveCut'|'moveStrength'|'moveSmash'|'moveWaterfall'|'moveFlute'>={surf:'moveSurf',cut:'moveCut',strength:'moveStrength',smash:'moveSmash',waterfall:'moveWaterfall',flute:'moveFlute'};
+const MOVE_KEY:Record<string,'moveSurf'|'moveCut'|'moveStrength'|'moveSmash'|'moveWaterfall'|'moveFlute'|'moveSwitch'>={surf:'moveSurf',cut:'moveCut',strength:'moveStrength',smash:'moveSmash',waterfall:'moveWaterfall',flute:'moveFlute',switch:'moveSwitch'};
 // Candado de lucide para los pines bloqueados: el pin es HTML de Leaflet, no React.
 // Bandera del siguiente objetivo en el mapa.
 const FLAG_SVG='<svg viewBox="0 0 24 24" width="18" height="18" fill="#ffd936" stroke="#172034" stroke-width="2" stroke-linejoin="round"><path d="M4 22V3"/><path d="M4 4h13l-2.5 4L17 12H4"/></svg>';
@@ -470,7 +470,7 @@ export default function Home(){
   // El siguiente objetivo, con una bandera sobre su pin.
   if(nextGoal?.area===area.id&&nextGoal.at)L.marker(ll(nextGoal.at),{icon:L.divIcon({className:'pin-wrap',html:`<span class="goal-flag">${FLAG_SVG}</span>`,iconSize:[28,28],iconAnchor:[4,30]}),interactive:false,zIndexOffset:900}).addTo(g);
   // Donde el camino quita un obstaculo: su MO encima (tijeras, roca, puno).
-  const ACT:Record<string,string>={cut:'✂',strength:'✊',smash:'⛏',flute:'🎵'};
+  const ACT:Record<string,string>={cut:'✂',strength:'✊',smash:'⛏',flute:'🎵',switch:'🔘'};
   for(const it of items)if(it.area===area.id)for(const a of it.acts)
    L.marker(ll(a.at),{icon:L.divIcon({className:'pin-wrap',html:`<span class="route-act" title="${t(MOVE_KEY[a.how]??'moveCut')}">${ACT[a.how]??''}</span>`,iconSize:[24,24],iconAnchor:[12,12]}),interactive:false,zIndexOffset:400}).addTo(g);
   if(items[0]?.area===area.id)L.circleMarker(ll(items[0].pts[0]),{radius:8,color:'#fff',weight:3,fillColor:'#2d6df6',fillOpacity:1,interactive:false}).addTo(g);

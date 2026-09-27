@@ -61,7 +61,7 @@
   {"id": "MAP_SAFFRON_CITY_GYM:Battle:14,11", "name": "Leader Sabrina"},
   {"id": "MAP_POWER_PLANT:static:5,11", "name": "Zapdos"},
   {"id": "MAP_SEAFOAM_ISLANDS_B4F:static:9,2", "name": "Articuno"},
-  {"id": "MAP_POKEMON_MANSION_B1F:Item In Map:5,7", "name": "Secret Key"},
+  {"id": "MAP_POKEMON_MANSION_B1F:Item In Map:5,7", "name": "Secret Key", "note": {"en": "The statues hide a switch that opens some gates and shuts others: if the way is shut, press it (the 🔘 on the route marks the gates).", "es": "Las estatuas esconden un interruptor que abre unas rejas y cierra otras: si el camino está cerrado, púlsalo (el 🔘 de la ruta marca las rejas)."}},
   {"id": "MAP_CINNABAR_ISLAND_POKEMON_LAB_EXPERIMENT_ROOM:gift:SPECIES_OMANYTE:12,3", "name": "Omanyte"},
   {"id": "MAP_CINNABAR_ISLAND_POKEMON_LAB_EXPERIMENT_ROOM:gift:SPECIES_KABUTO:12,3", "name": "Kabuto"},
   {"id": "MAP_CINNABAR_ISLAND_POKEMON_LAB_EXPERIMENT_ROOM:gift:SPECIES_AERODACTYL:12,3", "name": "Aerodactyl"},

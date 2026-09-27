@@ -84,6 +84,17 @@ def world():
                 obstacles[(o['x'], o['y'])] = 'flute'
         conns = [(SIDES[s], 2 * o, t) for s, t, o in m['connections'] if s in SIDES]
         areas[c] = Area(kind, None, obstacles, [(x, y, dest, n - 1) for x, y, dest, n in warps], conns, grid, pair.get(ts, set()))
+    # Mansion Pokemon: el interruptor de las estatuas cambia bloques (lb bc, fila,
+    # columna; un bloque son 2x2 casillas) entre suelo y reja. Uno que algun
+    # estado deja libre cuenta como suelo: se pulsa cuando hace falta.
+    for floor in ('1F', '2F', '3F', 'B1F'):
+        a = areas.get(f'POKEMON_MANSION_{floor}')
+        for by_, bx in re.findall(r'lb bc, (\d+), (\d+)', by.asm(f'scripts/PokemonMansion{floor}.asm')) if a else []:
+            for y in (2 * int(by_), 2 * int(by_) + 1):
+                for x in (2 * int(bx), 2 * int(bx) + 1):
+                    if y < len(a.kind) and x < len(a.kind[0]):
+                        a.kind[y][x] = FLOOR
+                        a.obstacles[(x, y)] = 'switch'
     # LAST_MAP: la salida vuelve al exterior del que viniste; se enlaza con cada
     # mapa que tiene una puerta hacia aqui. Su numero es la puerta de fuera a la
     # que sale: la principal de la Mansion Azulona da a la de delante, no a la de

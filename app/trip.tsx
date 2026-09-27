@@ -44,7 +44,7 @@ export function withoutGates(items:TripItem[],isInterior:(area:string)=>boolean,
  return out;
 }
 
-const USE:Partial<Record<How,Key>>={surf:'moveSurf',cut:'moveCut',strength:'moveStrength',smash:'moveSmash',waterfall:'moveWaterfall',flute:'moveFlute',jump:'moveJump'};
+const USE:Partial<Record<How,Key>>={surf:'moveSurf',cut:'moveCut',strength:'moveStrength',smash:'moveSmash',waterfall:'moveWaterfall',flute:'moveFlute',switch:'moveSwitch',jump:'moveJump'};
 
 // Los pasos de la ruta, desplegados debajo de la barra del objetivo, como parte
 // de ella. La ruta sale siempre del ultimo objetivo marcado (o de tu cuarto al

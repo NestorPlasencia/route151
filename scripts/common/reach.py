@@ -101,7 +101,8 @@ def _enter(a, nx, ny, dx, dy, e, surf, can):
     """(x, y, altura, surfeando) al moverse a (nx, ny), o None si no se puede."""
     k = a.kind[ny][nx]
     ob = a.obstacles.get((nx, ny))
-    if ob and ob not in can:
+    # 'switch': una reja que abre un interruptor; se pasa siempre (se pulsa).
+    if ob and ob != 'switch' and ob not in can:
         return None
     ne = _e(a, nx, ny)
     if k in (WATER, WATERFALL):

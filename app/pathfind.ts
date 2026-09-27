@@ -8,7 +8,7 @@ export type NavMap={zone:string;area:string;x:number;y:number;w:number;h:number;
 export type Nav={moves:Record<string,string[]>;starts:[string,number,number][];ferry:[string,number,number][];maps:Record<string,NavMap>};
 // Como se llega a cada casilla: andando, surfeando, saltando un saliente, por una
 // puerta, cruzando el borde del mapa, en barco, o quitando un obstaculo.
-export type How='walk'|'surf'|'land'|'jump'|'door'|'edge'|'ferry'|'cut'|'strength'|'smash'|'waterfall'|'flute'|'fly';
+export type How='walk'|'surf'|'land'|'jump'|'door'|'edge'|'ferry'|'cut'|'strength'|'smash'|'waterfall'|'flute'|'fly'|'switch';
 export type Step={map:string;x:number;y:number;how:How;side?:string};
 
 const FLOOR=1,WATER=2,WATERFALL=3;
@@ -69,7 +69,8 @@ function explore(w:World,starts:number[],can:Set<string>,closed:(map:string)=>bo
  // A donde se llega al moverse a (nx, ny): [x, y, altura, surfeando, como] o null.
  const enter=(g:Grid,nx:number,ny:number,dx:number,dy:number,e:number,surf:boolean):[number,number,number,boolean,How]|null=>{
   const at=ny*g.m.w+nx,t=g.kind[at]&7,ob=g.ob.get(at);
-  if(ob&&!can.has(ob))return null;
+  // 'switch': reja que abre el interruptor de una estatua; se pasa (se pulsa).
+  if(ob&&ob!=='switch'&&!can.has(ob))return null;
   const ne=g.elev?g.elev[at]:0;
   if(t===WATER||t===WATERFALL){
    if(!can.has('surf')||(t===WATERFALL&&!can.has('waterfall')))return null;
@@ -205,8 +206,8 @@ export function legsOf(w:World,path:Step[]):Leg[]{
   const g=w.grids.get(s.map)!,p=pointOf(w,s)!.at;
   let leg=legs[legs.length-1];
   if(!leg||leg.map!==s.map){leg={map:s.map,zone:g.m.zone,area:g.m.area,enter:legs.length||s.how==='fly'?s.how:'walk',side:s.side,uses:[],pts:[],acts:[]};legs.push(leg)}
-  else if(['surf','cut','strength','smash','waterfall','flute','jump'].includes(s.how)&&!leg.uses.includes(s.how))leg.uses.push(s.how);
-  if(['cut','strength','smash','flute'].includes(s.how))leg.acts.push({how:s.how,at:p});
+  else if(['surf','cut','strength','smash','waterfall','flute','switch','jump'].includes(s.how)&&!leg.uses.includes(s.how))leg.uses.push(s.how);
+  if(['cut','strength','smash','flute','switch'].includes(s.how))leg.acts.push({how:s.how,at:p});
   leg.pts.push(p);
  }
  return legs;

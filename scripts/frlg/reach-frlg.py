@@ -80,6 +80,7 @@ def world():
         a = areas.get(f'MAP_POKEMON_MANSION_{floor}')
         for x, y in re.findall(r'setmetatile\s+(\d+),\s*(\d+),\s*\w+,\s*0', body) if a else []:
             a.kind[int(y)][int(x)] = FLOOR
+            a.obstacles[(int(x), int(y))] = 'switch'
     # MAP_DYNAMIC: la salida vuelve a donde entraste; se enlaza con cada mapa que
     # tiene una puerta hacia aqui.
     back = {}
