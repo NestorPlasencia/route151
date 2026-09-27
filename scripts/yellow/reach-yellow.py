@@ -92,8 +92,17 @@ def world():
     def exits(c, k):
         doors = back.get(c, [])
         return [(src, i) for src, i in doors if i == k] or doors
+    # Un ascensor: su puerta lleva al piso que eliges (lo pone un script), no al
+    # que dicen sus datos. Sale a cada piso que tiene una puerta hacia el.
+    floors = {}
     for c, a in areas.items():
-        a.warps = [(x, y, src, i) for x, y, dest, k in a.warps for src, i in (exits(c, k) if dest == 'LAST_MAP' else [(dest, k)])]
+        for i, (x, y, dest, k) in enumerate(a.warps):
+            floors.setdefault(dest, []).append((c, i))
+    for c, a in areas.items():
+        if 'ELEVATOR' in c:
+            a.warps = [(x, y, src, i) for x, y, _, _ in a.warps for src, i in floors.get(c, [])]
+        else:
+            a.warps = [(x, y, src, i) for x, y, dest, k in a.warps for src, i in (exits(c, k) if dest == 'LAST_MAP' else [(dest, k)])]
     return areas
 
 
