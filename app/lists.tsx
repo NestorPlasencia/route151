@@ -24,7 +24,7 @@ const focusOf=(m:Marker):Focus[]=>m.category==='Story'?['story']:m.category==='B
 const FOCUS:[Focus,'filterAll'|'focusStory'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'][]=[
  ['all','filterAll'],['story','focusStory'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts']];
 
-export function ChecklistView({markers,checklist,gates,goals,settled,onRoute,unlock,onUnlockDismiss,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];settled:(m:Marker)=>boolean;onRoute:(m:Marker)=>void;unlock:Unlock|null;onUnlockDismiss:()=>void;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
+export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,onRoute,unlock,onUnlockDismiss,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;onRoute:(m:Marker)=>void;unlock:Unlock|null;onUnlockDismiss:()=>void;done:number[];toggleDone:(uid:number)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
  const {t,category,place,name}=tr;
  const isDone=(m:Marker)=>done.includes(m.uid);
  // No disponible todavia (y sin marcar): sale en gris y no cuenta para la zona.
@@ -83,7 +83,7 @@ export function ChecklistView({markers,checklist,gates,goals,settled,onRoute,unl
   </div>
   <div className="list-body">
    {unlock&&<Unlocked unlock={unlock} checklist={checklist} onZone={goToZone} onDismiss={onUnlockDismiss} tr={tr}/>}
-   {!q&&focus==='all'&&<NextGoal markers={markers} checklist={checklist} gates={gates} goals={goals} settled={settled} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} onRoute={onRoute} tr={tr}/>}
+   {!q&&focus==='all'&&<NextGoal markers={markers} checklist={checklist} gates={gates} goals={goals} goalNotes={goalNotes} settled={settled} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} onRoute={onRoute} tr={tr}/>}
    {checklist.parts.map(part=>{
     const zones=checklist.zones.filter(z=>z.part===part.n&&byZone.has(z.name));
     const all=zones.flatMap(z=>[...byZone.get(z.name)!.values()].flat());

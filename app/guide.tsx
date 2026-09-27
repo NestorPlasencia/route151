@@ -1,7 +1,7 @@
 'use client';
 // Guia para quien empieza: que hacer ahora y, si toca un lider, como prepararse.
 import {useMemo,useState} from 'react';
-import {ChevronDown,Footprints,KeyRound,List,Lock,LockOpen,MapPin,Target,X} from 'lucide-react';
+import {ChevronDown,Footprints,Info,KeyRound,List,Lock,LockOpen,MapPin,Target,X} from 'lucide-react';
 import {Help} from './learn';
 import {Figure,type Gate,type Marker} from './shared';
 import type {T} from './i18n';
@@ -28,7 +28,7 @@ export function storyOrder(markers:Marker[],checklist:Checklist){
 const milestone=(m:Marker,needed:Set<string>,home:boolean)=>m.category==='Story'||needed.has(m.name)||(m.category==='Battle'&&(LEADER.test(m.name)||RIVAL.test(m.name)))||HM.test(m.name)
  ||(home&&(m.category==='In-Game Gift Pokémon'||(m.category==='Battle'&&m.name==='Rival')));
 
-export function NextGoal({markers,checklist,gates,goals,settled,done,unavailable,battle,dex,teamKey,onList,onMap,onRoute,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];settled:(m:Marker)=>boolean;done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
+export function NextGoal({markers,checklist,gates,goals,goalNotes,settled,done,unavailable,battle,dex,teamKey,onList,onMap,onRoute,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
  const {t,name,place}=tr;
  const order=useMemo(()=>storyOrder(markers,checklist),[markers,checklist]);
  const story=useMemo(()=>gates.filter(g=>!g.id.startsWith('hm-')),[gates]);
@@ -68,6 +68,7 @@ export function NextGoal({markers,checklist,gates,goals,settled,done,unavailable
    </div>
   </div>
   {blockedBy?<p className="goal-why goal-blocked"><Lock/>{t('goalFirst',{why:blockedBy})}</p>
+   :goalNotes[goal.id]?<p className="goal-why"><Info/>{goalNotes[goal.id][tr.lang==='es'?'es':'en']}</p>
    :step&&goal.detail?<p className="goal-why">{tr.detail(goal.detail)}</p>
    :starter?<p className="goal-why">{t('goalStarterNote')}</p>
    :rival&&inHome?<p className="goal-why">{t('goalRivalNote')}</p>

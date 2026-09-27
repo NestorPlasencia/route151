@@ -59,6 +59,8 @@ def check(game):
         for g in load(f'{base}/goals.json')['goals']:
             if 'step' not in g:
                 goal_ids.append((g['id'], g.get('name')))
+                if 'note' in g and not all(g['note'].get(lang) for lang in ('en', 'es')):
+                    err(f"objetivo {g['id']}: nota sin algun idioma")
                 continue
             sid = f"{g['map']}:story:{g['step']}"
             goal_ids.append((sid, None))

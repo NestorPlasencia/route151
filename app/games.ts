@@ -13,7 +13,7 @@ export type Warp={area:string;at:Pt;to:string;toAt:Pt};
 export type Place={name:string;area:string;at?:Pt};
 export type EncounterMon={id:number;name:string;sprite:string;types:string[];areas:{area:string;maxChance:number;encounters:{chance:number;minLevel:number;maxLevel:number;method:string}[]}[]};
 export type EncounterZone={name:string;pokemon:EncounterMon[]};
-export type World={areas:Area[];warps:Warp[];places:Place[];markers:Marker[];zones:EncounterZone[];checklist:Checklist;dex:Dex;gates:Gate[];choices:Choice[];goals:string[]};
+export type World={areas:Area[];warps:Warp[];places:Place[];markers:Marker[];zones:EncounterZone[];checklist:Checklist;dex:Dex;gates:Gate[];choices:Choice[];goals:string[];goalNotes:Record<string,{en:string;es:string}>};
 export type Game={
  id:string;short:string;title:string;
  // Claves de localStorage con el progreso.
@@ -55,7 +55,7 @@ export async function loadGame(game:Game):Promise<World>{
  // vuelve un marcador mas, un check de verdad, colocado con la rejilla de los
  // mapas (nav.json) y con su piso en la checklist. Su uid sale de su nombre,
  // como el de cualquier marcador, para que el progreso no se pierda.
- type Goal={id:string;name?:string}|{step:string;map:string;x:number;y:number;name:{en:string;es:string};detail:{en:string;es:string}};
+ type Goal={id:string;name?:string;note?:{en:string;es:string}}|{step:string;map:string;x:number;y:number;name:{en:string;es:string};detail:{en:string;es:string}};
  const [goalList,nav]=await Promise.all([
   json<{goals:Goal[]}>(`${data}/goals.json`).then(g=>g.goals).catch(()=>[] as Goal[]),
   json<{maps:Record<string,{zone:string;area:string;x:number;y:number}>}>(`${data}/nav.json`).then(n=>n.maps).catch(()=>({} as Record<string,{zone:string;area:string;x:number;y:number}>))]);
@@ -75,7 +75,9 @@ export async function loadGame(game:Game):Promise<World>{
   const z=list.zones.find(x=>x.name===s.zone);if(z&&s.floor&&!z.floors.includes(s.floor))z.floors.push(s.floor);
  }
  const goals=goalList.map(g=>'step' in g?`${g.map}:story:${g.step}`:g.id);
- return {...a,markers:[...markers.filter(m=>!m.version||m.version===version),...steps],zones:enc.zones,checklist:list,dex,gates,choices,goals};
+ // Nota de un objetivo de la checklist (un consejo: Bulbasaur pide a Pikachu contento).
+ const goalNotes=Object.fromEntries(goalList.flatMap(g=>!('step' in g)&&g.note?[[g.id,g.note]]:[])) as Record<string,{en:string;es:string}>;
+ return {...a,markers:[...markers.filter(m=>!m.version||m.version===version),...steps],zones:enc.zones,checklist:list,dex,gates,choices,goals,goalNotes};
 }
 // Datos de combate y, si las reglas los tienen, textos de los ataques.
 export const battleUrl=(game:Game)=>`${game.data}/battle.json`;
