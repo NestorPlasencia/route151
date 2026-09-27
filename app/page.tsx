@@ -459,14 +459,20 @@ export default function Home(){
  useLayoutEffect(()=>{
   const m=map.current,p=popup.current,L=leaflet.current;if(!m||!p||!L||!m.hasLayer(p))return;
   const box=p.getElement();if(!box)return;
-  box.classList.remove('pop-below');p.options.offset=L.point(0,-6);p.update();
-  const stage=m.getContainer().getBoundingClientRect(),bar=document.querySelector('.floorbar')?.getBoundingClientRect();
-  const top=Math.max(stage.top,bar?bar.bottom:stage.top)+8;
+  const tip=p.getElement()?.querySelector<HTMLElement>('.leaflet-popup-tip-container');
+  box.classList.remove('pop-below');p.options.offset=L.point(0,-6);if(tip)tip.style.marginLeft='';p.update();
+  // Por arriba, lo que tape el mapa: la barra de pisos o regiones y la del objetivo.
+  const stage=m.getContainer().getBoundingClientRect();
+  const covers=[...document.querySelectorAll('.floorbar,.map-goal')].map(e=>e.getBoundingClientRect().bottom);
+  const top=Math.max(stage.top,...covers)+8;
   let r=box.getBoundingClientRect();
   if(r.top<top){box.classList.add('pop-below');p.options.offset=L.point(0,r.height+42);p.update();r=box.getBoundingClientRect()}
-  const dx=r.left<stage.left+10?r.left-stage.left-10:r.right>stage.right-10?r.right-stage.right+10:0;
+  // Si se sale por un lado (un pin pegado al borde de un interior, donde el mapa
+  // no puede moverse), se corre la ficha y su flecha sigue apuntando al pin.
+  const shift=r.left<stage.left+10?stage.left+10-r.left:r.right>stage.right-10?stage.right-10-r.right:0;
+  if(shift){p.options.offset=L.point(shift,p.options.offset.y);p.update();if(tip)tip.style.marginLeft=`${-20-shift}px`;r=box.getBoundingClientRect()}
   const dy=r.bottom>stage.bottom-10?r.bottom-stage.bottom+10:0;
-  if(dx||dy)m.panBy([dx,dy],{animate:true});
+  if(dy)m.panBy([0,dy],{animate:true});
  },[selected,stack,done,area,battle]);
  const toggleGroup=(name:string)=>setActive(a=>a.includes(name)?a.filter(x=>x!==name):[...a,name]);
  const saveDone=(update:(old:number[])=>number[])=>setDone(old=>{const n=update(old);try{localStorage.setItem(game.storage.done,JSON.stringify(n))}catch{}return n});
