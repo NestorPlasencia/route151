@@ -63,6 +63,7 @@ export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,o
   <button className="show" onClick={()=>onShow(m)} aria-label={t('showOnMap',{name:name(m.name)})}><MapPin/></button>
   {shown&&battle&&<div className="row-team"><BattleAdvice opponents={foes} dex={dex} battle={battle} storageKey={teamKey} tr={tr}/></div>}
  </div>};
+ const [goalSlot,setGoalSlot]=useState<HTMLDivElement|null>(null);
  const toggle=(z:string)=>setOpen(o=>o.includes(z)?o.filter(x=>x!==z):[...o,z]);
  // A una zona de la checklist, abierta y sin filtros que la escondan.
  const goToZone=(z:string)=>{setQuery('');setFocus('all');setHideDone(false);setOpen(o=>o.includes(z)?o:[...o,z]);
@@ -74,16 +75,17 @@ export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,o
  return <div className="listview">
   <div className="list-head">
    <div className="list-title"><h2>{t('tabChecklist')}</h2><Progress done={completed} total={total}/></div>
-   <label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('searchChecklist')}/></label>
    <div className="list-filters">
     <button className={`chip ${hideDone?'on':''}`} onClick={()=>setHideDone(v=>!v)}><Check/>{t('hideCompleted')}</button>
     <button className={`chip ${hideUnavailable?'on':''}`} aria-pressed={hideUnavailable} title={t('hideUnavailableHelp')} onClick={()=>setHideUnavailable(!hideUnavailable)}><Lock/>{t('hideUnavailable')}</button>
     {FOCUS.filter(([f])=>counts.get(f)).map(([f,label])=><button key={f} className={`chip ${focus===f?'on':''}`} aria-pressed={focus===f} onClick={()=>setFocus(f)}>{t(label)}<b>{counts.get(f)}</b></button>)}
    </div>
+   {/* Aqui se queda el objetivo compacto al desplazar la lista: la cabecera no se mueve. */}
+   <div ref={setGoalSlot}/>
   </div>
   <div className="list-body">
    {unlock&&<Unlocked unlock={unlock} checklist={checklist} onZone={goToZone} onDismiss={onUnlockDismiss} tr={tr}/>}
-   {!q&&focus==='all'&&<NextGoal markers={markers} checklist={checklist} gates={gates} goals={goals} goalNotes={goalNotes} settled={settled} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} onRoute={onRoute} tr={tr}/>}
+   {!q&&focus==='all'&&<NextGoal slot={goalSlot} markers={markers} checklist={checklist} gates={gates} goals={goals} goalNotes={goalNotes} settled={settled} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} onRoute={onRoute} tr={tr}/>}
    {checklist.parts.map(part=>{
     const zones=checklist.zones.filter(z=>z.part===part.n&&byZone.has(z.name));
     const all=zones.flatMap(z=>[...byZone.get(z.name)!.values()].flat());
@@ -126,6 +128,10 @@ export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,o
       </div>})}
     </section>})}
    <p className="list-source">{checklist.note?<a href={checklist.source} target="_blank" rel="noreferrer">{t('orderStory')}</a>:<>{t('orderSource')}<a href={checklist.source} target="_blank" rel="noreferrer">{t('orderLink')}</a>.</>}</p>
+  </div>
+  {/* El buscador abajo, a mano del pulgar; arriba quedan los filtros y el objetivo. */}
+  <div className="list-foot">
+   <label className="list-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t('searchChecklist')}/></label>
   </div>
  </div>;
 }

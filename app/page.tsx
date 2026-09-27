@@ -374,6 +374,10 @@ export default function Home(){
   const all=found?tripItems(legsOf(navWorld,found.path)):null;
   return {items:all?withoutGates(all,a=>!isRegion(a)):null,draw:all??[],partial:!!found?.partial};
  },[routeTo,navWorld,world,have,from,isRegion,startAt,routeFrom,lastSpot]);
+ const [tripOpen,setTripOpen]=useState(false);
+ useEffect(()=>setTripOpen(false),[routeTo]);
+ // Al marcar el destino, la ruta termina: la barra vuelve al siguiente objetivo.
+ useEffect(()=>{if(routeTo&&(done.includes(routeTo.uid)||taken.has(routeTo.id))){setRouteTo(null);setToast(t('routeDone'))}},[routeTo,done,taken,t]);
  const startRoute=(m:Marker)=>{setRouteTo(m);setTab('mapa');setSelected(null);setStack(null);setEncounterZone(null)};
  // Al calcularse (o cambiar de donde sales), la camara va al inicio del camino.
  const framed=useRef('');
@@ -570,15 +574,24 @@ export default function Home(){
  {!here&&regions.length>1&&<div className="floorbar">{regions.map(r=><button key={r.id} className={r.id===area?.id?'on':''} onClick={()=>showRegion(r.id)}><MapIcon/>{place(r.label)}</button>)}</div>}
  {toast&&<output className="toast" key={toast}>{toast}</output>}
  {/* El siguiente objetivo, arriba del mapa: verlo o trazar el camino. */}
- {nextGoal&&world&&<div className={`map-goal ${routeTo?'with-trip':''}`}><Figure m={nextGoal}/>
-  <span className="map-goal-text"><small>{t('goalTitle')}</small><b>{goalTitle(nextGoal,world.markers,world.checklist,tr)}</b></span>
-  {/* Marcarlo aqui mismo: la barra pasa sola al siguiente objetivo. */}
-  <button className="map-goal-tick" disabled={!!unavailable(nextGoal)} title={unavailable(nextGoal)??t('goalMark')} aria-label={t('goalMark')} onClick={()=>toggleDone(nextGoal.uid)}>{unavailable(nextGoal)?<Lock/>:<Check/>}</button>
-  {routeTo?.id!==nextGoal.id&&<button className="map-goal-go" onClick={()=>startRoute(nextGoal)} aria-label={t('routeHow')} title={t('routeHow')}><Footprints/></button>}
-  <button onClick={()=>reveal(nextGoal,true)} aria-label={t('goalShow')} title={t('goalShow')}><MapPin/></button>
- </div>}
- {routeTo&&world&&<RoutePanel target={name(routeTo.name)} done={settled(routeTo)} canTick={!unavailable(routeTo)} onTick={()=>toggleDone(routeTo.uid)} next={nextGoal&&nextGoal.id!==routeTo.id?goalTitle(nextGoal,world.markers,world.checklist,tr):null} onNext={()=>nextGoal&&startRoute(nextGoal)} from={from} fromRoom={routeFrom===null&&!startAt&&!!lastSpot?.room} zones={world.checklist.zones.map(z=>z.name)} onFrom={setRouteFrom} onHere={imHere} picking={picking} onCancelPick={()=>setPicking(false)}
-  items={trip?.items??[]} partial={!!trip?.partial} status={!trip?'loading':trip.items?'ok':'none'} onStep={stepTo} onClose={()=>setRouteTo(null)}
+ {/* Una sola barra arriba: el siguiente objetivo o, con una ruta abierta, su
+     destino. Marcar, trazar o cerrar la ruta, y verlo; los pasos se despliegan
+     debajo al tocar su linea. Al marcar el destino la ruta se cierra sola y la
+     barra pasa al siguiente objetivo, listo para trazarlo. */}
+ {world&&(routeTo??nextGoal)&&(subject=>{
+  const blocked=unavailable(subject),steps=!trip?t('routeLoading'):!trip.items?t('routeNoneShort').split(' · ')[0]:t(trip.items.length+1===1?'routeStepsOne':'routeSteps',{n:trip.items.length+1}).split(' · ')[0];
+  return <div className="map-goal"><Figure m={subject}/>
+   {routeTo?<button className="map-goal-text" onClick={()=>setTripOpen(v=>!v)} aria-expanded={tripOpen}>
+     <small className={trip&&!trip.items?'trip-none':''}>{t('routeHow')} · {steps}<ChevronDown/></small><b>{name(routeTo.name)}</b></button>
+    :<span className="map-goal-text"><small>{t('goalTitle')}</small><b>{goalTitle(subject,world.markers,world.checklist,tr)}</b></span>}
+   <button className="map-goal-tick" disabled={!!blocked} title={blocked??t('goalMark')} aria-label={t('goalMark')} onClick={()=>toggleDone(subject.uid)}>{blocked?<Lock/>:<Check/>}</button>
+   {/* Interruptor de Como llegar: encendido dibuja la ruta; apagado la quita. */}
+   <button className={`map-goal-go ${routeTo?'on':''}`} aria-pressed={!!routeTo} onClick={()=>routeTo?setRouteTo(null):startRoute(subject)} aria-label={t(routeTo?'routeClose':'routeHow')} title={t(routeTo?'routeClose':'routeHow')}><Footprints/></button>
+   <button onClick={()=>reveal(subject,true)} aria-label={t('goalShow')} title={t('goalShow')}><MapPin/></button>
+  </div>;
+ })(routeTo??nextGoal!)}
+ {routeTo&&world&&(tripOpen||picking)&&<RoutePanel target={name(routeTo.name)} from={from} fromRoom={routeFrom===null&&!startAt&&!!lastSpot?.room} zones={world.checklist.zones.map(z=>z.name)} onFrom={setRouteFrom} onHere={imHere} picking={picking} onCancelPick={()=>setPicking(false)}
+  items={trip?.items??[]} partial={!!trip?.partial} status={!trip?'loading':trip.items?'ok':'none'} onStep={item=>{setTripOpen(false);stepTo(item)}}
   labelOf={it=>isRegion(it.area)?place(it.zone):place(areaById.get(it.area)?.label??it.zone)} isInterior={a=>!isRegion(a)} tr={tr}/>}
  {!world&&<div className="loading">{t('loadingGame',{game:game.short})}</div>}<div className="map-note">{t('mapNote')}</div></div>
  {locations&&world&&<div className="locations">{here&&<button className="leave-inline" onClick={()=>{leave();setLocations(false)}}><ArrowLeft/>{t('backToMap',{region:place(areaById.get(exitRegion??'')?.label??'')})}</button>}

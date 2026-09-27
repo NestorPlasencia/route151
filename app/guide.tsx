@@ -1,6 +1,7 @@
 'use client';
 // Guia para quien empieza: que hacer ahora y, si toca un lider, como prepararse.
 import {useEffect,useMemo,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {ChevronDown,Footprints,Info,KeyRound,List,Lock,LockOpen,MapPin,Target,X} from 'lucide-react';
 import {Help} from './learn';
 import {Figure,type Gate,type Marker} from './shared';
@@ -46,7 +47,7 @@ export function goalTitle(goal:Marker,markers:Marker[],checklist:Checklist,tr:T)
  return t(goal.category==='Battle'?'goalBeat':'goalGet',{name:name(goal.name)});
 }
 
-export function NextGoal({markers,checklist,gates,goals,goalNotes,settled,done,unavailable,battle,dex,teamKey,onList,onMap,onRoute,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
+export function NextGoal({slot,markers,checklist,gates,goals,goalNotes,settled,done,unavailable,battle,dex,teamKey,onList,onMap,onRoute,tr}:{slot:HTMLElement|null;markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
  const {t,name,place}=tr;
  const order=useMemo(()=>storyOrder(markers,checklist),[markers,checklist]);
  // Si la tarjeta sale de la vista al desplazar, se ensena la version compacta.
@@ -81,9 +82,9 @@ export function NextGoal({markers,checklist,gates,goals,goalNotes,settled,done,u
  const inHome=where?.zone===home,starter=inHome&&goal.category==='In-Game Gift Pokémon',rival=leader&&RIVAL.test(goal.name);
  return <>
   {/* Al desplazar la lista, el objetivo queda arriba en una linea con Como llegar. */}
-  {!cardInView&&<div className="goal-mini"><Target/><b>{goalTitle(goal,markers,checklist,tr)}</b>
+  {!cardInView&&slot&&createPortal(<div className="goal-mini"><Target/><b>{goalTitle(goal,markers,checklist,tr)}</b>
    {goal.area&&!blockedBy?<button onClick={()=>onRoute(goal)} aria-label={t('routeHow')}><Footprints/>{t('routeHow')}</button>
-    :<button onClick={()=>onList(goal)} aria-label={t('goalList')}><List/></button>}</div>}
+    :<button onClick={()=>onList(goal)} aria-label={t('goalList')}><List/></button>}</div>,slot)}
   <section className="goal" ref={card}>
   <small className="goal-kicker"><Target/>{t('goalTitle')}</small>
   <div className="goal-main">
