@@ -34,6 +34,8 @@
   {"id": "MAP_CELADON_CITY_RESTAURANT:gift:ITEM_COIN_CASE:1,2", "name": "Coin Case"},
   {"id": "MAP_CELADON_CITY_GYM:Battle:6,4", "name": "Leader Erika"},
   {"step": "rocket-poster", "map": "MAP_CELADON_CITY_GAME_CORNER", "x": 11, "y": 2, "name": {"en": "Open the hideout behind the Game Corner poster", "es": "Abre la guarida tras el póster del Casino"}, "detail": {"en": "Beat the Rocket in front of the poster and press the switch behind it.", "es": "Vence al Rocket delante del póster y pulsa el interruptor que hay detrás."}},
+  {"id": "MAP_ROCKET_HIDEOUT_B4F:Battle:4,2", "name": "Team Rocket Grunt", "note": {"en": "Take the stairs down to B4F (the arrow tiles on B2F and B3F spin you around). This Rocket drops the Lift Key when you beat him.", "es": "Baja por las escaleras hasta el B4F (en el B2F y el B3F las flechas del suelo te hacen girar). Este Rocket suelta la Llave Ascensor al vencerlo."}},
+  {"id": "MAP_ROCKET_HIDEOUT_B4F:Item In Map:3,2", "name": "Lift Key", "note": {"en": "With it, go back up to B1F and take the elevator down to B4F: Giovanni is there.", "es": "Con ella, vuelve al B1F y toma el ascensor hasta el B4F: allí está Giovanni."}},
   {"id": "MAP_ROCKET_HIDEOUT_B4F:Battle:19,4", "name": "Boss Giovanni"},
   {"id": "MAP_ROCKET_HIDEOUT_B4F:Item In Map:20,5", "name": "Silph Scope"},
   {"id": "MAP_POKEMON_TOWER_2F:scene:Rival:17,5", "name": "Rival"},
