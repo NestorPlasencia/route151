@@ -102,7 +102,8 @@ def _enter(a, nx, ny, dx, dy, e, surf, can):
     k = a.kind[ny][nx]
     ob = a.obstacles.get((nx, ny))
     # 'switch': una reja que abre un interruptor; se pasa siempre (se pulsa).
-    if ob and ob != 'switch' and ob not in can:
+    # 'plate': barrera que abre una roca sobre un interruptor: pide Fuerza.
+    if ob and ob != 'switch' and ('strength' if ob == 'plate' else ob) not in can:
         return None
     ne = _e(a, nx, ny)
     if k in (WATER, WATERFALL):

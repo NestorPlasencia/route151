@@ -81,6 +81,17 @@ def world():
         for x, y in re.findall(r'setmetatile\s+(\d+),\s*(\d+),\s*\w+,\s*0', body) if a else []:
             a.kind[int(y)][int(x)] = FLOOR
             a.obstacles[(int(x), int(y))] = 'switch'
+    # Calle Victoria: una roca sobre el interruptor del suelo abre la barrera
+    # (setmetatile ..., 0). Se pasa con Fuerza: 'plate'.
+    for floor in ('1F', '2F', '3F'):
+        a = areas.get(f'MAP_VICTORY_ROAD_{floor}')
+        body = open(d.path(f'data/maps/VictoryRoad_{floor}/scripts.inc'), encoding='utf-8').read() if a else ''
+        for x, y in re.findall(r'setmetatile\s+(\d+),\s*(\d+),\s*\w+,\s*0', body):
+            x, y = int(x), int(y)
+            a.kind[y][x] = FLOOR
+            if a.elev is not None:
+                a.elev[y][x] = 0
+            a.obstacles[(x, y)] = 'plate'
     # MAP_DYNAMIC: la salida vuelve a donde entraste; se enlaza con cada mapa que
     # tiene una puerta hacia aqui.
     back = {}

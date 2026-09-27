@@ -95,6 +95,16 @@ def world():
                     if y < len(a.kind) and x < len(a.kind[0]):
                         a.kind[y][x] = FLOOR
                         a.obstacles[(x, y)] = 'switch'
+    # Calle Victoria: una roca sobre el interruptor del suelo abre una barrera
+    # (el script cambia ese bloque por suelo). Se pasa con Fuerza: 'plate'.
+    for floor in ('1F', '2F', '3F'):
+        a = areas.get(f'VICTORY_ROAD_{floor}')
+        for by_, bx in re.findall(r'lb bc, (\d+), (\d+)', by.asm(f'scripts/VictoryRoad{floor}.asm')) if a else []:
+            for y in (2 * int(by_), 2 * int(by_) + 1):
+                for x in (2 * int(bx), 2 * int(bx) + 1):
+                    if y < len(a.kind) and x < len(a.kind[0]) and a.kind[y][x] == WALL:
+                        a.kind[y][x] = FLOOR
+                        a.obstacles[(x, y)] = 'plate'
     # LAST_MAP: la salida vuelve al exterior del que viniste; se enlaza con cada
     # mapa que tiene una puerta hacia aqui. Su numero es la puerta de fuera a la
     # que sale: la principal de la Mansion Azulona da a la de delante, no a la de

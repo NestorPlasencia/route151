@@ -346,6 +346,7 @@ const TEXT = {
  moveSmash: ['Rock Smash', 'Golpe Roca'],
  moveWaterfall: ['Waterfall', 'Cascada'],
  moveFlute: ['the Poké Flute (wake Snorlax)', 'la Poké Flauta (despierta a Snorlax)'],
+ movePlate: ['Strength: push a boulder onto the floor switch to open the barrier', 'Fuerza: empuja una roca sobre el interruptor del suelo para abrir la barrera'],
  moveSwitch: ['a statue switch (if the gate is shut)', 'el interruptor de una estatua (si la reja está cerrada)'],
  moveJump: ['jump down the ledges', 'salta los salientes'],
  backupTitle: ["Backup of your progress", "Copia de tu progreso"],
