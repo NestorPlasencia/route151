@@ -103,22 +103,53 @@ class World:
         if area != to:
             self.warps.append({'area': area, 'at': at, 'to': to, 'toAt': to_at})
 
-    def merged_warps(self):
-        """Las puertas anchas son varias casillas de warp: se unen en una."""
-        # Se junta con cualquier casilla del grupo, no solo la primera: la salida
-        # sur del Bosque Verde son cuatro casillas seguidas. Si son mas de dos en
-        # fila, la puerta va en la del medio.
+    def merged_warps(self, sizes=None):
+        """Las puertas anchas son varias casillas de warp: se unen en una.
+
+        sizes: {area: (ancho, alto)} en pixeles, para elegir entre casillas sueltas.
+        """
+        # Se juntan casillas pegadas (con cualquiera del grupo: la salida sur del
+        # Bosque Verde son cuatro seguidas), no dos puertas con un hueco entre
+        # ellas (las dos del Centro Comercial de Azulona). Tambien las que llevan
+        # al mismo sitio a pocas casillas: las salidas del Tunel Roca tienen una
+        # casilla en el borde, a la que no se llega, y otra tres mas adentro.
         groups, t = [], self.tile
+
+        def joins(g, w):
+            if g[0]['area'] != w['area'] or g[0]['to'] != w['to']:
+                return False
+            return any((abs(o['at'][0] - w['at'][0]) <= t and abs(o['at'][1] - w['at'][1]) <= t)
+                       or (o['toAt'] == w['toAt'] and abs(o['at'][0] - w['at'][0]) + abs(o['at'][1] - w['at'][1]) <= 4 * t) for o in g)
         for w in self.warps:
-            near = next((g for g in groups if g[0]['area'] == w['area'] and g[0]['to'] == w['to']
-                         and any(abs(o['at'][0] - w['at'][0]) <= 2 * t and abs(o['at'][1] - w['at'][1]) <= t for o in g)), None)
+            near = next((g for g in groups if joins(g, w)), None)
             if near:
                 near.append(w)
             else:
                 groups.append([w])
+
         def line(g):
-            return len(g) > 2 and (len({o['at'][1] for o in g}) == 1 or len({o['at'][0] for o in g}) == 1)
-        return [{**g[0], 'at': sorted(o['at'] for o in g)[len(g) // 2]} if line(g) else g[0] for g in groups]
+            return len({o['at'][1] for o in g}) == 1 or len({o['at'][0] for o in g}) == 1
+
+        def adjacent(g):
+            pts = sorted(o['at'] for o in g)
+            return all(abs(a[0] - b[0]) + abs(a[1] - b[1]) <= t for a, b in zip(pts, pts[1:]))
+
+        def inner(g):
+            # La casilla mas lejos del borde del mapa: la que se pisa.
+            w, h = (sizes or {}).get(g[0]['area'], (0, 0))
+            if not w:
+                return g[0]
+            return max(g, key=lambda o: min(o['at'][0], w - o['at'][0], o['at'][1], h - o['at'][1]))
+
+        out = []
+        for g in groups:
+            if len(g) == 1:
+                out.append(g[0])
+            elif adjacent(g):
+                out.append({**g[0], 'at': sorted(o['at'] for o in g)[len(g) // 2]} if len(g) > 2 and line(g) else g[0])
+            else:
+                out.append(inner(g))
+        return out
 
     def encounter(self, version, zone, n, name, sprite, location, chance, lo, hi, method):
         """Una fila de la tabla de encuentros de la zona (el panel "ir a")."""

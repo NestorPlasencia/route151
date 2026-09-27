@@ -688,7 +688,7 @@ def main():
                     icon=mon_icon(sp), detail='Game Corner prize', once=True)
 
     world.check()
-    merged = world.merged_warps()
+    merged = world.merged_warps({a['id']: (a['width'], a['height']) for a in areas})
     dump(f'{OUT_DATA}/areas.json', {'areas': areas, 'warps': merged, 'places': places})
     dump(f'{OUT_DATA}/markers.json', world.markers)
     dump(f'{OUT_DATA}/encounters-yellow.json', world.encounter_zones('yellow'))

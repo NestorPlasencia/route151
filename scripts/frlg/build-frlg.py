@@ -618,7 +618,7 @@ def main():
             place_scene(owner, label, track=False)
 
     world.check()
-    merged = world.merged_warps()
+    merged = world.merged_warps({a['id']: (a['width'], a['height']) for a in areas})
     dump(f'{OUT_DATA}/areas.json', {'areas': areas, 'warps': merged, 'places': places})
     dump(f'{OUT_DATA}/markers.json', world.markers)
     for v in VERSIONS:
