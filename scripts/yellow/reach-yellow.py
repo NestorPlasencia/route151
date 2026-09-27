@@ -78,14 +78,20 @@ def world():
         conns = [(SIDES[s], 2 * o, t) for s, t, o in m['connections'] if s in SIDES]
         areas[c] = Area(kind, None, obstacles, [(x, y, dest, n - 1) for x, y, dest, n in warps], conns, grid, pair.get(ts, set()))
     # LAST_MAP: la salida vuelve al exterior del que viniste; se enlaza con cada
-    # mapa que tiene una puerta hacia aqui.
+    # mapa que tiene una puerta hacia aqui. Su numero es la puerta de fuera a la
+    # que sale: la principal de la Mansion Azulona da a la de delante, no a la de
+    # atras. Si ese numero no es una puerta hacia aqui, vale cualquiera.
     back = {}
     for c, a in areas.items():
         for i, (x, y, dest, k) in enumerate(a.warps):
             if not maps[c]['indoor']:
                 back.setdefault(dest, []).append((c, i))
+
+    def exits(c, k):
+        doors = back.get(c, [])
+        return [(src, i) for src, i in doors if i == k] or doors
     for c, a in areas.items():
-        a.warps = [(x, y, src, i) for x, y, dest, k in a.warps for src, i in (back.get(c, []) if dest == 'LAST_MAP' else [(dest, k)])]
+        a.warps = [(x, y, src, i) for x, y, dest, k in a.warps for src, i in (exits(c, k) if dest == 'LAST_MAP' else [(dest, k)])]
     return areas
 
 

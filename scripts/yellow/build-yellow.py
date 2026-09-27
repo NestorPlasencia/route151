@@ -657,10 +657,13 @@ def main():
                                     'Cave' if method == 'Grass' and cave else method)
 
         # Puertas y escaleras. LAST_MAP es "el exterior del que viniste": el mapa
-        # que tiene una puerta hacia este.
+        # que tiene una puerta hacia este. Solo exteriores (el B1F del Mt. Moon tiene
+        # escaleras al 1F, pero la salida del 1F da a la Ruta 4), y mejor el que tiene
+        # en la puerta `n` una hacia aqui.
         for wx, wy, dest, n in ws:
             if dest == 'LAST_MAP':
-                dest = next((o for o, (ows, _) in objects_of.items() if o in where and o != c and any(t == c for _, _, t, _ in ows)), None)
+                outs = [o for o, (ows, _) in objects_of.items() if o in where and o != c and not maps[o]['indoor'] and any(t == c for _, _, t, _ in ows)]
+                dest = next((o for o in outs if 1 <= n <= len(objects_of[o][0]) and objects_of[o][0][n - 1][2] == c), outs[0] if outs else None)
             if not dest or dest not in where:
                 continue
             targets = objects_of[dest][0]
