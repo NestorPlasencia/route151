@@ -28,6 +28,24 @@ export function storyOrder(markers:Marker[],checklist:Checklist){
 const milestone=(m:Marker,needed:Set<string>,home:boolean)=>m.category==='Story'||needed.has(m.name)||(m.category==='Battle'&&(LEADER.test(m.name)||RIVAL.test(m.name)))||HM.test(m.name)
  ||(home&&(m.category==='In-Game Gift Pokémon'||(m.category==='Battle'&&m.name==='Rival')));
 
+// El siguiente objetivo de goals.json: el primero sin hacer (ni descartado por
+// otra eleccion). Lo usan la tarjeta de la checklist y la barra del mapa.
+export const nextGoalOf=(markers:Marker[],goals:string[],settled:(m:Marker)=>boolean)=>{
+ const byId=new Map(markers.map(m=>[m.id,m]));return goals.map(id=>byId.get(id)).find(m=>!!m&&!settled(m))??null;
+};
+// Como se dice un objetivo: un paso con su nombre; el primer Pokemon y el rival a
+// su manera; un combate, "Vence a"; lo demas, "Consigue".
+export function goalTitle(goal:Marker,markers:Marker[],checklist:Checklist,tr:T){
+ const {t,name}=tr,home=checklist.zones[0]?.name??'',inHome=checklist.markers[goal.id]?.zone===home;
+ if(goal.category==='Story')return name(goal.name);
+ if(inHome&&goal.category==='In-Game Gift Pokémon'){
+  const n=markers.filter(m=>checklist.markers[m.id]?.zone===home&&m.category==='In-Game Gift Pokémon').length;
+  return t(n>1?'goalStarter':'goalReceive',{name:name(goal.name)});
+ }
+ if(goal.category==='Battle'&&RIVAL.test(goal.name))return t('goalRival');
+ return t(goal.category==='Battle'?'goalBeat':'goalGet',{name:name(goal.name)});
+}
+
 export function NextGoal({markers,checklist,gates,goals,goalNotes,settled,done,unavailable,battle,dex,teamKey,onList,onMap,onRoute,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
  const {t,name,place}=tr;
  const order=useMemo(()=>storyOrder(markers,checklist),[markers,checklist]);
@@ -37,7 +55,7 @@ export function NextGoal({markers,checklist,gates,goals,goalNotes,settled,done,u
  const goal=useMemo(()=>{
   // Con goals.json manda la lista: el primero sin hacer (o sin elegir otro en
   // su lugar, como el inicial de FRLG). Si aun no se puede, sale con lo que pide.
-  if(goals.length){const byId=new Map(markers.map(m=>[m.id,m]));return goals.map(id=>byId.get(id)).find(m=>!!m&&!settled(m))??null}
+  if(goals.length)return nextGoalOf(markers,goals,settled);
   const needed=new Set(story.flatMap(g=>g.needs)),home=checklist.zones[0]?.name;
   const atHome=(m:Marker)=>checklist.markers[m.id]?.zone===home;
   // Se elige un Pokemon inicial entre varios (FRLG): con uno marcado, los otros sobran.
@@ -57,13 +75,12 @@ export function NextGoal({markers,checklist,gates,goals,goalNotes,settled,done,u
  const leader=goal.category==='Battle',step=goal.category==='Story',home=checklist.zones[0]?.name??'';
  // El primer Pokemon y el rival del pueblo de salida se cuentan a su manera.
  const inHome=where?.zone===home,starter=inHome&&goal.category==='In-Game Gift Pokémon',rival=leader&&RIVAL.test(goal.name);
- const starters=order.filter(m=>checklist.markers[m.id]?.zone===home&&m.category==='In-Game Gift Pokémon').length;
  return <section className="goal">
   <small className="goal-kicker"><Target/>{t('goalTitle')}</small>
   <div className="goal-main">
    <Figure m={goal}/>
    <div>
-    <b>{step?name(goal.name):starter?t(starters>1?'goalStarter':'goalReceive',{name:name(goal.name)}):rival?t('goalRival'):t(leader?'goalBeat':'goalGet',{name:name(goal.name)})}</b>
+    <b>{goalTitle(goal,markers,checklist,tr)}</b>
     <small>{place(where?.zone??goal.location)}{where?.floor&&where.floor!==where.zone?` · ${place(where.floor.startsWith(where.zone+' ')?where.floor.slice(where.zone.length+1):where.floor)}`:''}</small>
    </div>
   </div>

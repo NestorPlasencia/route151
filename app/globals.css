@@ -152,6 +152,7 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .trip-toggle span{flex:1;min-width:0}
 .trip-toggle small{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:bold}
 .trip-toggle b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trip-toggle em{display:block;font-style:normal;font-size:11px;color:var(--blue);margin-top:1px}
 .trip-close{width:34px;height:34px;border:0;border-radius:9px;background:#f0f3f7;display:grid;place-items:center;cursor:pointer;flex:none}
 .trip-close svg{width:16px}
 .trip-body{overflow:auto;padding:0 10px 10px}
@@ -270,6 +271,22 @@ nav button{border:0;background:none;padding:0;font:inherit;color:#98a5ba;cursor:
 .fig-story{display:grid;place-items:center;background:#e8effd;border-radius:10px;color:var(--blue)}
 .fig-story svg{width:55%;height:55%}
 .row-story .row-text small{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.35}
+/* Siguiente objetivo arriba del mapa, y su bandera sobre el pin. */
+.map-goal{position:absolute;left:12px;right:12px;top:62px;z-index:750;display:flex;align-items:center;gap:9px;padding:7px 8px 7px 10px;background:#fff8d6;border:1px solid #f1d977;border-radius:12px;box-shadow:0 8px 24px #0006}
+.map-goal>span{flex:1;min-width:0}
+.map-goal small{display:block;font-size:9px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;color:#8a6a08}
+.map-goal b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.map-goal button{width:36px;height:36px;border-radius:10px;border:1px solid #e3cf7a;background:#fff;display:grid;place-items:center;cursor:pointer;color:var(--ink);flex:none}
+.map-goal button svg{width:17px}
+.map-goal .map-goal-go{background:var(--blue);border-color:var(--blue);color:#fff}
+.goal-flag{display:block;filter:drop-shadow(0 2px 3px #000a);animation:goal-bob 1.6s ease-in-out infinite}
+.goal-flag svg{width:26px;height:26px}
+@keyframes goal-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.trip-done{padding:4px 12px 12px}
+.trip-done>b{display:flex;align-items:center;gap:6px;color:#1d7a47;font-size:14px}
+.trip-done>b svg{width:17px}
+.trip-done button{margin-top:8px;width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-weight:bold;font-size:13px;cursor:pointer;text-align:left}
+.trip-done button svg{width:17px;flex:none}
 /* Fila a la que lleva el siguiente objetivo: un destello para encontrarla. */
 .row-flash{animation:row-flash 1.6s ease}
 @keyframes row-flash{0%,40%{background:#fff3b0}100%{background:transparent}}

@@ -14,7 +14,7 @@ import {blockerOf,findRoute,legsOf,movesYouHave,openTree,prepare,reachTiles,reac
 import {RoutePanel,tripItems,withoutGates,type TripItem} from './trip';
 import {BackupBox} from './backup';
 import {LearnView} from './learn';
-import {storyOrder,type Unlock} from './guide';
+import {goalTitle,nextGoalOf,storyOrder,type Unlock} from './guide';
 import {TOUR_KEY,Tour} from './tour';
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
@@ -28,6 +28,8 @@ const GAME_KEY='ruta151-game';
 const PEOPLE=['Item Gift','In-Game Trade','Battle','In-Game Gift Pokémon','Shop'];
 const MOVE_KEY:Record<string,'moveSurf'|'moveCut'|'moveStrength'|'moveSmash'|'moveWaterfall'>={surf:'moveSurf',cut:'moveCut',strength:'moveStrength',smash:'moveSmash',waterfall:'moveWaterfall'};
 // Candado de lucide para los pines bloqueados: el pin es HTML de Leaflet, no React.
+// Bandera del siguiente objetivo en el mapa.
+const FLAG_SVG='<svg viewBox="0 0 24 24" width="18" height="18" fill="#ffd936" stroke="#172034" stroke-width="2" stroke-linejoin="round"><path d="M4 22V3"/><path d="M4 4h13l-2.5 4L17 12H4"/></svg>';
 const LOCK_SVG='<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
 export default function Home(){
@@ -194,6 +196,8 @@ export default function Home(){
  const unavailable=useCallback((m:Marker)=>reasons.get(m.id)??null,[reasons]);
  // Hecho, o descartado por otra eleccion (el inicial que no elegiste).
  const settled=useCallback((m:Marker)=>done.includes(m.uid)||taken.has(m.id),[done,taken]);
+ // El siguiente objetivo, el mismo que en la checklist: sale arriba del mapa.
+ const nextGoal=useMemo(()=>world?nextGoalOf(world.markers.filter(m=>world.checklist.markers[m.id]),world.goals,settled):null,[world,settled]);
  // Puertas del mapa a las que aun no llegas: grises, con candado.
  const reachNow=useMemo(()=>reachFor(have),[reachFor,have]);
  const doorLocked=useCallback((area:string,at:Pt)=>{if(!navWorld||!reachNow)return false;const x=targetAt(navWorld,area,at,false);return !!x&&!reached(navWorld,reachNow.tiles,x)},[navWorld,reachNow]);
@@ -393,12 +397,21 @@ export default function Home(){
   // El camino de "Como llegar" en esta area: linea azul con borde blanco, y un
   // punto donde empieza. Al cruzar a otra zona por el borde, la linea sigue.
   const items=trip?.items??[];
+  // La linea solo une casillas vecinas (un salto son dos): si el camino entra en
+  // un edificio y sale por otra puerta, la linea se corta en vez de cruzarlo.
+  const pieces=(pts:[number,number][])=>pts.reduce<[number,number][][]>((out,p,i)=>{
+   const q=pts[i-1];if(!q||Math.hypot(p[0]-q[0],p[1]-q[1])>40)out.push([p]);else out[out.length-1].push(p);return out},[]);
   items.forEach((it,i)=>{
    if(it.area!==area.id)return;
-   const prev=items[i-1],pts=(prev&&prev.area===it.area&&it.enter==='edge'?[prev.pts[prev.pts.length-1],...it.pts]:it.pts).map(ll);
-   L.polyline(pts,{color:'#fff',weight:10,opacity:.95,interactive:false,lineCap:'round',lineJoin:'round'}).addTo(g);
-   L.polyline(pts,{color:'#2d6df6',weight:5,opacity:1,interactive:false,lineCap:'round',lineJoin:'round'}).addTo(g);
+   const prev=items[i-1];
+   for(const seg of pieces(prev&&prev.area===it.area&&it.enter==='edge'?[prev.pts[prev.pts.length-1],...it.pts]:it.pts)){
+    const pts=seg.map(ll);
+    L.polyline(pts,{color:'#fff',weight:10,opacity:.95,interactive:false,lineCap:'round',lineJoin:'round'}).addTo(g);
+    L.polyline(pts,{color:'#2d6df6',weight:5,opacity:1,interactive:false,lineCap:'round',lineJoin:'round'}).addTo(g);
+   }
   });
+  // El siguiente objetivo, con una bandera sobre su pin.
+  if(nextGoal?.area===area.id&&nextGoal.at)L.marker(ll(nextGoal.at),{icon:L.divIcon({className:'pin-wrap',html:`<span class="goal-flag">${FLAG_SVG}</span>`,iconSize:[28,28],iconAnchor:[4,30]}),interactive:false,zIndexOffset:900}).addTo(g);
   // Donde el camino quita un obstaculo: su MO encima (tijeras, roca, puno).
   const ACT:Record<string,string>={cut:'✂',strength:'✊',smash:'⛏'};
   for(const it of items)if(it.area===area.id)for(const a of it.acts)
@@ -422,7 +435,7 @@ export default function Home(){
     .on('click',()=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})).addTo(g);
   }
   if(arrival&&arrival.area===area.id)L.marker(ll(arrival.at),{icon:L.divIcon({className:'arrive',html:'<span></span><i></i>',iconSize:[0,0]}),title:arrival.label,interactive:false,zIndexOffset:1000}).addTo(g);
- },[stacks,done,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place,trip,doorLocked]);
+ },[stacks,done,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place,trip,doorLocked,nextGoal]);
 
  useLayoutEffect(()=>{
   const m=map.current,p=popup.current;if(!m||!p)return;
@@ -542,7 +555,13 @@ export default function Home(){
  {here&&<div className="floorbar"><button onClick={leave}><ArrowLeft/>{place(areaById.get(exitRegion??'')?.label??t('back'))}</button>{floors.length>1&&floors.map(f=><button key={f.id} className={f.id===here.id?'on':''} onClick={()=>switchFloor(f.id)}>{place(short.get(f.id)||f.label)}</button>)}</div>}
  {!here&&regions.length>1&&<div className="floorbar">{regions.map(r=><button key={r.id} className={r.id===area?.id?'on':''} onClick={()=>showRegion(r.id)}><MapIcon/>{place(r.label)}</button>)}</div>}
  {toast&&<output className="toast" key={toast}>{toast}</output>}
- {routeTo&&world&&<RoutePanel target={name(routeTo.name)} from={from} fromRoom={routeFrom===null&&!startAt&&!!lastSpot?.room} zones={world.checklist.zones.map(z=>z.name)} onFrom={setRouteFrom} onHere={imHere} picking={picking} onCancelPick={()=>setPicking(false)}
+ {/* El siguiente objetivo, arriba del mapa: verlo o trazar el camino. */}
+ {nextGoal&&world&&!routeTo&&<div className="map-goal"><Figure m={nextGoal}/>
+  <span><small>{t('goalTitle')}</small><b>{goalTitle(nextGoal,world.markers,world.checklist,tr)}</b></span>
+  <button className="map-goal-go" onClick={()=>startRoute(nextGoal)} aria-label={t('routeHow')} title={t('routeHow')}><Footprints/></button>
+  <button onClick={()=>reveal(nextGoal,true)} aria-label={t('goalShow')} title={t('goalShow')}><MapPin/></button>
+ </div>}
+ {routeTo&&world&&<RoutePanel target={name(routeTo.name)} done={settled(routeTo)} next={nextGoal&&nextGoal.id!==routeTo.id?goalTitle(nextGoal,world.markers,world.checklist,tr):null} onNext={()=>nextGoal&&startRoute(nextGoal)} from={from} fromRoom={routeFrom===null&&!startAt&&!!lastSpot?.room} zones={world.checklist.zones.map(z=>z.name)} onFrom={setRouteFrom} onHere={imHere} picking={picking} onCancelPick={()=>setPicking(false)}
   items={trip?.items??[]} partial={!!trip?.partial} status={!trip?'loading':trip.items?'ok':'none'} onStep={stepTo} onClose={()=>setRouteTo(null)}
   labelOf={it=>isRegion(it.area)?place(it.zone):place(areaById.get(it.area)?.label??it.zone)} isInterior={a=>!isRegion(a)} tr={tr}/>}
  {!world&&<div className="loading">{t('loadingGame',{game:game.short})}</div>}<div className="map-note">{t('mapNote')}</div></div>
