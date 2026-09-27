@@ -13,7 +13,7 @@ export type Warp={area:string;at:Pt;to:string;toAt:Pt};
 export type Place={name:string;area:string;at?:Pt};
 export type EncounterMon={id:number;name:string;sprite:string;types:string[];areas:{area:string;maxChance:number;encounters:{chance:number;minLevel:number;maxLevel:number;method:string}[]}[]};
 export type EncounterZone={name:string;pokemon:EncounterMon[]};
-export type World={areas:Area[];warps:Warp[];places:Place[];markers:Marker[];zones:EncounterZone[];checklist:Checklist;dex:Dex;gates:Gate[];choices:Choice[]};
+export type World={areas:Area[];warps:Warp[];places:Place[];markers:Marker[];zones:EncounterZone[];checklist:Checklist;dex:Dex;gates:Gate[];choices:Choice[];goals:string[]};
 export type Game={
  id:string;short:string;title:string;
  // Claves de localStorage con el progreso.
@@ -55,7 +55,9 @@ export async function loadGame(game:Game):Promise<World>{
   list.markers[s.id]=s.floor?{zone:s.zone,floor:s.floor}:{zone:s.zone};
   const z=list.zones.find(x=>x.name===s.zone);if(z&&s.floor&&!z.floors.includes(s.floor))z.floors.push(s.floor);
  }
- return {...a,markers:[...markers.filter(m=>!m.version||m.version===version),...steps],zones:enc.zones,checklist:list,dex,gates,choices};
+ // Objetivos de la tarjeta, en orden (goals.json, a mano). Sin el, se deducen.
+ const goals=await json<{goals:{id:string}[]}>(`${data}/goals.json`).then(g=>g.goals.map(x=>x.id)).catch(()=>[] as string[]);
+ return {...a,markers:[...markers.filter(m=>!m.version||m.version===version),...steps],zones:enc.zones,checklist:list,dex,gates,choices,goals};
 }
 // Datos de combate y, si las reglas los tienen, textos de los ataques.
 export const battleUrl=(game:Game)=>`${game.data}/battle.json`;

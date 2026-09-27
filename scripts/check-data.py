@@ -204,6 +204,17 @@ def check(game):
                     err(f"bloqueo {g['id']}: mapa sin marcadores {mp}")
             if not all(g['why'].get(lang) for lang in ('en', 'es')):
                 err(f"bloqueo {g['id']}: falta el motivo en algun idioma")
+        # Objetivos de la tarjeta (goals.json): cada uno, un marcador o paso del juego, una vez.
+        if file == 'gates.json' and os.path.exists(f'{base}/goals.json'):
+            seen = set()
+            for goal in load(f'{base}/goals.json')['goals']:
+                if goal['id'] not in by_id:
+                    err(f"objetivo inexistente: {goal['id']}")
+                elif goal.get('name') and goal['name'] != by_id[goal['id']]['name']:
+                    warn(f"objetivo con otro nombre: {goal['id']} es {by_id[goal['id']]['name']}, no {goal['name']}")
+                if goal['id'] in seen:
+                    err(f"objetivo repetido: {goal['id']}")
+                seen.add(goal['id'])
         # Elige uno: cada opcion son marcadores del juego.
         for c in load(f'{base}/{file}').get('choices', []):
             for mid in (x for o in c['options'] for x in o):

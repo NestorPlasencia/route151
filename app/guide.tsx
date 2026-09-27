@@ -28,20 +28,23 @@ export function storyOrder(markers:Marker[],checklist:Checklist){
 const milestone=(m:Marker,needed:Set<string>,home:boolean)=>m.category==='Story'||needed.has(m.name)||(m.category==='Battle'&&(LEADER.test(m.name)||RIVAL.test(m.name)))||HM.test(m.name)
  ||(home&&(m.category==='In-Game Gift Pokémon'||(m.category==='Battle'&&m.name==='Rival')));
 
-export function NextGoal({markers,checklist,gates,done,unavailable,battle,dex,teamKey,onList,onMap,onRoute,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
+export function NextGoal({markers,checklist,gates,goals,settled,done,unavailable,battle,dex,teamKey,onList,onMap,onRoute,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];settled:(m:Marker)=>boolean;done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
  const {t,name,place}=tr;
  const order=useMemo(()=>storyOrder(markers,checklist),[markers,checklist]);
  const story=useMemo(()=>gates.filter(g=>!g.id.startsWith('hm-')),[gates]);
  // El primer hito sin hacer que ya se puede hacer. Si ninguno se puede, el
  // primero sin hacer, con lo que le falta.
  const goal=useMemo(()=>{
+  // Con goals.json manda la lista: el primero sin hacer (o sin elegir otro en
+  // su lugar, como el inicial de FRLG). Si aun no se puede, sale con lo que pide.
+  if(goals.length){const byId=new Map(markers.map(m=>[m.id,m]));return goals.map(id=>byId.get(id)).find(m=>!!m&&!settled(m))??null}
   const needed=new Set(story.flatMap(g=>g.needs)),home=checklist.zones[0]?.name;
   const atHome=(m:Marker)=>checklist.markers[m.id]?.zone===home;
   // Se elige un Pokemon inicial entre varios (FRLG): con uno marcado, los otros sobran.
   const chose=order.some(m=>atHome(m)&&m.category==='In-Game Gift Pokémon'&&done.includes(m.uid));
   const left=order.filter(m=>milestone(m,needed,atHome(m))&&!done.includes(m.uid)&&!(chose&&atHome(m)&&m.category==='In-Game Gift Pokémon'));
   return left.find(m=>!unavailable(m))??left[0]??null;
- },[order,story,done,unavailable,checklist]);
+ },[order,story,done,unavailable,checklist,goals,markers,settled]);
  if(!goal)return <section className="goal goal-done"><Target/><p>{t('goalDone')}</p></section>;
  const blockedBy=unavailable(goal);
  // Para que sirve: la zona que abre (un bloqueo de zona o mapa que lo pide) o,
