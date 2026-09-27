@@ -8,7 +8,7 @@ export type NavMap={zone:string;area:string;x:number;y:number;w:number;h:number;
 export type Nav={moves:Record<string,string[]>;starts:[string,number,number][];ferry:[string,number,number][];maps:Record<string,NavMap>};
 // Como se llega a cada casilla: andando, surfeando, saltando un saliente, por una
 // puerta, cruzando el borde del mapa, en barco, o quitando un obstaculo.
-export type How='walk'|'surf'|'land'|'jump'|'door'|'edge'|'ferry'|'cut'|'strength'|'smash'|'waterfall'|'flute';
+export type How='walk'|'surf'|'land'|'jump'|'door'|'edge'|'ferry'|'cut'|'strength'|'smash'|'waterfall'|'flute'|'fly';
 export type Step={map:string;x:number;y:number;how:How;side?:string};
 
 const FLOOR=1,WATER=2,WATERFALL=3;
@@ -44,10 +44,13 @@ const unkey=(k:number)=>{const s=k%2,e=Math.floor(k/2)%16,x=Math.floor(k/32)%256
 type Search={parent:Map<number,number>;how:Map<number,Step['how']>;side:Map<number,string>;order:number[]};
 
 // Recorrido en anchura desde varias casillas a la vez. `stop` corta al llegar.
-function explore(w:World,starts:number[],can:Set<string>,closed:(map:string)=>boolean,stop?:(k:number)=>boolean):Search&{end:number|null}{
+// `late`: salidas que entran tarde, cuando el recorrido va por `after` pasos
+// (volar cuesta: no se vuela para cruzar la calle).
+function explore(w:World,starts:number[],can:Set<string>,closed:(map:string)=>boolean,stop?:(k:number)=>boolean,late?:{keys:number[];after:number}):Search&{end:number|null}{
  const parent=new Map<number,number>(),how=new Map<number,Step['how']>(),side=new Map<number,string>(),order:number[]=[];
  const queue:number[]=[];let head=0;
- const push=(k:number,from:number,h:How,sd?:string)=>{if(parent.has(k))return;parent.set(k,from);how.set(k,h);if(sd)side.set(k,sd);queue.push(k)};
+ const depth=new Map<number,number>();let injected=!late?.keys.length;
+ const push=(k:number,from:number,h:How,sd?:string)=>{if(parent.has(k))return;parent.set(k,from);how.set(k,h);if(sd)side.set(k,sd);depth.set(k,from===-1?0:(depth.get(from)??0)+1);queue.push(k)};
  const arrive=(g:Grid,x:number,y:number,from:number,h:How)=>{
   if(x<0||y<0||x>=g.m.w||y>=g.m.h||closed(g.id))return;
   const t=g.kind[y*g.m.w+x]&7;push(key(g.i,x,y,g.elev?g.elev[y*g.m.w+x]:0,t===WATER||t===WATERFALL),from,h);
@@ -73,7 +76,11 @@ function explore(w:World,starts:number[],can:Set<string>,closed:(map:string)=>bo
   if(!surf&&!elevOk(e,ne))return null;
   return [nx,ny,ne===15?e:ne,false,(ob as How|undefined)??(surf?'land':'walk')];
  };
- while(head<queue.length){
+ while(head<queue.length||!injected){
+  if(!injected&&(head>=queue.length||(depth.get(queue[head])??0)>=late!.after)){
+   injected=true;for(const lk of late!.keys)if(!parent.has(lk)){parent.set(lk,-1);how.set(lk,'walk');depth.set(lk,late!.after);queue.push(lk)}
+   if(head>=queue.length)break;
+  }
   const k=queue[head++];order.push(k);
   if(stop?.(k))return {parent,how,side,order,end:k};
   const {gi,x,y,e,s}=unkey(k),g=w.list[gi],at=y*g.m.w+x;
@@ -109,6 +116,7 @@ const near=(x:number,y:number,tx:number,ty:number,far:boolean)=>{const dx=Math.a
 
 export type Target={map:string;x:number;y:number;far:boolean};
 export type Found={path:Step[];partial:boolean};
+const FLY_COST=40;
 
 // Camino desde la zona `from` hasta el objetivo. Se sale de la casilla de esa
 // zona, alcanzable desde el inicio del juego, mas cercana a `anchor` (el centro
@@ -116,13 +124,16 @@ export type Found={path:Step[];partial:boolean};
 // surfeando. Sin ancla (cuevas, edificios), de cualquier casilla de la zona.
 // Si al objetivo no se llega por la rejilla (puertas que abre un script, como
 // el gimnasio de Canela), se lleva hasta su mapa: `partial`. null si ni eso.
-export function findRoute(w:World,from:string,target:Target,can:Set<string>,closed:(map:string)=>boolean,anchor?:{map:string;x:number;y:number}):Found|null{
+// `fly`: pueblos a los que puedes volar (Vuelo): el camino puede empezar en uno.
+export function findRoute(w:World,from:string,target:Target,can:Set<string>,closed:(map:string)=>boolean,anchor?:{map:string;x:number;y:number},fly:{map:string;x:number;y:number}[]=[]):Found|null{
  const goal=w.grids.get(target.map);if(!goal)return null;
  // Nunca se cierra la zona de salida ni el mapa del objetivo.
  const open=(map:string)=>map!==target.map&&w.grids.get(map)?.m.zone!==from&&closed(map);
  const home=w.nav.starts.flatMap(([m,x,y])=>{const g=w.grids.get(m);return g?[key(g.i,x,y,g.elev?g.elev[y*g.m.w+x]:0,false)]:[]});
+ const flown=new Set<number>();
  const sourcesFor=(c:Set<string>)=>{
-  let sources=explore(w,home,c,open).order.filter(k=>w.list[unkey(k).gi].m.zone===from);
+  const reach=explore(w,home,c,open).order;
+  let sources=reach.filter(k=>w.list[unkey(k).gi].m.zone===from);
   const ag=anchor&&w.grids.get(anchor.map);
   if(ag&&anchor){
    const dist=(k:number)=>{const s=unkey(k);return s.gi===ag.i?Math.abs(s.x-anchor.x)+Math.abs(s.y-anchor.y):Infinity};
@@ -132,9 +143,21 @@ export function findRoute(w:World,from:string,target:Target,can:Set<string>,clos
   // La zona no se alcanza desde el inicio (dices que estas donde aun no se
   // llega): se sale de sus puertas.
   if(!sources.length)sources=w.list.filter(g=>g.m.zone===from).flatMap(g=>(g.m.dr??[]).map(([x,y])=>key(g.i,x,y,g.elev?g.elev[y*g.m.w+x]:0,false)));
+  // Con Vuelo, tambien desde cada pueblo al que vuelas (si se llega a el).
+  if(fly.length){const got=new Set(reach);for(const f of fly){const g=w.grids.get(f.map);if(!g)continue;const k=key(g.i,f.x,f.y,g.elev?g.elev[f.y*g.m.w+f.x]:0,false);if(got.has(k))flown.add(k)}}
   return sources;
  };
- const search=(c:Set<string>,stop:(k:number)=>boolean)=>{const src=sourcesFor(c);if(!src.length)return null;const f=explore(w,src,c,open,stop);return f.end===null?null:f};
+ // Volar cuenta como FLY_COST pasos: solo se vuela si ahorra camino de verdad.
+ // Nunca se vuela al pueblo en el que ya estas: el primer exterior al que se sale.
+ const search=(c:Set<string>,stop:(k:number)=>boolean)=>{
+  const src=sourcesFor(c);if(!src.length)return null;
+  // Y solo se vuela al aire libre: primero hay que salir (del edificio, de la cueva).
+  const o=flown.size?explore(w,src,c,open,k=>{const g=w.list[unkey(k).gi];return g.m.area!==g.id}):null;
+  if(o?.end==null)return (f=>f.end===null?null:f)(explore(w,src,c,open,stop));
+  let steps=0;for(let k=o.end;o.parent.get(k)!==-1;k=o.parent.get(k)!)steps++;
+  const here=unkey(o.end).gi;
+  const f=explore(w,src,c,open,stop,{keys:[...flown].filter(k=>!src.includes(k)&&unkey(k).gi!==here),after:steps+FLY_COST});return f.end===null?null:f;
+ };
  const atTarget=(k:number)=>{const {gi,x,y}=unkey(k);return gi===goal.i&&near(x,y,target.x,target.y,target.far)};
  // Andando si se puede: el camino mas corto a veces cruza agua que no hace falta.
  const dry=new Set([...can].filter(m=>m!=='surf'&&m!=='waterfall'));
@@ -147,8 +170,11 @@ export function findRoute(w:World,from:string,target:Target,can:Set<string>,clos
  }
  if(!found||found.end===null)return null;
  const path:Step[]=[];
- for(let k=found.end;k!==-1;k=found.parent.get(k)!){const {gi,x,y}=unkey(k);path.push({map:w.list[gi].id,x,y,how:found.how.get(k)!,side:found.side.get(k)})}
- return {path:path.reverse(),partial};
+ let first=found.end;
+ for(let k=found.end;k!==-1;k=found.parent.get(k)!){const {gi,x,y}=unkey(k);first=k;path.push({map:w.list[gi].id,x,y,how:found.how.get(k)!,side:found.side.get(k)})}
+ path.reverse();
+ if(flown.has(first)&&path[0])path[0].how='fly';
+ return {path,partial};
 }
 
 // Donde se dibuja una casilla en la app: su area y el centro en pixeles.
@@ -165,7 +191,7 @@ export function legsOf(w:World,path:Step[]):Leg[]{
  for(const s of path){
   const g=w.grids.get(s.map)!,p=pointOf(w,s)!.at;
   let leg=legs[legs.length-1];
-  if(!leg||leg.map!==s.map){leg={map:s.map,zone:g.m.zone,area:g.m.area,enter:legs.length?s.how:'walk',side:s.side,uses:[],pts:[],acts:[]};legs.push(leg)}
+  if(!leg||leg.map!==s.map){leg={map:s.map,zone:g.m.zone,area:g.m.area,enter:legs.length||s.how==='fly'?s.how:'walk',side:s.side,uses:[],pts:[],acts:[]};legs.push(leg)}
   else if(['surf','cut','strength','smash','waterfall','flute','jump'].includes(s.how)&&!leg.uses.includes(s.how))leg.uses.push(s.how);
   if(['cut','strength','smash','flute'].includes(s.how))leg.acts.push({how:s.how,at:p});
   leg.pts.push(p);

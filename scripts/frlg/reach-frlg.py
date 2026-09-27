@@ -72,6 +72,14 @@ def world():
     mb = behaviors()
     maps = d.maps()
     areas = {mid: area(m, mb) for mid, m in maps.items() if m.get('layout') in d.layouts()}
+    # Mansion Pokemon: las estatuas abren y cierran barreras (setmetatile). Una
+    # casilla que algun interruptor deja libre cuenta como suelo: se pulsa
+    # cuando hace falta.
+    text = open(d.path('data/scripts/pokemon_mansion.inc'), encoding='utf-8').read()
+    for floor, body in re.findall(r'PokemonMansion_EventScript_(?:Press|Reset)Switch_(\w+)::\n(.*?)\n\treturn', text, re.S):
+        a = areas.get(f'MAP_POKEMON_MANSION_{floor}')
+        for x, y in re.findall(r'setmetatile\s+(\d+),\s*(\d+),\s*\w+,\s*0', body) if a else []:
+            a.kind[int(y)][int(x)] = FLOOR
     # MAP_DYNAMIC: la salida vuelve a donde entraste; se enlaza con cada mapa que
     # tiene una puerta hacia aqui.
     back = {}

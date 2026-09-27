@@ -322,6 +322,7 @@ const TEXT = {
  resetConfirm: ["This deletes every check, the Pokédex and the team saved for {game} on this device. If you may want them back, save a copy first. Continue?", "Se borran todos los checks, la Pokédex y el equipo de {game} en este dispositivo. Si quieres poder recuperarlos, guarda antes una copia. ¿Continuar?"],
  routeStart: ['Start in {place}', 'Sales de {place}'],
  routeRoom: ["Start in your room", "Empiezas en tu cuarto"],
+ routeFly: ['Fly to {place}', 'Vuela a {place}'],
  routeEdge: ['Head {dir} to {place}', 'Ve al {dir}: {place}'],
  routeEnter: ['Go into {place}', 'Entra en {place}'],
  routeExit: ['Go out to {place}', 'Sal a {place}'],

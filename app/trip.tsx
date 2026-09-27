@@ -54,7 +54,7 @@ export function RoutePanel({target,fromRoom,items,partial,status,onStep,labelOf,
  const {t}=tr;
  const say=(item:TripItem,i:number)=>{
   const where=labelOf(item);
-  if(i===0)return fromRoom?t('routeRoom'):t('routeStart',{place:where});
+  if(i===0)return item.enter==='fly'?t('routeFly',{place:where}):fromRoom?t('routeRoom'):t('routeStart',{place:where});
   if(item.enter==='ferry')return t('routeFerry',{place:where});
   if(item.enter==='edge')return t('routeEdge',{dir:t(`dir_${item.side??'up'}` as Key),place:where});
   if(item.enter==='door'){

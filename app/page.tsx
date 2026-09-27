@@ -25,6 +25,8 @@ const ll=(p:Pt):[number,number]=>[-p[1],p[0]];
 // "Silph Co. 7F" -> "7F": quita las palabras que comparten todos los pisos.
 const shortLabels=(list:Area[])=>{const words=list.map(f=>f.label.split(' '));let n=0;while(words.every(w=>w.length>n+1&&w[n]===words[0][n]))n++;return new Map(list.map((f,i)=>[f.id,words[i].slice(n).join(' ')]))};
 const GAME_KEY='ruta151-game';
+// Lo que hace falta para volar: la MO02 y la Medalla Trueno (igual en los dos juegos).
+const FLY_NEEDS=['HM02','Leader Lt. Surge'];
 // Un piso (o el ascensor): la ultima palabra de su nombre es 1F, B2F, Roof, Elevator...levator...
 const FLOOR_RE=/\s+(B?\d+F|Roof|Rooftop|Elevator)$/i;
 // A la gente se le habla tambien por encima de un mostrador (a dos casillas).
@@ -368,6 +370,19 @@ export default function Home(){
  // Se sale siempre del ultimo objetivo marcado (o de tu cuarto): de objetivo en objetivo.
  const from=lastSpot?.zone??lastZone;
  // items null: no hay camino con lo que tienes (falta una MO o un paso de la historia).
+ // Vuelo (MO02 y la Medalla Trueno): los pueblos de Kanto que ya visitaste (con
+ // algo marcado en ellos; Pueblo Paleta siempre), frente a su Centro Pokemon o,
+ // en Paleta, a tu casa. Una ruta puede empezar volando a uno.
+ const flySpots=useMemo(()=>{
+  if(!navWorld||!world||!FLY_NEEDS.every(n=>have.has(n)))return [];
+  const visited=new Set(world.markers.filter(m=>done.includes(m.uid)).map(m=>world.checklist.markers[m.id]?.zone));
+  const home=world.checklist.zones[0]?.name;
+  return navWorld.list.flatMap(g=>{
+   if(g.m.area!=='kanto'||!/(City|Town|Island)$/.test(g.m.zone)||!(visited.has(g.m.zone)||g.m.zone===home))return [];
+   const w=(g.m.wp??[]).find(([,,d])=>/POKECENTER|POKEMON_CENTER_1F|REDS_HOUSE_1F|PLAYERS_HOUSE_1F/.test(d));
+   return w?[{map:g.id,x:w[0],y:w[1]+1}]:[];
+  });
+ },[navWorld,world,have,done]);
  const trip=useMemo(()=>{
   if(!routeTo||!navWorld||!world||!routeTo.area||!routeTo.at)return null;
   const [px,py]=routeTo.at;
@@ -379,12 +394,12 @@ export default function Home(){
   const spot=world.places.find(p=>p.name===from&&p.at&&isRegion(p.area));
   const ag=spot&&[...navWorld.grids.values()].find(g=>g.m.area===spot.area&&g.m.zone===from&&spot.at![0]>=g.m.x*16&&spot.at![1]>=g.m.y*16&&spot.at![0]<(g.m.x+g.m.w)*16&&spot.at![1]<(g.m.y+g.m.h)*16);
   const anchor=lastSpot?lastSpot.anchor:spot&&ag?{map:ag.id,x:Math.floor(spot.at![0]/16)-ag.m.x,y:Math.floor(spot.at![1]/16)-ag.m.y}:undefined;
-  const found=findRoute(navWorld,from,{map:g.id,x:Math.floor(px/16)-g.m.x,y:Math.floor(py/16)-g.m.y,far:PEOPLE.includes(routeTo.category)},movesYouHave(navWorld.nav,have),closed,anchor);
+  const found=findRoute(navWorld,from,{map:g.id,x:Math.floor(px/16)-g.m.x,y:Math.floor(py/16)-g.m.y,far:PEOPLE.includes(routeTo.category)},movesYouHave(navWorld.nav,have),closed,anchor,flySpots);
   // Los pasos en palabras se resumen (sin casetas ni pisos de paso); el dibujo
   // usa el camino entero, para que salga la linea tambien dentro de tu casa.
   const all=found?tripItems(legsOf(navWorld,found.path)):null;
   return {items:all?withoutGates(all,a=>!isRegion(a),a=>{const l=areaById.get(a)?.label??'';return FLOOR_RE.test(l)?l.replace(FLOOR_RE,''):null}):null,draw:all??[],partial:!!found?.partial};
- },[routeTo,navWorld,world,have,from,isRegion,lastSpot,areaById]);
+ },[routeTo,navWorld,world,have,from,isRegion,lastSpot,areaById,flySpots]);
  const [tripOpen,setTripOpen]=useState(false);
  useEffect(()=>setTripOpen(false),[routeTo]);
  // Al marcar el destino, la ruta termina: la barra vuelve al siguiente objetivo.
