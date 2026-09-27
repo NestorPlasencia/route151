@@ -21,6 +21,8 @@ _spec.loader.exec_module(by)
 
 OUT = 'public/yellow/data'
 MOVES = ['cut', 'surf', 'strength']
+# Donde empieza la partida: tu cuarto, en el piso de arriba de tu casa.
+START = ('REDS_HOUSE_2F', 3, 6)
 WATER_TILE = 0x14
 # Tile del arbol que se corta (engine: $3d en exteriores, $50 en gimnasios).
 CUT_TILES = {'OVERWORLD': 0x3D, 'GYM': 0x50}
@@ -112,8 +114,7 @@ def main():
     people = ('Item Gift', 'In-Game Trade', 'Battle', 'In-Game Gift Pokémon', 'Shop')
     todo = [(m['id'], m['map'], *map(int, m['id'].rsplit(':', 1)[1].split(',')), m['category'] in people)
             for m in markers if m['category'] not in ('Pokémon', 'Obstacle') and re.search(r':\d+,\d+$', m['id'])]
-    home = areas['PALLET_TOWN'].warps[0]
-    needs, reached = needs_by_marker(areas, [('PALLET_TOWN', home[0], home[1])], todo, MOVES, MOVES)
+    needs, reached = needs_by_marker(areas, [START], todo, MOVES, MOVES)
     full = reached[tuple(MOVES)]
     lost = [m for m in todo if not near(full, *m[1:])]
     by_id = {m['id']: m for m in markers}
@@ -124,7 +125,7 @@ def main():
         for m in lost:
             print('   ', by_id[m[0]]['name'], '@', by_id[m[0]]['location'])
     write_gates(f'{OUT}/hm-gates.json', needs, 'Yellow')
-    write_nav(f'{OUT}/nav.json', areas, placed(), {mv: HM_MOVES[mv] for mv in MOVES}, starts=[('PALLET_TOWN', home[0], home[1])])
+    write_nav(f'{OUT}/nav.json', areas, placed(), {mv: HM_MOVES[mv] for mv in MOVES}, starts=[START])
 
 
 if __name__ == '__main__':

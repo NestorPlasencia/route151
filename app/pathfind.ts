@@ -199,8 +199,11 @@ export function reached(w:World,tiles:Set<number>,t:Target){
 // cada casilla, por donde se llega. Sirve para decir que falta en el camino a
 // algo que no alcanzas: el primer paso cerrado o que pide una MO que no tienes.
 export type Tree={parent:Map<number,number>;how:Map<number,How>;best:Map<number,number>};
-export function openTree(w:World):Tree{
- const s=explore(w,homeKeys(w),new Set(Object.keys(w.nav.moves)),()=>false);
+// `can`: con esas MO (por defecto, todas). Primero se busca el obstaculo con
+// las MO que ya tienes: con todas, el camino mas corto podia cruzar agua y
+// culpar a Surf de lo que en realidad cierra la historia.
+export function openTree(w:World,can:Set<string>=new Set(Object.keys(w.nav.moves))):Tree{
+ const s=explore(w,homeKeys(w),can,()=>false);
  const best=new Map<number,number>();
  for(const k of s.order){const u=unkey(k),id=tileId(u.gi,u.x,u.y);if(!best.has(id))best.set(id,k)}
  return {parent:s.parent,how:s.how,best};

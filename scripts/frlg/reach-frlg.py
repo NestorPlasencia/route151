@@ -22,7 +22,8 @@ bf = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(bf)
 
 OUT = 'public/frlg/data'
-START = ('MAP_PALLET_TOWN', 6, 8)
+# Donde empieza la partida: tu cuarto, en el piso de arriba de tu casa.
+START = ('MAP_PALLET_TOWN_PLAYERS_HOUSE_2F', 6, 6)
 OBSTACLE = {'OBJ_EVENT_GFX_CUT_TREE': 'cut', 'OBJ_EVENT_GFX_ROCK_SMASH_ROCK': 'smash', 'OBJ_EVENT_GFX_PUSHABLE_BOULDER': 'strength'}
 MOVES = ['cut', 'surf', 'strength', 'smash', 'waterfall']
 

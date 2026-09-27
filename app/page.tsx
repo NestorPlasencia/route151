@@ -10,11 +10,11 @@ import {RankingView} from './ranking';
 import {GameHome} from './home';
 import {BattleAdvice,TeamView,effortText,trainerOpponents,type Battle,type Opponent} from './team';
 import {GAMES,METHODS,battleUrl,loadGame,moveTextUrl,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
-import {blockerOf,findRoute,legsOf,movesYouHave,openTree,prepare,reachTiles,reached,targetAt,type Nav,type Target,type World as RouteWorld} from './pathfind';
+import {blockerOf,findRoute,legsOf,movesYouHave,openTree,prepare,reachTiles,reached,targetAt,type Nav,type Target,type Tree,type World as RouteWorld} from './pathfind';
 import {RoutePanel,tripItems,withoutGates,type TripItem} from './trip';
 import {BackupBox} from './backup';
 import {LearnView} from './learn';
-import type {Unlock} from './guide';
+import {storyOrder,type Unlock} from './guide';
 import {TOUR_KEY,Tour} from './tour';
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
@@ -132,6 +132,15 @@ export default function Home(){
  // Casilla de cada marcador en la rejilla, y el arbol de caminos con todo abierto.
  const targets=useMemo(()=>{const out=new Map<string,Target>();if(navWorld&&world)for(const m of world.markers)if(m.area&&m.at){const x=targetAt(navWorld,m.area,m.at,PEOPLE.includes(m.category));if(x)out.set(m.id,x)}return out},[navWorld,world]);
  const tree=useMemo(()=>navWorld?openTree(navWorld):null,[navWorld]);
+ // El mismo arbol con solo tus MO (sin cierres de la historia), por firma de MO.
+ const treeCache=useRef<{url:string;trees:Map<string,Tree>}>({url:'',trees:new Map()});
+ const treeWith=useCallback((can:Set<string>)=>{
+  if(!navWorld)return null;
+  if(treeCache.current.url!==navUrl)treeCache.current={url:navUrl,trees:new Map()};
+  const sig=[...can].sort().join();let hit=treeCache.current.trees.get(sig);
+  if(!hit){hit=openTree(navWorld,can);treeCache.current.trees.set(sig,hit)}
+  return hit;
+ },[navWorld,navUrl]);
  // Lo que pisas desde el inicio con lo que tienes. Solo cambia al tener otra MO
  // o abrir un paso de la historia: se guarda por esa firma.
  const reachCache=useRef<{url:string;tiles:Map<string,{tiles:Set<number>;maps:Set<number>}>}>({url:'',tiles:new Map()});
@@ -166,8 +175,12 @@ export default function Home(){
   const at=targets.get(m.id),r=at?reachFor(owned):null;
   if(at&&r&&navWorld&&tree){
    const g=navWorld.grids.get(at.map),ok=m.encounter?!!g&&r.maps.has(g.i):reached(navWorld,r.tiles,at);
-   if(!ok){
-    const b=blockerOf(navWorld,tree,at,r.can,map=>!!r.closed(map));
+   // Si ya pisas su mapa o su zona, lo que falta es un script (el ascensor de la
+   // guarida, una puerta con tarjeta): se deja como disponible.
+   const zoneIn=!!g&&navWorld.list.some(x=>x.m.zone===g.m.zone&&r.maps.has(x.i));
+   if(!ok&&!zoneIn){
+    const closed=(map:string)=>!!r.closed(map);
+    const b=blockerOf(navWorld,treeWith(r.can)!,at,r.can,closed)??blockerOf(navWorld,tree,at,r.can,closed);
     if(b&&'map' in b){const x=r.closed(b.map);if(x)return t('reachFirst',{why:x.why[lang]})}
     if(b&&'move' in b){const f=navWorld.nav.moves[b.move];return t('reachMove',{move:t(MOVE_KEY[b.move]??'moveSurf'),needs:(f??[]).map(name).join(' + ')})}
    }
@@ -175,7 +188,7 @@ export default function Home(){
   const trade=m.category==='In-Game Trade'&&/^Trade your (.+)$/.exec(m.detail??'');
   if(trade&&!done.includes(m.uid)&&!ownedSpecies.has(trade[1]))return t('tradeNeeds',{name:name(trade[1])});
   const tool=missingTool(m,owned);return tool?t('needsTool',{tool:name(tool)}):null;
- },[world,lang,t,name,taken,targets,reachFor,navWorld,tree,ownedSpecies,done]);
+ },[world,lang,t,name,taken,targets,reachFor,navWorld,tree,treeWith,ownedSpecies,done]);
  // El motivo de cada marcador con lo que tienes, calculado una vez por cambio.
  const reasons=useMemo(()=>new Map((world?.markers??[]).map(m=>[m.id,reasonWith(m,have)])),[world,reasonWith,have]);
  const unavailable=useCallback((m:Marker)=>reasons.get(m.id)??null,[reasons]);
@@ -317,7 +330,19 @@ export default function Home(){
   const zones=new Set(world.markers.filter(m=>done.includes(m.uid)).map(m=>world.checklist.markers[m.id]?.zone));
   return world.checklist.zones.reduce((last,z)=>zones.has(z.name)?z.name:last,world.checklist.zones[0]?.name??'');
  },[world,done]);
- const from=routeFrom??lastZone;
+ // Donde estas, si no lo dices: en la casilla de lo ultimo que marcaste (en orden
+ // de historia; los salvajes no cuentan, marcarlos los marca en todas partes), o
+ // en tu cuarto si la partida empieza.
+ const lastSpot=useMemo(()=>{
+  if(!world||!navWorld)return null;
+  let last:Marker|null=null;
+  for(const m of storyOrder(world.markers,world.checklist))if(m.category!=='Pokémon'&&m.area&&m.at&&done.includes(m.uid))last=m;
+  const x=last?targetAt(navWorld,last.area!,last.at!,false):null;
+  if(x)return {zone:navWorld.grids.get(x.map)!.m.zone,anchor:{map:x.map,x:x.x,y:x.y},room:false};
+  const [m,sx,sy]=navWorld.nav.starts[0]??[];const g=m?navWorld.grids.get(m):undefined;
+  return g?{zone:g.m.zone,anchor:{map:g.id,x:sx,y:sy},room:true}:null;
+ },[world,navWorld,done]);
+ const from=routeFrom??lastSpot?.zone??lastZone;
  // items null: no hay camino con lo que tienes (falta una MO o un paso de la historia).
  const pickRef=useRef<((p:Pt)=>void)|null>(null);
  const trip=useMemo(()=>{
@@ -333,10 +358,11 @@ export default function Home(){
   // El punto que tocaste manda sobre el centro de la zona.
   const tapped=startAt&&startAt.zone===from?[...navWorld.grids.values()].find(g=>g.m.area===startAt.area&&g.m.zone===from&&startAt.at[0]>=g.m.x*16&&startAt.at[1]>=g.m.y*16&&startAt.at[0]<(g.m.x+g.m.w)*16&&startAt.at[1]<(g.m.y+g.m.h)*16):undefined;
   const anchor=tapped&&startAt?{map:tapped.id,x:Math.floor(startAt.at[0]/16)-tapped.m.x,y:Math.floor(startAt.at[1]/16)-tapped.m.y}
+   :routeFrom===null&&lastSpot?lastSpot.anchor
    :spot&&ag?{map:ag.id,x:Math.floor(spot.at![0]/16)-ag.m.x,y:Math.floor(spot.at![1]/16)-ag.m.y}:undefined;
   const found=findRoute(navWorld,from,{map:g.id,x:Math.floor(px/16)-g.m.x,y:Math.floor(py/16)-g.m.y,far:PEOPLE.includes(routeTo.category)},movesYouHave(navWorld.nav,have),closed,anchor);
   return {items:found?withoutGates(tripItems(legsOf(navWorld,found.path)),a=>!isRegion(a)):null,partial:!!found?.partial};
- },[routeTo,navWorld,world,have,from,isRegion,startAt]);
+ },[routeTo,navWorld,world,have,from,isRegion,startAt,routeFrom,lastSpot]);
  const startRoute=(m:Marker)=>{setRouteTo(m);setTab('mapa');setSelected(null);setStack(null);setEncounterZone(null)};
  // Al calcularse (o cambiar de donde sales), la camara va al inicio del camino.
  const framed=useRef('');
@@ -514,7 +540,7 @@ export default function Home(){
  {here&&<div className="floorbar"><button onClick={leave}><ArrowLeft/>{place(areaById.get(exitRegion??'')?.label??t('back'))}</button>{floors.length>1&&floors.map(f=><button key={f.id} className={f.id===here.id?'on':''} onClick={()=>switchFloor(f.id)}>{place(short.get(f.id)||f.label)}</button>)}</div>}
  {!here&&regions.length>1&&<div className="floorbar">{regions.map(r=><button key={r.id} className={r.id===area?.id?'on':''} onClick={()=>showRegion(r.id)}><MapIcon/>{place(r.label)}</button>)}</div>}
  {toast&&<output className="toast" key={toast}>{toast}</output>}
- {routeTo&&world&&<RoutePanel target={name(routeTo.name)} from={from} zones={world.checklist.zones.map(z=>z.name)} onFrom={setRouteFrom} onHere={imHere} picking={picking} onCancelPick={()=>setPicking(false)}
+ {routeTo&&world&&<RoutePanel target={name(routeTo.name)} from={from} fromRoom={routeFrom===null&&!startAt&&!!lastSpot?.room} zones={world.checklist.zones.map(z=>z.name)} onFrom={setRouteFrom} onHere={imHere} picking={picking} onCancelPick={()=>setPicking(false)}
   items={trip?.items??[]} partial={!!trip?.partial} status={!trip?'loading':trip.items?'ok':'none'} onStep={stepTo} onClose={()=>setRouteTo(null)}
   labelOf={it=>isRegion(it.area)?place(it.zone):place(areaById.get(it.area)?.label??it.zone)} isInterior={a=>!isRegion(a)} tr={tr}/>}
  {!world&&<div className="loading">{t('loadingGame',{game:game.short})}</div>}<div className="map-note">{t('mapNote')}</div></div>

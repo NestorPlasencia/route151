@@ -41,8 +41,12 @@ export function NextGoal({markers,checklist,gates,done,unavailable,battle,dex,te
  },[order,story,done,unavailable,checklist]);
  if(!goal)return <section className="goal goal-done"><Target/><p>{t('goalDone')}</p></section>;
  const blockedBy=unavailable(goal);
- // Para que sirve: el primer bloqueo de la historia que lo pide.
- const opens=story.find(g=>g.needs.includes(goal.name));
+ // Para que sirve: la zona que abre (un bloqueo de zona o mapa que lo pide) o,
+ // si solo lleva a otro paso, ese paso. El requisito del paso siguiente ("antes
+ // recoge el paquete") no se ensena aqui: parecia pedir ya ese paso.
+ const opens=story.find(g=>g.needs.includes(goal.name)&&(!!g.zones||!!g.maps));
+ const then=story.find(g=>g.needs.includes(goal.name)&&!!g.markers);
+ const thenName=then&&markers.find(m=>then.markers!.includes(m.id))?.name;
  const where=checklist.markers[goal.id];
  const leader=goal.category==='Battle',step=goal.category==='Story',home=checklist.zones[0]?.name??'';
  // El primer Pokemon y el rival del pueblo de salida se cuentan a su manera.
@@ -61,7 +65,8 @@ export function NextGoal({markers,checklist,gates,done,unavailable,battle,dex,te
    :step&&goal.detail?<p className="goal-why">{tr.detail(goal.detail)}</p>
    :starter?<p className="goal-why">{t('goalStarterNote')}</p>
    :rival?<p className="goal-why">{t('goalRivalNote')}</p>
-   :opens&&<p className="goal-why"><KeyRound/>{opens.why[tr.lang==='es'?'es':'en']}</p>}
+   :opens?<p className="goal-why"><KeyRound/>{opens.why[tr.lang==='es'?'es':'en']}</p>
+   :thenName&&<p className="goal-why"><KeyRound/>{t('goalThen',{name:name(thenName)})}</p>}
   <div className="goal-actions">
    <button onClick={()=>onList(goal)}><List/>{t('goalList')}</button>
    {/* Como llegar ensena ademas el sitio en el mapa; si aun no se puede, solo el sitio. */}

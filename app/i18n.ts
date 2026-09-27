@@ -265,6 +265,7 @@ const TEXT = {
  goalBeat: ['Beat {name}', 'Vence a {name}'],
  goalGet: ['Get the {name}', 'Consigue {name}'],
  goalFirst: ['First: {why}', 'Antes: {why}'],
+ goalThen: ["Next: {name}", "Después: {name}"],
  goalList: ['See in the checklist', 'Ver en la lista'],
  goalMap: ['See on the map', 'Ver en el mapa'],
  goalDone: ['Story complete! Keep going with the rest of the checklist.', '¡Historia completa! Sigue con el resto de la checklist.'],
@@ -310,6 +311,7 @@ const TEXT = {
  tourStart: ["Start playing", "Empezar"],
  tourAgain: ["See the welcome again", "Ver la bienvenida otra vez"],
  routeStart: ['Start in {place}', 'Sales de {place}'],
+ routeRoom: ["Start in your room", "Empiezas en tu cuarto"],
  routeEdge: ['Head {dir} to {place}', 'Ve al {dir}: {place}'],
  routeEnter: ['Go into {place}', 'Entra en {place}'],
  routeExit: ['Go out to {place}', 'Sal a {place}'],
@@ -551,6 +553,8 @@ export type Names = {items: Record<string, string>; moves: Record<string, string
 // Texto en espanol de los pasos de historia de cada juego (story.json): nombre y
 // detalle en ingles -> en espanol. Lo registra el cargador del juego.
 const STORY = new Map<string, string>();
+// Nombres de objeto que se leen mejor distinto de como los trae PokeAPI.
+const NAME_FIX: Record<string, string> = {"Oak's Parcel": 'Paquete de Oak'};
 export const registerStory = (pairs: [string, string, string, string][]) => {
  for (const [name, es, detail, esDetail] of pairs) { STORY.set(name, es); if (detail) STORY.set(detail, esDetail); }
 };
@@ -575,7 +579,7 @@ export function translator(lang: Lang, names: Names = null) {
   // entrenadores) se queda igual.
   name: (n: string) => {
    if (lang !== 'es') return n;
-   const step = STORY.get(n);
+   const step = STORY.get(n) ?? NAME_FIX[n];
    if (step) return step;
    // Combates: 'Bug Catcher Robby' -> 'Cazabichos Robby'.
    const cls = CLASS_ORDER.find(c => n === c || n.startsWith(c + ' '));

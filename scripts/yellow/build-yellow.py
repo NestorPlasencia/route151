@@ -701,7 +701,7 @@ PARTS = [
     ('Route 1 → Viridian City', ['Route 1', 'Viridian City', 'Route 22', 'Route 2']),
     ('Viridian Forest → Pewter City', ['Viridian Forest', 'Pewter City']),
     ('Route 3 → Mt. Moon → Route 4', ['Route 3', 'Mt. Moon', 'Route 4']),
-    ('Cerulean City → Nugget Bridge', ['Cerulean City', 'Route 24', 'Route 25']),
+    ('Cerulean City → Nugget Bridge', ['Cerulean City', 'Route 24', 'Route 25', "Bill's House"]),
     ('Route 5 → Vermilion City', ['Route 5', 'Underground Path', 'Route 6', 'Vermilion City', 'S.S. Anne']),
     ("Route 11 → Diglett's Cave", ['Route 11', "Diglett's Cave"]),
     ('Route 9 → Rock Tunnel', ['Route 9', 'Route 10', 'Rock Tunnel', 'Power Plant']),

@@ -43,14 +43,14 @@ export function withoutGates(items:TripItem[],isInterior:(area:string)=>boolean)
 
 const USE:Partial<Record<How,Key>>={surf:'moveSurf',cut:'moveCut',strength:'moveStrength',smash:'moveSmash',waterfall:'moveWaterfall',jump:'moveJump'};
 
-export function RoutePanel({target,from,zones,onFrom,onHere,picking,onCancelPick,items,partial,status,onStep,onClose,labelOf,isInterior,tr}:{
- target:string;from:string;zones:string[];onFrom:(zone:string)=>void;onHere:()=>void;picking:boolean;onCancelPick:()=>void;items:TripItem[];partial:boolean;status:'loading'|'none'|'ok';
+export function RoutePanel({target,from,fromRoom,zones,onFrom,onHere,picking,onCancelPick,items,partial,status,onStep,onClose,labelOf,isInterior,tr}:{
+ target:string;from:string;fromRoom:boolean;zones:string[];onFrom:(zone:string)=>void;onHere:()=>void;picking:boolean;onCancelPick:()=>void;items:TripItem[];partial:boolean;status:'loading'|'none'|'ok';
  onStep:(item:TripItem)=>void;onClose:()=>void;labelOf:(item:TripItem)=>string;isInterior:(area:string)=>boolean;tr:T}){
  const {t,place}=tr;
  const [open,setOpen]=useState(true);
  const say=(item:TripItem,i:number)=>{
   const where=labelOf(item);
-  if(i===0)return t('routeStart',{place:where});
+  if(i===0)return fromRoom?t('routeRoom'):t('routeStart',{place:where});
   if(item.enter==='ferry')return t('routeFerry',{place:where});
   if(item.enter==='edge')return t('routeEdge',{dir:t(`dir_${item.side??'up'}` as Key),place:where});
   if(item.enter==='door'){
