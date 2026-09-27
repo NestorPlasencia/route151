@@ -21,7 +21,6 @@
   {"id": "league-champion", "markers": ["CHAMPIONS_ROOM:scene:RIVAL3:1:4,2"], "needs": ["Elite Four Lance"], "why": {"en": "The League goes in order: first Lance", "es": "La Liga va en orden: antes Lance"}},
   {"id": "snorlax-12", "markers": ["ROUTE_12:story:wake-snorlax-12"], "needs": ["Poké Flute"], "why": {"en": "Snorlax only wakes up with the Poké Flute", "es": "Snorlax solo despierta con la Poké Flauta"}},
   {"id": "snorlax-16", "markers": ["ROUTE_16:story:wake-snorlax-16"], "needs": ["Poké Flute"], "why": {"en": "Snorlax only wakes up with the Poké Flute", "es": "Snorlax solo despierta con la Poké Flauta"}},
-  {"id": "super-rod", "markers": ["ROUTE_12_SUPER_ROD_HOUSE:gift:SUPER_ROD:2,4"], "needs": ["Wake the Snorlax on Route 12"], "why": {"en": "The Snorlax on Route 12 blocks the way to this house", "es": "El Snorlax de la Ruta 12 corta el paso a esta casa"}},
   {"id": "squirtle", "markers": ["VERMILION_CITY:gift:SQUIRTLE:19,15"], "needs": ["Leader Lt. Surge"], "why": {"en": "The officer gives it to you once you have the Thunder Badge", "es": "El agente te lo da cuando tienes la Medalla Trueno"}},
   {"id": "omanyte", "markers": ["CINNABAR_LAB_FOSSIL_ROOM:gift:OMANYTE:5,2"], "needs": ["Helix Fossil"], "why": {"en": "Revived from the Helix Fossil (Mt. Moon)", "es": "Se revive del Fósil Hélix (Monte Moon)"}},
   {"id": "kabuto", "markers": ["CINNABAR_LAB_FOSSIL_ROOM:gift:KABUTO:5,2"], "needs": ["Dome Fossil"], "why": {"en": "Revived from the Dome Fossil (Mt. Moon)", "es": "Se revive del Fósil Domo (Monte Moon)"}},
