@@ -9,6 +9,7 @@ import type {Checklist,Dex} from './lists';
 import {BattleAdvice,effectiveness,opponentName,trainerOpponents,useSavedTeam,type Battle} from './team';
 
 export const LEADER=/^(Leader|Elite Four|Champion)\b/;
+const RIVAL=/^Rival\b/,HM=/^HM0\d$/;
 
 // Marcadores en el orden de la checklist (zonas en orden de juego y, dentro,
 // sus pisos en orden de visita): el orden en que se hace la historia.
@@ -22,7 +23,9 @@ export function storyOrder(markers:Marker[],checklist:Checklist){
 // el Te...), los pasos de la historia (story.json), los lideres, el Alto Mando y
 // el Campeon, y en el pueblo de salida
 // el primer Pokemon y el combate con el rival.
-const milestone=(m:Marker,needed:Set<string>,home:boolean)=>m.category==='Story'||needed.has(m.name)||(m.category==='Battle'&&LEADER.test(m.name))
+// Tambien los combates con el rival y todas las MO (Destello no abre nada, pero
+// sin ella el Tunel Roca esta a oscuras).
+const milestone=(m:Marker,needed:Set<string>,home:boolean)=>m.category==='Story'||needed.has(m.name)||(m.category==='Battle'&&(LEADER.test(m.name)||RIVAL.test(m.name)))||HM.test(m.name)
  ||(home&&(m.category==='In-Game Gift Pokémon'||(m.category==='Battle'&&m.name==='Rival')));
 
 export function NextGoal({markers,checklist,gates,done,unavailable,battle,dex,teamKey,onList,onMap,onRoute,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
@@ -50,7 +53,7 @@ export function NextGoal({markers,checklist,gates,done,unavailable,battle,dex,te
  const where=checklist.markers[goal.id];
  const leader=goal.category==='Battle',step=goal.category==='Story',home=checklist.zones[0]?.name??'';
  // El primer Pokemon y el rival del pueblo de salida se cuentan a su manera.
- const inHome=where?.zone===home,starter=inHome&&goal.category==='In-Game Gift Pokémon',rival=inHome&&leader&&goal.name==='Rival';
+ const inHome=where?.zone===home,starter=inHome&&goal.category==='In-Game Gift Pokémon',rival=leader&&RIVAL.test(goal.name);
  const starters=order.filter(m=>checklist.markers[m.id]?.zone===home&&m.category==='In-Game Gift Pokémon').length;
  return <section className="goal">
   <small className="goal-kicker"><Target/>{t('goalTitle')}</small>
@@ -64,7 +67,7 @@ export function NextGoal({markers,checklist,gates,done,unavailable,battle,dex,te
   {blockedBy?<p className="goal-why goal-blocked"><Lock/>{t('goalFirst',{why:blockedBy})}</p>
    :step&&goal.detail?<p className="goal-why">{tr.detail(goal.detail)}</p>
    :starter?<p className="goal-why">{t('goalStarterNote')}</p>
-   :rival?<p className="goal-why">{t('goalRivalNote')}</p>
+   :rival&&inHome?<p className="goal-why">{t('goalRivalNote')}</p>
    :opens?<p className="goal-why"><KeyRound/>{opens.why[tr.lang==='es'?'es':'en']}</p>
    :thenName&&<p className="goal-why"><KeyRound/>{t('goalThen',{name:name(thenName)})}</p>}
   <div className="goal-actions">

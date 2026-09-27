@@ -210,6 +210,132 @@
     104
    ],
    "icon": null
+  },
+  {
+   "id": "MAP_VIRIDIAN_FOREST:story:cross-forest",
+   "uid": 786169709,
+   "category": "Story",
+   "name": "Cross Viridian Forest",
+   "es": {
+    "name": "Cruza el Bosque Verde",
+    "detail": "Sal por el norte hacia la Ruta 2 y Ciudad Plateada; sus entrenadores usan Pokémon Bicho."
+   },
+   "detail": "Head out the north end towards Route 2 and Pewter City; its trainers use Bug Pokémon.",
+   "map": "MAP_VIRIDIAN_FOREST",
+   "zone": "Viridian Forest",
+   "floor": "Viridian Forest",
+   "location": "Viridian Forest",
+   "area": "MAP_VIRIDIAN_FOREST",
+   "at": [
+    88,
+    152
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_ROUTE4:story:cross-moon",
+   "uid": 874616149,
+   "category": "Story",
+   "name": "Cross Mt. Moon",
+   "es": {
+    "name": "Cruza el Monte Moon",
+    "detail": "Al fondo eliges un fósil; sales a la Ruta 4, camino de Ciudad Celeste."
+   },
+   "detail": "At the far end you choose a fossil; you come out on Route 4, on the way to Cerulean City.",
+   "map": "MAP_ROUTE4",
+   "zone": "Route 4",
+   "floor": null,
+   "location": "Route 4",
+   "area": "kanto",
+   "at": [
+    3016,
+    888
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_ROUTE10:story:cross-tunnel",
+   "uid": 98650766,
+   "category": "Story",
+   "name": "Cross Rock Tunnel",
+   "es": {
+    "name": "Cruza el Túnel Roca",
+    "detail": "Está a oscuras: Destello (MO05) ilumina el camino. Sales por el sur, junto a Pueblo Lavanda."
+   },
+   "detail": "It is pitch dark: Flash (HM05) lights the way. You come out to the south, next to Lavender Town.",
+   "map": "MAP_ROUTE10",
+   "zone": "Route 10",
+   "floor": null,
+   "location": "Route 10",
+   "area": "kanto",
+   "at": [
+    6280,
+    1720
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_ROUTE7:story:cross-underground",
+   "uid": 1009041469,
+   "category": "Story",
+   "name": "Take the Underground Path to Celadon",
+   "es": {
+    "name": "Ve a Azulona por el Camino Subterráneo",
+    "detail": "Azafrán está cerrada: desde la Ruta 8 baja al túnel y sal en la Ruta 7, junto a Ciudad Azulona."
+   },
+   "detail": "Saffron is closed: from Route 8, go down the tunnel and come out on Route 7, next to Celadon City.",
+   "map": "MAP_ROUTE7",
+   "zone": "Route 7",
+   "floor": null,
+   "location": "Route 7",
+   "area": "kanto",
+   "at": [
+    3960,
+    2312
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_ROUTE18:story:cross-cycling",
+   "uid": 251820413,
+   "category": "Story",
+   "name": "Ride down Cycling Road to Fuchsia",
+   "es": {
+    "name": "Baja por la Calle Bici hasta Fucsia",
+    "detail": "Desde la Ruta 16, con la Bici y Snorlax despierto: cuesta abajo hasta la Ruta 18 y Ciudad Fucsia."
+   },
+   "detail": "From Route 16, with the Bicycle and Snorlax awake: downhill to Route 18 and Fuchsia City.",
+   "map": "MAP_ROUTE18",
+   "zone": "Route 18",
+   "floor": null,
+   "location": "Route 18",
+   "area": "kanto",
+   "at": [
+    2888,
+    5112
+   ],
+   "icon": null
+  },
+  {
+   "id": "MAP_ROUTE23:story:cross-victory",
+   "uid": 1306160506,
+   "category": "Story",
+   "name": "Cross Victory Road",
+   "es": {
+    "name": "Cruza la Calle Victoria",
+    "detail": "Fuerza mueve las rocas sobre los interruptores; a la salida, la Meseta Añil está justo al norte."
+   },
+   "detail": "Strength moves the boulders onto the switches; at the exit the Indigo Plateau is just north.",
+   "map": "MAP_ROUTE23",
+   "zone": "Route 23",
+   "floor": null,
+   "location": "Route 23",
+   "area": "kanto",
+   "at": [
+    296,
+    936
+   ],
+   "icon": null
   }
  ]
 }

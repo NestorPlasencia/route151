@@ -16,7 +16,8 @@ import json, os, sys
 sys.path.insert(0, os.path.dirname(__file__))
 from common.world import uid_of
 
-# (id, mapa, x, y, nombre en/es, detalle en/es)
+# (id, mapa, x, y, nombre en/es, detalle en/es). Los 'cross-' son tramos de
+# camino (cruzar un bosque, una cueva), en la casilla por la que se sale.
 STEPS = {
     'yellow': [
         ('leave-house', 'PALLET_TOWN', 5, 5, ('Leave your house', 'Sal de tu casa'),
@@ -37,6 +38,20 @@ STEPS = {
          ('With the Silph Scope you can see it and battle it; then the way up opens.', 'Con el Visor Silph puedes verlo y combatirlo; después se abre el paso hacia arriba.')),
         ('rescue-fuji', 'POKEMON_TOWER_7F', 10, 3, ('Rescue Mr. Fuji', 'Rescata al Sr. Fuji'),
          ('At the top of the tower, after Jessie and James. He thanks you with the Poké Flute at his house.', 'En lo alto de la torre, tras Jessie y James. En su casa te da la Poké Flauta.')),
+        ('cross-forest', 'VIRIDIAN_FOREST', 2, 0, ('Cross Viridian Forest', 'Cruza el Bosque Verde'),
+         ('Head out the north end towards Route 2 and Pewter City; its trainers use Bug Pokémon.', 'Sal por el norte hacia la Ruta 2 y Ciudad Plateada; sus entrenadores usan Pokémon Bicho.')),
+        ('cross-moon', 'ROUTE_4', 24, 5, ('Cross Mt. Moon', 'Cruza el Monte Moon'),
+         ('At the far end you choose a fossil; you come out on Route 4, on the way to Cerulean City.', 'Al fondo eliges un fósil; sales a la Ruta 4, camino de Ciudad Celeste.')),
+        ('flash', 'ROUTE_2_GATE', 1, 4, ("Get HM05 (Flash) from Oak's aide", 'Consigue la MO05 (Destello) del ayudante de Oak'),
+         ("In the Route 2 gatehouse, by Diglett's Cave: he gives it once you have registered 10 Pokémon. Flash lights up Rock Tunnel.", 'En la caseta de la Ruta 2, junto a la Cueva Diglett: te la da si tienes 10 Pokémon registrados. Destello ilumina el Túnel Roca.')),
+        ('cross-tunnel', 'ROUTE_10', 8, 53, ('Cross Rock Tunnel', 'Cruza el Túnel Roca'),
+         ('It is pitch dark: Flash (HM05) lights the way. You come out to the south, next to Lavender Town.', 'Está a oscuras: Destello (MO05) ilumina el camino. Sales por el sur, junto a Pueblo Lavanda.')),
+        ('cross-underground', 'ROUTE_7', 5, 13, ('Take the Underground Path to Celadon', 'Ve a Azulona por el Camino Subterráneo'),
+         ('Saffron is closed: from Route 8, go down the tunnel and come out on Route 7, next to Celadon City.', 'Azafrán está cerrada: desde la Ruta 8 baja al túnel y sal en la Ruta 7, junto a Ciudad Azulona.')),
+        ('cross-cycling', 'ROUTE_18', 40, 8, ('Ride down Cycling Road to Fuchsia', 'Baja por la Calle Bici hasta Fucsia'),
+         ('From Route 16, with the Bicycle and Snorlax awake: downhill to Route 18 and Fuchsia City.', 'Desde la Ruta 16, con la Bici y Snorlax despierto: cuesta abajo hasta la Ruta 18 y Ciudad Fucsia.')),
+        ('cross-victory', 'ROUTE_23', 14, 31, ('Cross Victory Road', 'Cruza la Calle Victoria'),
+         ('Strength moves the boulders onto the switches; at the exit the Indigo Plateau is just north.', 'Fuerza mueve las rocas sobre los interruptores; a la salida, la Meseta Añil está justo al norte.')),
     ],
     'frlg': [
         ('leave-house', 'MAP_PALLET_TOWN', 6, 7, ('Leave your house', 'Sal de tu casa'),
@@ -59,6 +74,18 @@ STEPS = {
          ('After becoming Champion, with 60 Pokémon seen, Professor Oak upgrades your Pokédex.', 'Tras ser Campeón, con 60 Pokémon vistos, el Prof. Oak mejora tu Pokédex.')),
         ('sapphire-celio', 'MAP_ONE_ISLAND_POKEMON_CENTER_1F', 15, 6, ('Give the Sapphire to Celio', 'Entrega el Zafiro a Celio'),
          ('Bring back the Sapphire from the Rocket Warehouse: Celio finishes his network.', 'Trae el Zafiro del Almacén Rocket: Celio termina su red.')),
+        ('cross-forest', 'MAP_VIRIDIAN_FOREST', 5, 9, ('Cross Viridian Forest', 'Cruza el Bosque Verde'),
+         ('Head out the north end towards Route 2 and Pewter City; its trainers use Bug Pokémon.', 'Sal por el norte hacia la Ruta 2 y Ciudad Plateada; sus entrenadores usan Pokémon Bicho.')),
+        ('cross-moon', 'MAP_ROUTE4', 32, 5, ('Cross Mt. Moon', 'Cruza el Monte Moon'),
+         ('At the far end you choose a fossil; you come out on Route 4, on the way to Cerulean City.', 'Al fondo eliges un fósil; sales a la Ruta 4, camino de Ciudad Celeste.')),
+        ('cross-tunnel', 'MAP_ROUTE10', 8, 57, ('Cross Rock Tunnel', 'Cruza el Túnel Roca'),
+         ('It is pitch dark: Flash (HM05) lights the way. You come out to the south, next to Lavender Town.', 'Está a oscuras: Destello (MO05) ilumina el camino. Sales por el sur, junto a Pueblo Lavanda.')),
+        ('cross-underground', 'MAP_ROUTE7', 7, 14, ('Take the Underground Path to Celadon', 'Ve a Azulona por el Camino Subterráneo'),
+         ('Saffron is closed: from Route 8, go down the tunnel and come out on Route 7, next to Celadon City.', 'Azafrán está cerrada: desde la Ruta 8 baja al túnel y sal en la Ruta 7, junto a Ciudad Azulona.')),
+        ('cross-cycling', 'MAP_ROUTE18', 48, 9, ('Ride down Cycling Road to Fuchsia', 'Baja por la Calle Bici hasta Fucsia'),
+         ('From Route 16, with the Bicycle and Snorlax awake: downhill to Route 18 and Fuchsia City.', 'Desde la Ruta 16, con la Bici y Snorlax despierto: cuesta abajo hasta la Ruta 18 y Ciudad Fucsia.')),
+        ('cross-victory', 'MAP_ROUTE23', 18, 28, ('Cross Victory Road', 'Cruza la Calle Victoria'),
+         ('Strength moves the boulders onto the switches; at the exit the Indigo Plateau is just north.', 'Fuerza mueve las rocas sobre los interruptores; a la salida, la Meseta Añil está justo al norte.')),
     ],
 }
 
