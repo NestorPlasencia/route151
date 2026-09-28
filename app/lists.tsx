@@ -47,7 +47,9 @@ export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,o
  const q=query.trim().toLowerCase();
  // Se busca por el nombre que se ve y por el original en ingles.
  const keep=(m:Marker)=>!(hideUnavailable&&blocked(m))&&(focus==='all'||focusOf(m).includes(focus))&&(!hideDone||!isDone(m))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
- const total=markers.length,completed=markers.filter(isDone).length;
+ // La alternativa que no elegiste (el otro fosil, el otro Hitmon) no cuenta: se
+ // consigue solo por intercambio.
+ const total=markers.filter(m=>isDone(m)||!settled(m)).length,completed=markers.filter(isDone).length;
  const floorName=(zone:string,f:string)=>place(f.startsWith(zone+' ')?f.slice(zone.length+1):f);
  // Una fila: casilla, figura, nombre y detalle; los entrenadores despliegan su
  // equipo. `where`: el piso, cuando sale fuera de su grupo (lo no disponible).
