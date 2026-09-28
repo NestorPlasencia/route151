@@ -273,6 +273,7 @@ const TEXT = {
  routeNoneShort: ["No way there yet · tap to see why", "Aún no hay camino · toca para ver por qué"],
  routeStepsOne: ["1 step · tap to see it", "1 paso · toca para verlo"],
  routeNext: ["Next: {name}", "Siguiente: {name}"],
+ routeOnward: ["Done! On to the next goal: {name}", "¡Hecho! Vamos por el siguiente objetivo: {name}"],
  goalShow: ["Show on the map", "Ver en el mapa"],
  goalList: ['See in the checklist', 'Ver en la lista'],
  goalMap: ['See on the map', 'Ver en el mapa'],

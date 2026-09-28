@@ -426,7 +426,14 @@ export default function Home(){
  const [tripOpen,setTripOpen]=useState(false);
  useEffect(()=>setTripOpen(false),[routeTo]);
  // Al marcar el destino, la ruta termina: la barra vuelve al siguiente objetivo.
- useEffect(()=>{if(routeTo&&(done.includes(routeTo.uid)||taken.has(routeTo.id))){setRouteTo(null);setToast(t('routeDone'))}},[routeTo,done,taken,t]);
+ // Con los pasitos encendidos, al marcar un objetivo la ruta sigue sola al
+ // siguiente; una ruta a otra cosa (un objeto suelto) se cierra.
+ useEffect(()=>{
+  if(!routeTo||!(done.includes(routeTo.uid)||taken.has(routeTo.id)))return;
+  const next=world?.goals.includes(routeTo.id)&&nextGoal&&nextGoal.id!==routeTo.id?nextGoal:null;
+  setRouteTo(next);
+  setToast(next&&world?t('routeOnward',{name:goalTitle(next,world.markers,world.checklist,tr)}):t('routeDone'));
+ },[routeTo,done,taken,t,world,nextGoal,tr]);
  const startRoute=(m:Marker)=>{setRouteTo(m);setTab('mapa');setSelected(null);setStack(null);setEncounterZone(null)};
  // Zoom al mover la camara a un punto del camino: el que tenias si sigues en la
  // misma area (sin alejarte), si no uno de cerca.
