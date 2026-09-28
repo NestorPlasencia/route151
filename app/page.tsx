@@ -212,7 +212,13 @@ export default function Home(){
  const nextGoal=useMemo(()=>world?nextGoalOf(world.markers.filter(m=>world.checklist.markers[m.id]),world.goals,settled):null,[world,settled]);
  // Puertas del mapa a las que aun no llegas: grises, con candado.
  const reachNow=useMemo(()=>reachFor(have),[reachFor,have]);
- const doorLocked=useCallback((area:string,at:Pt)=>{if(!navWorld||!reachNow)return false;const x=targetAt(navWorld,area,at,false);return !!x&&!reached(navWorld,reachNow.tiles,x)},[navWorld,reachNow]);
+ // Una puerta con candado: no se llega a ella. Como con los marcadores, si ya
+ // pisas su zona lo que falta es un script (las salas del Alto Mando se abren
+ // al ganar cada combate): no se cierra.
+ const doorLocked=useCallback((area:string,at:Pt)=>{
+  if(!navWorld||!reachNow)return false;const x=targetAt(navWorld,area,at,false);if(!x||reached(navWorld,reachNow.tiles,x))return false;
+  const g=navWorld.grids.get(x.map);return !(g&&navWorld.list.some(o=>o.m.zone===g.m.zone&&reachNow.maps.has(o.i)));
+ },[navWorld,reachNow]);
  // Lo que abre el ultimo marcador que marcaste (una MO, una medalla, una llave).
  const [unlock,setUnlock]=useState<Unlock|null>(null);
  const [refreshing,setRefreshing]=useState(false);
