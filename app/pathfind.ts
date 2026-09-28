@@ -54,11 +54,17 @@ function explore(w:World,starts:number[],can:Set<string>,closed:(map:string)=>bo
  const buckets:number[][]=[],dist=new Map<number,number>(),seen=new Set<number>();let cur=0,pending=0;
  let injected=!late?.keys.length;
  const put=(k:number,cost:number)=>{(buckets[cost]??=[]).push(k);pending++};
- const push=(k:number,from:number,h:How,sd?:string)=>{
+ // Una roca de Fuerza se empuja en la direccion en que andas: tu quedas en su
+ // casilla y ella delante, asi que desde ahi no se sigue de frente (en un
+ // pasillo de una casilla, la roca te deja encerrado).
+ const pushed=new Map<number,number>();
+ const push=(k:number,from:number,h:How,sd?:string,dir?:number)=>{
   if(seen.has(k))return;
   const cost=from===-1?0:(dist.get(from)??0)+(k%2===1?3:1),old=dist.get(k);
   if(old!==undefined&&old<=cost)return;
-  dist.set(k,cost);parent.set(k,from);how.set(k,h);if(sd)side.set(k,sd);else side.delete(k);put(k,cost);
+  dist.set(k,cost);parent.set(k,from);how.set(k,h);if(sd)side.set(k,sd);else side.delete(k);
+  if(h==='strength'&&dir!==undefined)pushed.set(k,dir);else pushed.delete(k);
+  put(k,cost);
  };
  const arrive=(g:Grid,x:number,y:number,from:number,h:How)=>{
   if(x<0||y<0||x>=g.m.w||y>=g.m.h||closed(g.id))return;
@@ -72,6 +78,8 @@ function explore(w:World,starts:number[],can:Set<string>,closed:(map:string)=>bo
   // 'switch': reja que abre el interruptor de una estatua; se pasa (se pulsa).
   // 'plate': barrera que abre una roca sobre un interruptor del suelo: Fuerza.
   if(ob&&ob!=='switch'&&!can.has(ob==='plate'?'strength':ob))return null;
+  // La roca necesita suelo libre detras para moverse.
+  if(ob==='strength'){const bx=nx+dx,by=ny+dy;if(bx<0||by<0||bx>=g.m.w||by>=g.m.h||(g.kind[by*g.m.w+bx]&7)!==FLOOR||g.warps.has(by*g.m.w+bx))return null}
   const ne=g.elev?g.elev[at]:0;
   if(t===WATER||t===WATERFALL){
    if(!can.has('surf')||(t===WATERFALL&&!can.has('waterfall')))return null;
@@ -102,9 +110,9 @@ function explore(w:World,starts:number[],can:Set<string>,closed:(map:string)=>bo
   // Sobre una puerta: se cruza a la casilla donde aparece en el otro mapa.
   for(const [dest,n] of g.warps.get(at)??[]){const d=w.grids.get(dest),dr=d?.m.dr?.[n];if(d&&dr)arrive(d,dr[0],dr[1],k,'door')}
   for(const f of ferry)if(f.g===g&&f.x===x&&f.y===y)for(const o of ferry)if(o!==f)arrive(o.g!,o.x,o.y,k,'ferry');
-  const blocked=g.kind[at]>>3;
+  const blocked=g.kind[at]>>3,front=pushed.get(k);
   STEPS.forEach(([dx,dy],i)=>{
-   if(blocked&(1<<i))return;
+   if(blocked&(1<<i)||i===front)return;
    const nx=x+dx,ny=y+dy;
    if(nx<0||ny<0||nx>=g.m.w||ny>=g.m.h){
     // Borde del mapa: al vecino que toca por ese lado.
@@ -119,7 +127,7 @@ function explore(w:World,starts:number[],can:Set<string>,closed:(map:string)=>bo
    // Una puerta se cruza aunque su casilla sea muro (las de las casas).
    const nat=ny*g.m.w+nx;
    if(g.warps.has(nat)&&(g.kind[nat]&7)!==WATER&&(g.kind[nat]&7)!==WATERFALL){push(key(g.i,nx,ny,e,false),k,'walk');return}
-   const to=enter(g,nx,ny,dx,dy,e,s);if(to)push(key(g.i,to[0],to[1],to[2],to[3]),k,to[4]);
+   const to=enter(g,nx,ny,dx,dy,e,s);if(to)push(key(g.i,to[0],to[1],to[2],to[3]),k,to[4],undefined,i);
   });
  }
  return {parent,how,side,order,end:null};
@@ -157,7 +165,10 @@ export function findRoute(w:World,from:string,target:Target,can:Set<string>,clos
   }
   // La zona no se alcanza desde el inicio (dices que estas donde aun no se
   // llega): se sale de sus puertas.
-  if(!sources.length)sources=w.list.filter(g=>g.m.zone===from).flatMap(g=>(g.m.dr??[]).map(([x,y])=>key(g.i,x,y,g.elev?g.elev[y*g.m.w+x]:0,false)));
+  // Si hay casilla de partida (lo ultimo que marcaste), se sale de ella; si no,
+  // de las puertas de la zona.
+  if(!sources.length)sources=ag&&anchor?[key(ag.i,anchor.x,anchor.y,ag.elev?ag.elev[anchor.y*ag.m.w+anchor.x]:0,false)]
+   :w.list.filter(g=>g.m.zone===from).flatMap(g=>(g.m.dr??[]).map(([x,y])=>key(g.i,x,y,g.elev?g.elev[y*g.m.w+x]:0,false)));
   // Con Vuelo, tambien desde cada pueblo al que vuelas (si se llega a el).
   if(fly.length){const got=new Set(reach);for(const f of fly){const g=w.grids.get(f.map);if(!g)continue;const k=key(g.i,f.x,f.y,g.elev?g.elev[f.y*g.m.w+f.x]:0,false);if(got.has(k))flown.add(k)}}
   return sources;
