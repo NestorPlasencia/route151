@@ -651,7 +651,7 @@ export default function Home(){
   const blocked=unavailable(subject),steps=!trip?t('routeLoading'):!trip.items?t('routeNoneShort').split(' · ')[0]:t(trip.items.length+1===1?'routeStepsOne':'routeSteps',{n:trip.items.length+1}).split(' · ')[0];
   return <div className="map-goal"><Figure m={subject}/>
    {routeTo?<button className="map-goal-text" onClick={()=>setTripOpen(v=>!v)} aria-expanded={tripOpen}>
-     <small className={trip&&!trip.items?'trip-none':''}>{t('routeHow')} · {steps}<ChevronDown/></small><b>{name(routeTo.name)}</b></button>
+     <small className={trip&&!trip.items?'trip-none':''}>{t('routeHow')} · {steps}<ChevronDown/></small><b>{world.goals.includes(routeTo.id)?goalTitle(routeTo,world.markers,world.checklist,tr):name(routeTo.name)}</b></button>
     :<span className="map-goal-text"><small>{t('goalTitle')}</small><b>{goalTitle(subject,world.markers,world.checklist,tr)}</b></span>}
    <button className="map-goal-tick" disabled={!!blocked} title={blocked??t('goalMark')} aria-label={t('goalMark')} onClick={()=>toggleDone(subject.uid,subject.id)}>{blocked?<Lock/>:<Check/>}</button>
    {/* Interruptor de Como llegar: encendido dibuja la ruta; apagado la quita. */}
