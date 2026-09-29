@@ -1,6 +1,6 @@
 // Service worker de Route 151: permite instalar la app y usarla sin conexion.
 // Sube VERSION cuando cambie la estrategia de cache para descartar la anterior.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const SHELL = `route151-shell-${VERSION}`;
 const ASSETS = `route151-assets-${VERSION}`;
 const DATA = `route151-data-${VERSION}`;
@@ -92,6 +92,11 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request, SHELL));
+  } else if (url.pathname.startsWith('/_next/static/') && url.pathname.endsWith('.css')) {
+    // Los estilos pueden conservar el nombre aunque cambien: con cache primero
+    // el movil se quedaba con los viejos (botones sin su forma nueva). Red
+    // primero; la copia, solo sin conexion.
+    event.respondWith(networkFirst(request, ASSETS));
   } else if (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/vendor/')) {
     // /vendor/ es el lector de fichas (worker, WASM e idioma): no cambia, y
     // guardado permite escanear sin conexion.
