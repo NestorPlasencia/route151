@@ -2,7 +2,7 @@
 // Guia para quien empieza: que hacer ahora y, si toca un lider, como prepararse.
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {ChevronDown,Footprints,Info,KeyRound,List,Lock,LockOpen,MapPin,SkipForward,Target,TriangleAlert,X} from 'lucide-react';
+import {Check,ChevronDown,Footprints,Info,KeyRound,List,Lock,LockOpen,MapPin,SkipForward,Target,TriangleAlert,X} from 'lucide-react';
 import {Help} from './learn';
 import {Figure,type Gate,type Marker} from './shared';
 import type {Key,T} from './i18n';
@@ -61,7 +61,7 @@ export function BehindNote({behind,onSee,onSkip,tr}:{behind:Behind;onSee:()=>voi
  </section>;
 }
 
-export function NextGoal({slot,markers,checklist,gates,goals,goalNotes,settled,done,unavailable,canSkip,onSkip,alert,battle,dex,teamKey,onList,onMap,onRoute,tr}:{slot:HTMLElement|null;alert:string|null;markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;done:number[];unavailable:(m:Marker)=>string|null;canSkip:(m:Marker)=>boolean;onSkip:(m:Marker)=>void;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
+export function NextGoal({slot,markers,checklist,gates,goals,goalNotes,settled,done,unavailable,canSkip,onSkip,onDone,alert,battle,dex,teamKey,onList,onMap,onRoute,tr}:{slot:HTMLElement|null;alert:string|null;onDone:(m:Marker)=>void;markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;done:number[];unavailable:(m:Marker)=>string|null;canSkip:(m:Marker)=>boolean;onSkip:(m:Marker)=>void;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
  const {t,name,place}=tr;
  const order=useMemo(()=>storyOrder(markers,checklist),[markers,checklist]);
  // Si la tarjeta sale de la vista al desplazar, se ensena la version compacta.
@@ -100,7 +100,9 @@ export function NextGoal({slot,markers,checklist,gates,goals,goalNotes,settled,d
   {!cardInView&&slot&&createPortal(<div className="goal-mini"><Target/><b>{goalTitle(goal,markers,checklist,tr)}</b>
    {alert&&<button className="goal-mini-alert" onClick={()=>card.current?.closest('.list-body')?.scrollTo({top:0,behavior:'smooth'})} aria-label={alert} title={alert}><TriangleAlert/></button>}
    {goal.area&&!blockedBy?<button onClick={()=>onRoute(goal)} aria-label={t('routeHow')}><Footprints/>{t('routeHow')}</button>
-    :<button onClick={()=>onList(goal)} aria-label={t('goalList')}><List/></button>}</div>,slot)}
+    :<button onClick={()=>onList(goal)} aria-label={t('goalList')}><List/></button>}
+   {/* Marcarlo sin buscar su fila, como en la barra del mapa. */}
+   <button className="goal-tick" disabled={!!blockedBy} onClick={()=>onDone(goal)} aria-label={t('goalMark')} title={blockedBy??t('goalMark')}>{blockedBy?<Lock/>:<Check/>}</button></div>,slot)}
   <section className="goal" ref={card}>
   <small className="goal-kicker"><Target/>{t('goalTitle')}</small>
   <div className="goal-main">
@@ -118,6 +120,7 @@ export function NextGoal({slot,markers,checklist,gates,goals,goalNotes,settled,d
    :opens?<p className="goal-why"><KeyRound/>{opens.why[tr.lang==='es'?'es':'en']}</p>
    :thenName&&<p className="goal-why"><KeyRound/>{t('goalThen',{name:name(thenName)})}</p>}
   <div className="goal-actions">
+   {!blockedBy&&<button className="goal-tick" onClick={()=>onDone(goal)}><Check/>{t('goalDoneButton')}</button>}
    <button onClick={()=>onList(goal)}><List/>{t('goalList')}</button>
    {/* Como llegar ensena ademas el sitio en el mapa; si aun no se puede, solo el sitio. */}
    {goal.area&&(blockedBy?<button onClick={()=>onMap(goal)}><MapPin/>{t('goalMap')}</button>:<button className="goal-go" onClick={()=>onRoute(goal)}><Footprints/>{t('routeHow')}</button>)}

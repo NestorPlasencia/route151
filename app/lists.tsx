@@ -105,7 +105,7 @@ export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,s
   <div className="list-body">
    {unlock&&<Unlocked unlock={unlock} checklist={checklist} onZone={goToZone} onDismiss={onUnlockDismiss} tr={tr}/>}
    {!q&&focus==='all'&&behind&&<BehindNote behind={behind} onSee={()=>goToZone(behind.zone)} onSkip={()=>onSkipBehind(behind)} tr={tr}/>}
-   {!q&&focus==='all'&&<NextGoal slot={goalSlot} markers={markers} checklist={checklist} gates={gates} goals={goals} goalNotes={goalNotes} settled={settled} done={done} unavailable={unavailable} canSkip={canSkip} onSkip={onSkip} alert={behind?behind.warn??t('behindTitle',{zone:place(behind.zone)}):null} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} onRoute={onRoute} tr={tr}/>}
+   {!q&&focus==='all'&&<NextGoal slot={goalSlot} markers={markers} checklist={checklist} gates={gates} goals={goals} goalNotes={goalNotes} settled={settled} done={done} unavailable={unavailable} canSkip={canSkip} onSkip={onSkip} onDone={m=>toggleDone(m.uid,m.id)} alert={behind?behind.warn??t('behindTitle',{zone:place(behind.zone)}):null} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} onRoute={onRoute} tr={tr}/>}
    {checklist.parts.map(part=>{
     const zones=checklist.zones.filter(z=>z.part===part.n&&byZone.has(z.name));
     const all=zones.flatMap(z=>[...byZone.get(z.name)!.values()].flat());
