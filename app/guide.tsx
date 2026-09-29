@@ -2,7 +2,7 @@
 // Guia para quien empieza: que hacer ahora y, si toca un lider, como prepararse.
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {Check,ChevronDown,Footprints,Info,KeyRound,List,Lock,LockOpen,MapPin,SkipForward,Target,TriangleAlert,X} from 'lucide-react';
+import {ChevronDown,Footprints,Info,KeyRound,List,Lock,LockOpen,MapPin,SkipForward,Target,TriangleAlert,X} from 'lucide-react';
 import {Help} from './learn';
 import {Figure,type Gate,type Marker} from './shared';
 import type {Key,T} from './i18n';
@@ -102,10 +102,13 @@ export function NextGoal({slot,markers,checklist,gates,goals,goalNotes,settled,d
    {goal.area&&!blockedBy?<button onClick={()=>onRoute(goal)} aria-label={t('routeHow')}><Footprints/>{t('routeHow')}</button>
     :<button onClick={()=>onList(goal)} aria-label={t('goalList')}><List/></button>}
    {/* Marcarlo sin buscar su fila, como en la barra del mapa. */}
-   <button className="goal-tick" disabled={!!blockedBy} onClick={()=>onDone(goal)} aria-label={t('goalMark')} title={blockedBy??t('goalMark')}>{blockedBy?<Lock/>:<Check/>}</button></div>,slot)}
+   <button className="goal-mini-check" disabled={!!blockedBy} onClick={()=>onDone(goal)} aria-label={t('goalMark')} title={blockedBy??t('goalMark')}><span className="check-box pulse">{blockedBy&&<Lock/>}</span></button></div>,slot)}
   <section className="goal" ref={card}>
   <small className="goal-kicker"><Target/>{t('goalTitle')}</small>
+  {/* Una casilla vacia, como las de la lista, que late para que se marque al
+      terminar (un check verde parecia ya hecho); con candado si aun no se puede. */}
   <div className="goal-main">
+   <button className="goal-check" disabled={!!blockedBy} onClick={()=>onDone(goal)} aria-label={t('goalMark')} title={blockedBy??t('goalMark')}><span className="check-box pulse">{blockedBy&&<Lock/>}</span></button>
    <Figure m={goal}/>
    <div>
     <b>{goalTitle(goal,markers,checklist,tr)}</b>
@@ -119,10 +122,8 @@ export function NextGoal({slot,markers,checklist,gates,goals,goalNotes,settled,d
    :rival&&inHome?<p className="goal-why">{t('goalRivalNote')}</p>
    :opens?<p className="goal-why"><KeyRound/>{opens.why[tr.lang==='es'?'es':'en']}</p>
    :thenName&&<p className="goal-why"><KeyRound/>{t('goalThen',{name:name(thenName)})}</p>}
-  {/* Como en la barra del mapa: el check (blanco; con candado si aun no se
-      puede) y Como llegar. Debajo, en pequeno, verlo en la lista y saltarlo. */}
+  {/* Como llegar y, en pequeno, verlo en la lista y saltarlo. */}
   <div className="goal-actions">
-   <button className="goal-tick" disabled={!!blockedBy} onClick={()=>onDone(goal)} aria-label={t('goalMark')} title={blockedBy??t('goalMark')}>{blockedBy?<Lock/>:<Check/>}</button>
    {/* Como llegar ensena ademas el sitio en el mapa; si aun no se puede, solo el sitio. */}
    {goal.area&&(blockedBy?<button className="goal-main-btn" onClick={()=>onMap(goal)}><MapPin/>{t('goalMap')}</button>:<button className="goal-main-btn goal-go" onClick={()=>onRoute(goal)}><Footprints/>{t('routeHow')}</button>)}
   </div>

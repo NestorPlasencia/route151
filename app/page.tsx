@@ -701,7 +701,7 @@ export default function Home(){
    {routeTo?<button className="map-goal-text" onClick={()=>setTripOpen(v=>!v)} aria-expanded={tripOpen}>
      <small className={trip&&!trip.items?'trip-none':''}>{t('routeHow')} · {steps}<ChevronDown/></small><b>{world.goals.includes(routeTo.id)?goalTitle(routeTo,world.markers,world.checklist,tr):name(routeTo.name)}</b></button>
     :<span className="map-goal-text"><small>{t('goalTitle')}</small><b>{goalTitle(subject,world.markers,world.checklist,tr)}</b></span>}
-   <button className="map-goal-tick" disabled={!!blocked} title={blocked??t('goalMark')} aria-label={t('goalMark')} onClick={()=>toggleDone(subject.uid,subject.id)}>{blocked?<Lock/>:<Check/>}</button>
+   <button className="map-goal-tick" disabled={!!blocked} title={blocked??t('goalMark')} aria-label={t('goalMark')} onClick={()=>toggleDone(subject.uid,subject.id)}><span className="check-box pulse">{blocked&&<Lock/>}</span></button>
    {/* Interruptor de Como llegar: encendido dibuja la ruta; apagado la quita. */}
    <button className={`map-goal-go ${routeTo?'on':''}`} aria-pressed={!!routeTo} onClick={()=>routeTo?setRouteTo(null):startRoute(subject)} aria-label={t(routeTo?'routeClose':'routeHow')} title={t(routeTo?'routeClose':'routeHow')}><Footprints/></button>
    <button onClick={()=>reveal(subject,true)} aria-label={t('goalShow')} title={t('goalShow')}><MapPin/></button>

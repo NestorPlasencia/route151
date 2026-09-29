@@ -802,15 +802,22 @@ header .layers-button,.about-button{width:32px;height:32px}
 /* Salvaje que pide un intercambio: una etiqueta morada, como los intercambios. */
 .row-text small.row-trade{display:inline-block;white-space:normal;line-height:1.35;margin-top:4px;padding:2px 8px;border-radius:8px;background:#f0e8ff;color:#5b2fb0;font-weight:bold}
 /* Marcar el objetivo desde la lista: verde, como el check de la barra del mapa. */
-.goal-actions .goal-tick{width:44px;height:40px;padding:0;justify-content:center;flex:none;color:#1d7a47}
-.goal-actions .goal-tick svg{width:19px}
-.goal-actions .goal-tick:disabled{color:#9aa6b8;cursor:not-allowed}
-.goal-actions .goal-main-btn{flex:1;justify-content:center;height:40px;font-size:13px}
+.goal-actions .goal-main-btn{flex:1;margin-top:2px;justify-content:center;height:40px;font-size:13px}
 .goal-more{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px}
 .goal-more button{display:flex;align-items:center;gap:5px;padding:4px 2px;border:0;background:none;color:#6b5a1c;font-size:12px;cursor:pointer}
 .goal-more button svg{width:14px}
-.goal-mini button.goal-tick{background:#fff;border:1px solid #e3cf7a;color:#1d7a47;padding:0 9px}
-.goal-mini button.goal-tick svg{width:17px}
-.goal-mini button.goal-tick:disabled{color:#9aa6b8;cursor:not-allowed}
+/* La casilla del objetivo: vacia, como las de las filas, y con un latido
+   suave que invita a marcarla al terminar; gris con candado si aun no se puede. */
+.check-box{display:grid;place-items:center;width:26px;height:26px;flex:none;border:2px solid #7d8da3;border-radius:7px;background:#fff}
+.check-box svg{width:13px;color:#9aa6b8}
+@keyframes check-pulse{0%,100%{box-shadow:0 0 0 0 #2d6df600}50%{box-shadow:0 0 0 5px #2d6df640}}
+.check-box.pulse{animation:check-pulse 2.2s ease-in-out infinite;border-color:var(--blue)}
+@media (prefers-reduced-motion:reduce){.check-box.pulse{animation:none}}
+button:disabled .check-box{border-color:#d5dde8;background:#f1f4f8;animation:none}
+.goal-check{display:grid;place-items:center;flex:none;width:40px;height:40px;margin:0 -4px 0 -8px;padding:0;border:0;background:none;cursor:pointer}
+.goal-check:disabled{cursor:not-allowed}
+.goal-check .check-box{width:30px;height:30px}
+.goal-mini button.goal-mini-check{background:none;padding:0 4px}
+.map-goal button.map-goal-tick{background:none;border:0}
 .goal-mini button.goal-mini-alert{background:#e07b00;padding:0 9px}
 .goal-mini button.goal-mini-alert svg{width:17px}
