@@ -412,8 +412,14 @@ def classify(o, body, trades, scripts):
     # Por variable: premios del Casino, o canjes (bebidas en la azotea de
     # Azulona, Berry Powder en Celeste).
     prize = 'Game Corner prize' if 'GameCorner' in o.get('script', '') else 'Reward or exchange'
-    out += [('Item Gift', items[i]['name'], {'key': f'prize:{i}', 'icon': item_icon(i), 'detail': prize})
-            for i in prize_items(body) if i in items and i not in given]
+    prizes = [i for i in prize_items(body) if i in items and i not in given]
+    # El Polvo Baya solo sale de Berry Crush, con otras consolas: jugando solo no
+    # se consigue. Su canje va como una tienda (se ve, pero no cuenta).
+    if 'TakeBerryPowder' in body:
+        out.append(('Shop', 'Berry Powder exchange', {'key': 'shop', 'icon': npc_icon(gfx),
+                    'detail': 'For Berry Powder: ' + ', '.join(items[i]['name'] for i in prizes)}))
+        prizes = []
+    out += [('Item Gift', items[i]['name'], {'key': f'prize:{i}', 'icon': item_icon(i), 'detail': prize}) for i in prizes]
     sold = [items[i]['name'] for i in shop_items(body, scripts) if i in items]
     if sold:
         out.append(('Shop', 'Poké Mart', {'key': 'shop', 'icon': npc_icon(gfx), 'detail': 'Sells ' + ', '.join(sold)}))

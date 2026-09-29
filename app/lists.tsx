@@ -17,12 +17,14 @@ function Progress({done,total}:{done:number;total:number}){const pct=total?Math.
 
 // Filtros de la checklist por lo que se busca, no por categoria interna: los
 // lideres (gimnasios, Alto Mando y Campeon) aparte del resto de entrenadores.
-type Focus='all'|'story'|'leaders'|'trainers'|'items'|'pokemon'|'gifts';
+// Los intercambios van aparte de los regalos: con ellos salen tambien los
+// salvajes que hay que dar (se atrapa uno de mas).
+type Focus='all'|'story'|'leaders'|'trainers'|'items'|'pokemon'|'gifts'|'trades';
 const focusOf=(m:Marker):Focus[]=>m.category==='Story'?['story']:m.category==='Battle'?[LEADER.test(m.name)?'leaders':'trainers']
  :['Item In Map','Hidden Item'].includes(m.category)?['items']:m.category==='Pokémon'?['pokemon']
- :m.category==='Item Gift'?['items','gifts']:['pokemon','gifts'];
-const FOCUS:[Focus,'filterAll'|'focusStory'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'][]=[
- ['all','filterAll'],['story','focusStory'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts']];
+ :m.category==='Item Gift'?['items','gifts']:m.category==='In-Game Trade'?['pokemon','trades']:['pokemon','gifts'];
+const FOCUS:[Focus,'filterAll'|'focusStory'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'|'focusTrades'][]=[
+ ['all','filterAll'],['story','focusStory'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts'],['trades','focusTrades']];
 
 export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,skipped,onSkip,onUnskip,canSkip,behind,onSkipBehind,onRoute,unlock,onUnlockDismiss,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;skipped:Set<number>;onSkip:(m:Marker)=>void;onUnskip:(m:Marker)=>void;canSkip:(m:Marker)=>boolean;behind:Behind|null;onSkipBehind:(b:Behind)=>void;onRoute:(m:Marker)=>void;unlock:Unlock|null;onUnlockDismiss:()=>void;done:number[];toggleDone:(uid:number,id?:string)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
  const {t,category,place,name}=tr;
@@ -43,12 +45,22 @@ export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,s
  const toggleTeam=(id:string)=>setTeams(list=>list.includes(id)?list.filter(x=>x!==id):[...list,id]);
  const first=useRef(open[0]);
  useEffect(()=>{if(first.current)document.getElementById(`zone-${first.current}`)?.scrollIntoView({block:'start'})},[]);
- const counts=useMemo(()=>{const c=new Map<Focus,number>([['all',markers.length]]);markers.forEach(m=>focusOf(m).forEach(f=>c.set(f,(c.get(f)??0)+1)));return c},[markers]);
+ // Lo que piden los intercambios que te faltan, y las especies de las que sale
+ // (Poliwag para dar un Poliwhirl): de esas se atrapan dos, uno para cambiar.
+ const tradeFor=useMemo(()=>{
+  const byName=new Map(dex.species.map(s=>[s.name,s])),byN=new Map(dex.species.map(s=>[s.n,s]));
+  const out=new Map<string,{give:string;get:string}>();
+  for(const m of markers){const give=m.category==='In-Game Trade'&&!done.includes(m.uid)&&/^Trade your (.+)$/.exec(m.detail??'')?.[1];if(!give)continue;
+   for(let s=byName.get(give);s;s=s.from?byN.get(s.from.n):undefined)if(!out.has(s.name))out.set(s.name,{give,get:m.name})}
+  return out;
+ },[markers,dex,done]);
+ const inFocus=(m:Marker,f:Focus)=>f==='all'||focusOf(m).includes(f)||(f==='trades'&&m.category==='Pokémon'&&tradeFor.has(m.name));
+ const counts=new Map(FOCUS.map(([f])=>[f,markers.filter(m=>inFocus(m,f)).length]));
  // Zona -> (lista suelta de Kanto, pisos en orden de visita).
  const byZone=useMemo(()=>{const out=new Map<string,Map<string,Marker[]>>();for(const m of markers){const z=checklist.markers[m.id];if(!z)continue;const floors=out.get(z.zone)??out.set(z.zone,new Map()).get(z.zone)!;const k=z.floor??'';(floors.get(k)??floors.set(k,[]).get(k)!).push(m)}return out},[markers,checklist]);
  const q=query.trim().toLowerCase();
  // Se busca por el nombre que se ve y por el original en ingles.
- const keep=(m:Marker)=>!(hideUnavailable&&blocked(m))&&(focus==='all'||focusOf(m).includes(focus))&&(!hideDone||!(isDone(m)||isSkipped(m)))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
+ const keep=(m:Marker)=>!(hideUnavailable&&blocked(m))&&inFocus(m,focus)&&(!hideDone||!(isDone(m)||isSkipped(m)))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
  // La alternativa que no elegiste (el otro fosil, el otro Hitmon) no cuenta: se
  // consigue solo por intercambio.
  const total=markers.filter(m=>isDone(m)||!settled(m)).length,completed=markers.filter(isDone).length;
@@ -64,7 +76,9 @@ export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,s
       ficha como en el mapa: cada Pokemon con su nivel, lo que da y con que atacarle. */}
   {foes.length?<button className={`row-text row-toggle ${shown?'on':''}`} aria-expanded={shown} onClick={()=>toggleTeam(m.id)}>
     <b>{name(m.name)}<ChevronDown/></b><small>{where?`${where} · `:''}{d}</small>{why&&<small className="row-why">{why}</small>}</button>
-   :<span className="row-text"><b>{name(m.name)}</b><small>{where?`${where} · `:''}{d??category(m.category)}</small>{why&&<small className="row-why">{why}</small>}</span>}
+   :<span className="row-text"><b>{name(m.name)}</b><small>{where?`${where} · `:''}{d??category(m.category)}</small>{why&&<small className="row-why">{why}</small>}
+    {/* Un salvaje que pide un intercambio: atrapa dos. */}
+    {m.category==='Pokémon'&&(x=>x&&<small className="row-trade">{x.give===m.name?t('tradeCatchTwo',{get:name(x.get)}):t('tradeCatchEvolve',{give:name(x.give),get:name(x.get)})}</small>)(tradeFor.get(m.name))}</span>}
   <button className="show" onClick={()=>onShow(m)} aria-label={t('showOnMap',{name:name(m.name)})}><MapPin/></button>
   {shown&&battle&&<div className="row-team"><BattleAdvice opponents={foes} dex={dex} battle={battle} storageKey={teamKey} tr={tr}/></div>}
  </div>};

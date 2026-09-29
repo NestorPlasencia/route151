@@ -254,6 +254,7 @@ const TEXT = {
  encountersWild: ['Wild encounters', 'Pokémon salvajes'],
  // Listas
  sells: ['Sells {list}', 'Vende {list}'],
+ berryPowder: ['Gives {list} for Berry Powder, which you only win playing Berry Crush with other consoles', 'Da {list} a cambio de Polvo Baya, que solo se gana jugando Berry Crush con otras consolas'],
  searchChecklist: ['Search the checklist…', 'Buscar en la lista…'],
  hideCompleted: ['Hide completed', 'Ocultar completados'],
  hideUnavailable: ['Hide unavailable', 'Ocultar no disponible'],
@@ -414,7 +415,10 @@ const TEXT = {
  focusTrainers: ['Trainers', 'Entrenadores'],
  focusItems: ['Items', 'Objetos'],
  focusPokemon: ['Pokémon', 'Pokémon'],
- focusGifts: ['Gifts & trades', 'Regalos e intercambios'],
+ focusGifts: ['Gifts', 'Regalos'],
+ focusTrades: ['Trades', 'Intercambios'],
+ tradeCatchTwo: ['Catch 2: one is to trade for {get}', 'Atrapa 2: uno es para cambiarlo por {get}'],
+ tradeCatchEvolve: ['Catch 2: evolve one into {give} and trade it for {get}', 'Atrapa 2: evoluciona uno a {give} y cámbialo por {get}'],
  filterMissing: ['Missing', 'Faltan'],
  filterCaught: ['Registered', 'Registrados'],
  registered: ['Registered', 'Registrado'],
@@ -585,7 +589,7 @@ export type Names = {items: Record<string, string>; moves: Record<string, string
 // detalle en ingles -> en espanol. Lo registra el cargador del juego.
 const STORY = new Map<string, string>();
 // Nombres de objeto que se leen mejor distinto de como los trae PokeAPI.
-const NAME_FIX: Record<string, string> = {"Oak's Parcel": 'Paquete de Oak'};
+const NAME_FIX: Record<string, string> = {"Oak's Parcel": 'Paquete de Oak', 'Berry Powder exchange': 'Canje de Polvo Baya'};
 // MT/MO -> el ataque que ensena en el juego cargado ('TM28' -> 'Dig').
 const TEACH = new Map<string, string>();
 export const registerTeach = (pairs: [string, string][]) => { TEACH.clear(); for (const [tm, move] of pairs) TEACH.set(tm, move); };

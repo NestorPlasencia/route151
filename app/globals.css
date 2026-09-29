@@ -800,5 +800,7 @@ header .layers-button,.about-button{width:32px;height:32px}
 .pop-actions .pop-route{flex:1;margin-top:0}
 .pop-skip{display:flex;align-items:center;justify-content:center;gap:6px;flex:1;height:36px;border-radius:9px;border:1px solid var(--line);background:#fff;color:#5b6679;font-weight:bold;font-size:12px;cursor:pointer}
 .pop-skip svg{width:15px}
+/* Salvaje que pide un intercambio: una etiqueta morada, como los intercambios. */
+.row-text small.row-trade{display:inline-block;white-space:normal;line-height:1.35;margin-top:4px;padding:2px 8px;border-radius:8px;background:#f0e8ff;color:#5b2fb0;font-weight:bold}
 .goal-mini button.goal-mini-alert{background:#e07b00;padding:0 9px}
 .goal-mini button.goal-mini-alert svg{width:17px}

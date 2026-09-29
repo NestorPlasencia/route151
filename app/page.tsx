@@ -644,7 +644,8 @@ export default function Home(){
  // Lo que vende una tienda, con los objetos traducidos; los demas detalles solo
  // cambian el nivel ('Lv45' -> 'Nv. 45').
  const info=(m:Marker)=>{const d=m.detail;if(!d)return null;
-  return d.startsWith('Sells ')?t('sells',{list:d.slice(6).split(', ').map(name).join(', ')}):tDetail(d)};
+  const list=(from:number)=>d.slice(from).split(', ').map(name).join(', ');
+  return d.startsWith('Sells ')?t('sells',{list:list(6)}):d.startsWith('For Berry Powder: ')?t('berryPowder',{list:list(18)}):tDetail(d)};
  // Los nombres del mapa y de la Pokedex se comparan sin signos: "Nidoran♀", "Farfetch'd".
  const speciesKey=(value:string)=>value.toLowerCase().replace(/♀/g,'f').replace(/♂/g,'m').replace(/[^a-z0-9]/g,'');
  const speciesByName=useMemo(()=>new Map((world?.dex.species??[]).map(s=>[speciesKey(s.name),s.n])),[world]);
