@@ -795,7 +795,6 @@ header .layers-button,.about-button{width:32px;height:32px}
 .row .tick.skip,.pop .tick.skip{background:#eef1f5;border-color:#bdc7d4;color:#748198}
 .row-skip>.fig,.row-skip .row-text{opacity:.55}
 .row-skip .row-text>b{text-decoration:line-through}
-.goal-actions .goal-skip{color:#5b6679}
 .pop-actions{display:flex;gap:8px;margin-top:8px}
 .pop-actions .pop-route{flex:1;margin-top:0}
 .pop-skip{display:flex;align-items:center;justify-content:center;gap:6px;flex:1;height:36px;border-radius:9px;border:1px solid var(--line);background:#fff;color:#5b6679;font-weight:bold;font-size:12px;cursor:pointer}
@@ -803,7 +802,13 @@ header .layers-button,.about-button{width:32px;height:32px}
 /* Salvaje que pide un intercambio: una etiqueta morada, como los intercambios. */
 .row-text small.row-trade{display:inline-block;white-space:normal;line-height:1.35;margin-top:4px;padding:2px 8px;border-radius:8px;background:#f0e8ff;color:#5b2fb0;font-weight:bold}
 /* Marcar el objetivo desde la lista: verde, como el check de la barra del mapa. */
-.goal-actions .goal-tick{background:#23a66c;border-color:#23a66c;color:#fff;font-weight:bold}
+.goal-actions .goal-tick{width:44px;height:40px;padding:0;justify-content:center;flex:none;color:#1d7a47}
+.goal-actions .goal-tick svg{width:19px}
+.goal-actions .goal-tick:disabled{color:#9aa6b8;cursor:not-allowed}
+.goal-actions .goal-main-btn{flex:1;justify-content:center;height:40px;font-size:13px}
+.goal-more{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px}
+.goal-more button{display:flex;align-items:center;gap:5px;padding:4px 2px;border:0;background:none;color:#6b5a1c;font-size:12px;cursor:pointer}
+.goal-more button svg{width:14px}
 .goal-mini button.goal-tick{background:#fff;border:1px solid #e3cf7a;color:#1d7a47;padding:0 9px}
 .goal-mini button.goal-tick svg{width:17px}
 .goal-mini button.goal-tick:disabled{color:#9aa6b8;cursor:not-allowed}

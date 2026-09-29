@@ -598,10 +598,12 @@ export default function Home(){
  };
  const detail=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):info(m)??null};
  const listed=useMemo(()=>world?world.markers.filter(m=>world.checklist.markers[m.id]):[],[world]);
- // Se puede saltar lo opcional: no un lider, ni lo que abre el camino (lo que
- // piden los bloqueos), ni el primer Pokemon.
+ // Se puede saltar lo opcional: de los objetivos, los que goals.json marca como
+ // opcionales; de lo demas, todo menos un lider, lo que abre el camino (lo que
+ // piden los bloqueos) y el primer Pokemon.
  const needed=useMemo(()=>new Set((world?.gates??[]).flatMap(g=>g.needs)),[world]);
- const canSkip=useCallback((m:Marker)=>!LEADER.test(m.name)&&!needed.has(m.name)&&!(m.category==='In-Game Gift Pokémon'&&world?.checklist.markers[m.id]?.zone===world?.checklist.zones[0]?.name),[needed,world]);
+ const canSkip=useCallback((m:Marker)=>world?.goals.includes(m.id)?world.optionalGoals.has(m.id)
+  :!LEADER.test(m.name)&&!needed.has(m.name)&&!(m.category==='In-Game Gift Pokémon'&&world?.checklist.markers[m.id]?.zone===world?.checklist.zones[0]?.name),[needed,world]);
  // Lo que te dejas: al ir hacia un objetivo de otra zona, lo que queda por hacer
  // en la zona de lo ultimo que marcaste. Antes de un sitio que se cierra (el
  // S.S. Anne), lo que queda en el, con un aviso mas fuerte.

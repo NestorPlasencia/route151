@@ -269,7 +269,6 @@ const TEXT = {
  goalThen: ["Next: {name}", "Después: {name}"],
  routeDone: ["Done!", "¡Hecho!"],
  goalMark: ["Mark as done", "Marcar como hecho"],
- goalDoneButton: ["Done!", "¡Hecho!"],
  skip: ["Skip", "Saltar"],
  skipped: ["Skipped", "Saltado"],
  unskip: ["Bring it back", "No saltar"],

@@ -119,13 +119,17 @@ export function NextGoal({slot,markers,checklist,gates,goals,goalNotes,settled,d
    :rival&&inHome?<p className="goal-why">{t('goalRivalNote')}</p>
    :opens?<p className="goal-why"><KeyRound/>{opens.why[tr.lang==='es'?'es':'en']}</p>
    :thenName&&<p className="goal-why"><KeyRound/>{t('goalThen',{name:name(thenName)})}</p>}
+  {/* Como en la barra del mapa: el check (blanco; con candado si aun no se
+      puede) y Como llegar. Debajo, en pequeno, verlo en la lista y saltarlo. */}
   <div className="goal-actions">
-   {!blockedBy&&<button className="goal-tick" onClick={()=>onDone(goal)}><Check/>{t('goalDoneButton')}</button>}
-   <button onClick={()=>onList(goal)}><List/>{t('goalList')}</button>
+   <button className="goal-tick" disabled={!!blockedBy} onClick={()=>onDone(goal)} aria-label={t('goalMark')} title={blockedBy??t('goalMark')}>{blockedBy?<Lock/>:<Check/>}</button>
    {/* Como llegar ensena ademas el sitio en el mapa; si aun no se puede, solo el sitio. */}
-   {goal.area&&(blockedBy?<button onClick={()=>onMap(goal)}><MapPin/>{t('goalMap')}</button>:<button className="goal-go" onClick={()=>onRoute(goal)}><Footprints/>{t('routeHow')}</button>)}
-   {/* Lo opcional (un regalo, un paso que no abre nada) se puede saltar. */}
-   {canSkip(goal)&&<button className="goal-skip" onClick={()=>onSkip(goal)}><SkipForward/>{t('skip')}</button>}
+   {goal.area&&(blockedBy?<button className="goal-main-btn" onClick={()=>onMap(goal)}><MapPin/>{t('goalMap')}</button>:<button className="goal-main-btn goal-go" onClick={()=>onRoute(goal)}><Footprints/>{t('routeHow')}</button>)}
+  </div>
+  <div className="goal-more">
+   <button onClick={()=>onList(goal)}><List/>{t('goalList')}</button>
+   {/* Lo opcional (un regalo, otra cana) se puede saltar. */}
+   {canSkip(goal)&&<button onClick={()=>onSkip(goal)}><SkipForward/>{t('skip')}</button>}
   </div>
   {leader&&!blockedBy&&<Prepare goal={goal} order={order} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onMap={onMap} tr={tr}/>}
  </section></>;
