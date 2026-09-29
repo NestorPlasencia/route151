@@ -141,7 +141,7 @@ def placed():
         m = maps[c]
         if not m['indoor']:
             return outdoor[m['index']] if m['index'] < len(outdoor) else by.title(c.replace('_', ' '))
-        return indoor.get(m.get('outside'), by.title((m.get('outside') or c).replace('_', ' ')))
+        return by.split_zone(indoor.get(m.get('outside'), by.title((m.get('outside') or c).replace('_', ' '))), c)
 
     out = {c: (zone(c), 'kanto', x * 2, y * 2) for c, (x, y) in by.place_kanto(maps).items()}
     reachable = {dest for c, m in maps.items() for _, _, dest, _ in by.parse_objects(m['label'])[0]}

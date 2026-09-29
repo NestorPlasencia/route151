@@ -361,6 +361,14 @@ def given_items(body):
     return list(dict.fromkeys(a or b for a, b in found))
 
 
+def split_zone(zone, mid):
+    """Los dos tuneles subterraneos se cruzan en momentos distintos (Ruta 5 a 6
+    hacia Carmin; Ruta 7 a 8 hacia Azulona): cada uno, su zona."""
+    if zone == 'Underground Path':
+        return zone + (' East–West' if re.search(r'EAST|WEST', mid) else ' North–South')
+    return zone
+
+
 def prize_items(body):
     """Objetos que se dan por variable ('setvar VAR_TEMP_1, ITEM_TM13' ...
     'giveitem VAR_TEMP_1'): los premios del Casino."""
@@ -457,13 +465,14 @@ def main():
     zone_of, floor_of = {}, {}
     for m in maps.values():
         mid = m['id']
-        zone_of[mid] = mapsecs.get(m['region_map_section'], 'Other')
+        zone_of[mid] = split_zone(mapsecs.get(m['region_map_section'], 'Other'), mid)
         if mid in where or SKIP.match(mid):
             continue
         zone = zone_of[mid]
         # Etiqueta completa, como en Yellow ("Silph Co. 7F"); la app acorta las
         # de una misma zona al mostrarlas juntas.
-        short = map_label(m['name'], zone)
+        # Sin el nombre del tunel, que ya lleva su zona: 'North Entrance', 'Tunnel'.
+        short = re.sub(r'^(North South|East West) ', '', map_label(m['name'], mapsecs.get(m['region_map_section'], 'Other')))
         label = zone if short == zone else f'{zone} {short}'
         img = d.render_layout(m['layout'])
         d.draw_objects(img, mid)
@@ -653,10 +662,10 @@ PARTS = [
     ('Viridian Forest → Pewter City', ['Viridian Forest', 'Pewter City']),
     ('Route 3 → Mt. Moon → Route 4', ['Route 3', 'Mt. Moon', 'Route 4']),
     ('Cerulean City → Nugget Bridge', ['Cerulean City', 'Route 24', 'Route 25']),
-    ('Route 5 → Vermilion City', ['Route 5', 'Underground Path', 'Route 6', 'Vermilion City', 'S.S. Anne']),
+    ('Route 5 → Vermilion City', ['Route 5', 'Underground Path North–South', 'Route 6', 'Vermilion City', 'S.S. Anne']),
     ("Route 11 → Diglett's Cave", ['Route 11', "Diglett's Cave"]),
     ('Route 9 → Rock Tunnel', ['Route 9', 'Route 10', 'Rock Tunnel']),
-    ('Lavender Town → Celadon City', ['Lavender Town', 'Route 8', 'Route 7', 'Celadon City', 'Rocket Hideout']),
+    ('Lavender Town → Celadon City', ['Lavender Town', 'Route 8', 'Underground Path East–West', 'Route 7', 'Celadon City', 'Rocket Hideout']),
     ('Pokémon Tower', ['Pokémon Tower']),
     ('Saffron City → Silph Co.', ['Saffron City', 'Silph Co.']),
     ('Route 12 → Fuchsia City', ['Route 12', 'Route 13', 'Route 14', 'Route 15', 'Route 16', 'Route 17', 'Route 18',

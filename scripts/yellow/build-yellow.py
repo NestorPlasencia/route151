@@ -150,6 +150,14 @@ def sprite_frame(png):
     return 3 - (img[:16, :16] // 85)
 
 
+def split_zone(zone, const):
+    """Los dos tuneles subterraneos se cruzan en momentos distintos (Ruta 5 a 6
+    hacia Carmin; Ruta 7 a 8 hacia Azulona): cada uno, su zona, como en FRLG."""
+    if zone == 'Underground Path':
+        return zone + (' East–West' if re.search(r'EAST|WEST', const) else ' North–South')
+    return zone
+
+
 def zone_names():
     """Nombre de la zona de cada mapa exterior (por indice) y de cada grupo interior."""
     names = {k: title(v) for k, v in re.findall(r'^(\w+Name):\s*db "([^"@]*)@?"', asm('data/maps/names.asm'), re.M)}
@@ -170,7 +178,7 @@ def map_label(label, zone):
                  ('Wardens ', "Warden's "), ('Loreleis ', "Lorelei's "), ('Brunos ', "Bruno's "), ('Agathas ', "Agatha's "),
                  ('Lances ', "Lance's "), ('Champions ', "Champion's "), ('Melanies ', "Melanie's "), ('Mr Psychics ', "Mr. Psychic's "),
                  ('Copycats ', "Copycat's "), ('Grandpas ', "Grandpa's "), ('Name Raters ', "Name Rater's "), ('Captains ', "Captain's "),
-                 ('Digletts ', "Diglett's "), ('Hall Of Fame', 'Hall of Fame'), ('North South', 'North–South'), ('West East', 'West–East'),
+                 ('Digletts ', "Diglett's "), ('Hall Of Fame', 'Hall of Fame'), ('North South', 'North–South'), ('West East', 'East–West'),
                  ('Pokecenter', 'Pokémon Center'), ('Mt Moon', 'Mt. Moon'), ('Silph Co ', 'Silph Co. ')):
         text = text.replace(a, b)
     key = lambda s: slug(s).replace('-', '')
@@ -462,7 +470,7 @@ def main():
         m = maps[const]
         if not m['indoor']:
             return outdoor_names[m['index']] if m['index'] < len(outdoor_names) else title(const.replace('_', ' '))
-        return indoor_names.get(m.get('outside'), title((m.get('outside') or const).replace('_', ' ')))
+        return split_zone(indoor_names.get(m.get('outside'), title((m.get('outside') or const).replace('_', ' '))), const)
 
     objects_of = {c: parse_objects(m['label']) for c, m in maps.items()}
 
@@ -714,10 +722,10 @@ PARTS = [
     ('Viridian Forest → Pewter City', ['Viridian Forest', 'Pewter City']),
     ('Route 3 → Mt. Moon → Route 4', ['Route 3', 'Mt. Moon', 'Route 4']),
     ('Cerulean City → Nugget Bridge', ['Cerulean City', 'Route 24', 'Route 25', "Bill's House"]),
-    ('Route 5 → Vermilion City', ['Route 5', 'Underground Path', 'Route 6', 'Vermilion City', 'S.S. Anne']),
+    ('Route 5 → Vermilion City', ['Route 5', 'Underground Path North–South', 'Route 6', 'Vermilion City', 'S.S. Anne']),
     ("Route 11 → Diglett's Cave", ['Route 11', "Diglett's Cave"]),
     ('Route 9 → Rock Tunnel', ['Route 9', 'Route 10', 'Rock Tunnel', 'Power Plant']),
-    ('Lavender Town → Celadon City', ['Lavender Town', 'Route 8', 'Route 7', 'Celadon City', 'Rocket Hideout']),
+    ('Lavender Town → Celadon City', ['Lavender Town', 'Route 8', 'Underground Path East–West', 'Route 7', 'Celadon City', 'Rocket Hideout']),
     ('Pokémon Tower', ['Pokémon Tower']),
     ('Saffron City → Silph Co.', ['Saffron City', 'Silph Co.']),
     ('Route 12 → Fuchsia City', ['Route 12', 'Route 13', 'Route 14', 'Route 15', 'Route 16', 'Route 17', 'Route 18',

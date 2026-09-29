@@ -523,7 +523,7 @@ const PLACES: Record<string, string> = {
  'Pokémon Mansion': 'Mansión Pokémon', 'Pokémon League': 'Liga Pokémon', 'Safari Zone': 'Zona Safari',
  'Seafoam Islands': 'Islas Espuma', 'Victory Road': 'Calle Victoria', 'Silph Co.': 'Silph S.A.',
  'Rocket Hideout': 'Guarida Rocket', 'Team Rocket Hideout': 'Guarida Rocket',
- 'Rocket Warehouse': 'Almacén Rocket', 'Underground Path': 'Túnel Subterráneo',
+ 'Rocket Warehouse': 'Almacén Rocket', 'Underground Path': 'Túnel Subterráneo', 'Underground Path North–South': 'Túnel Subterráneo Norte–Sur', 'Underground Path East–West': 'Túnel Subterráneo Este–Oeste',
  'Sevii Islands': 'Islas Sete', 'One Island': 'Isla Uno', 'Two Island': 'Isla Dos',
  'Three Island': 'Isla Tres', 'Four Island': 'Isla Cuatro', 'Five Island': 'Isla Cinco',
  'Six Island': 'Isla Seis', 'Seven Island': 'Isla Siete', 'Kanto': 'Kanto',

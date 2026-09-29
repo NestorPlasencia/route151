@@ -124,7 +124,7 @@ def placed():
     """Mapa -> (zona, area de la app, x, y en casillas), como en build-frlg.py."""
     maps = d.maps()
     mapsecs = {s['id']: bf.title(s['name']) for s in json.load(open(d.path('src/data/region_map/region_map_sections.json'), encoding='utf-8'))['map_sections'] if 'name' in s}
-    zone = lambda mid: mapsecs.get(maps[mid]['region_map_section'], 'Other')
+    zone = lambda mid: bf.split_zone(mapsecs.get(maps[mid]['region_map_section'], 'Other'), mid)
     out = {}
     for rid, r in bf.build_regions().items():
         for m, (x, y) in r['maps'].items():
