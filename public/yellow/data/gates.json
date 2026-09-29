@@ -1,5 +1,8 @@
 {
  "_source": "Story gates of Pokémon Yellow, checked against pret/pokeyellow scripts (PewterCity, ViridianCity, Route22Gate, Route23, Route12, Route16, PokemonTower6F, SilphCo11F, CinnabarGym). Each gate opens when every marker named in `needs` is ticked in the checklist.",
+ "closes": [
+  {"id": "ss-anne", "zones": ["S.S. Anne"], "by": "HM01", "gone": "Leader Lt. Surge", "warn": {"en": "Heads up! Once you get off the ship with HM01, it sails away and never comes back. Battle everyone and pick up everything first.", "es": "¡Ojo! Cuando bajes del barco con la MO01, el barco se va y no vuelve. Antes lucha con todos y recoge todo."}, "why": {"en": "The ship has sailed", "es": "El barco ya se fue"}}
+ ],
  "gates": [
   {"id": "story-parcel", "markers": ["OAKS_LAB:story:deliver-parcel"], "needs": ["Oak's Parcel"], "why": {"en": "First pick up the parcel at the Viridian Mart", "es": "Antes recoge el paquete en la tienda de Verde"}},
   {"id": "story-old-man", "markers": ["VIRIDIAN_CITY:story:old-man"], "needs": ["Deliver Oak's Parcel"], "why": {"en": "After you deliver the parcel to Oak", "es": "Después de entregarle el paquete a Oak"}},

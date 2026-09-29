@@ -770,3 +770,35 @@ header .layers-button,.about-button{width:32px;height:32px}
 .trip-mode button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:34px;border-radius:9px;border:1px solid #e3cf7a;background:#fff;color:var(--ink);font-size:12px;font-weight:bold;cursor:pointer}
 .trip-mode button svg{width:15px}
 .trip-mode button.on{background:var(--blue);border-color:var(--blue);color:#fff}
+
+/* Lo que te dejas: naranja suave; antes de que el barco zarpe, mas fuerte. En la
+   lista es una tarjeta sobre el objetivo; en el mapa, una franja bajo su barra. */
+.behind{margin:0 0 12px;padding:11px 12px;border-radius:12px;background:#fff1e0;border:1px solid #f5b971;color:#6b3d05}
+.map-top .behind{margin:0;border-radius:0;border:0;border-bottom:1px solid #f5b971;padding:8px 10px}
+.behind p{display:flex;gap:8px;align-items:flex-start;margin:0}
+.behind p>svg{width:18px;flex:none;color:#e07b00;margin-top:1px}
+.behind b{display:block;font-size:13px;line-height:1.3}
+.behind small{display:block;font-size:12px;margin-top:2px;color:#8a5212}
+.behind-actions{display:flex;gap:8px;margin-top:9px}
+.behind-actions button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:38px;border-radius:10px;border:1px solid #f5b971;background:#fff;color:#6b3d05;font-size:13px;font-weight:bold;cursor:pointer}
+.behind-actions button svg{width:16px}
+.behind-actions .behind-see{background:#e07b00;border-color:#e07b00;color:#fff}
+.behind-warn{background:#ffe3e3;border-color:#f19a9a;color:#7a1414}
+.map-top .behind-warn{border-bottom-color:#f19a9a}
+.behind-warn p>svg{color:#d42a2a}
+.behind-warn small{color:#8f2a2a}
+.behind-warn .behind-actions button{border-color:#f19a9a;color:#7a1414}
+.behind-warn .behind-actions .behind-see{background:#d42a2a;border-color:#d42a2a;color:#fff}
+
+/* Saltado: gris, con una raya en el pin y el icono de saltar en la casilla. */
+.pin.pin-skip{background:#c9d2de;color:#4b566a;font-size:12px}
+.row .tick.skip,.pop .tick.skip{background:#eef1f5;border-color:#bdc7d4;color:#748198}
+.row-skip>.fig,.row-skip .row-text{opacity:.55}
+.row-skip .row-text>b{text-decoration:line-through}
+.goal-actions .goal-skip{color:#5b6679}
+.pop-actions{display:flex;gap:8px;margin-top:8px}
+.pop-actions .pop-route{flex:1;margin-top:0}
+.pop-skip{display:flex;align-items:center;justify-content:center;gap:6px;flex:1;height:36px;border-radius:9px;border:1px solid var(--line);background:#fff;color:#5b6679;font-weight:bold;font-size:12px;cursor:pointer}
+.pop-skip svg{width:15px}
+.goal-mini button.goal-mini-alert{background:#e07b00;padding:0 9px}
+.goal-mini button.goal-mini-alert svg{width:17px}

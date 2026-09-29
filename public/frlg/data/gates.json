@@ -1,5 +1,8 @@
 {
  "_source": "Story gates of Pokémon FireRed/LeafGreen, the same gates as Yellow plus Saffron's Tea and the Sevii Islands. Each gate opens when every marker named in `needs` is ticked in the checklist.",
+ "closes": [
+  {"id": "ss-anne", "zones": ["S.S. Anne"], "by": "HM01", "gone": "Leader Lt. Surge", "warn": {"en": "Heads up! Once you get off the ship with HM01, it sails away and never comes back. Battle everyone and pick up everything first.", "es": "¡Ojo! Cuando bajes del barco con la MO01, el barco se va y no vuelve. Antes lucha con todos y recoge todo."}, "why": {"en": "The ship has sailed", "es": "El barco ya se fue"}}
+ ],
  "gates": [
   {"id": "story-parcel", "markers": ["MAP_PALLET_TOWN_PROFESSOR_OAKS_LAB:story:deliver-parcel"], "needs": ["Oak's Parcel"], "why": {"en": "First pick up the parcel at the Viridian Mart", "es": "Antes recoge el paquete en la tienda de Verde"}},
   {"id": "story-old-man", "markers": ["MAP_VIRIDIAN_CITY:story:old-man"], "needs": ["Deliver Oak's Parcel"], "why": {"en": "After you deliver the parcel to Oak", "es": "Después de entregarle el paquete a Oak"}},

@@ -2,7 +2,7 @@
 // areas con imagen propia (regiones y pisos), puertas entre areas, lugares a
 // los que ir, marcadores con su area y su punto, encuentros por zona, checklist
 // y Pokedex. Asi el mapa y las listas son los mismos para todos los juegos.
-import type {Choice,Gate,Marker} from './shared';
+import type {Choice,Closing,Gate,Marker} from './shared';
 import {registerStory,registerTeach} from './i18n';
 import type {Checklist,Dex} from './lists';
 import {rulesFor,type Gen} from './rules';
@@ -13,7 +13,7 @@ export type Warp={area:string;at:Pt;to:string;toAt:Pt};
 export type Place={name:string;area:string;at?:Pt};
 export type EncounterMon={id:number;name:string;sprite:string;types:string[];areas:{area:string;maxChance:number;encounters:{chance:number;minLevel:number;maxLevel:number;method:string}[]}[]};
 export type EncounterZone={name:string;pokemon:EncounterMon[]};
-export type World={areas:Area[];warps:Warp[];places:Place[];markers:Marker[];zones:EncounterZone[];checklist:Checklist;dex:Dex;gates:Gate[];choices:Choice[];goals:string[];goalNotes:Record<string,{en:string;es:string}>};
+export type World={areas:Area[];warps:Warp[];places:Place[];markers:Marker[];zones:EncounterZone[];checklist:Checklist;dex:Dex;gates:Gate[];choices:Choice[];closings:Closing[];goals:string[];goalNotes:Record<string,{en:string;es:string}>};
 export type Game={
  id:string;short:string;title:string;
  // Claves de localStorage con el progreso.
@@ -47,9 +47,9 @@ export async function loadGame(game:Game):Promise<World>{
   json<{zones:EncounterZone[]}>(`${data}/encounters-${version}.json`),json<Checklist>(`${data}/checklist.json`),json<Dex>(`${data}/pokedex-${version}.json`)]);
  // Bloqueos: los de la historia (a mano) y los de las MO (sacados de los mapas:
  // lo que queda detras de un arbol o del agua). Si un juego no los tiene, nada.
- const fileOf=(file:string)=>json<{gates:Gate[];choices?:Choice[]}>(`${data}/${file}`).catch(()=>({gates:[] as Gate[],choices:[] as Choice[]}));
+ const fileOf=(file:string)=>json<{gates:Gate[];choices?:Choice[];closes?:Closing[]}>(`${data}/${file}`).catch(()=>({gates:[] as Gate[],choices:[] as Choice[],closes:[] as Closing[]}));
  const [story,hm]=await Promise.all([fileOf('gates.json'),fileOf('hm-gates.json')]);
- const gates=[...story.gates,...hm.gates],choices=story.choices??[];
+ const gates=[...story.gates,...hm.gates],choices=story.choices??[],closings=story.closes??[];
  // Objetivos (goals.json, a mano), en orden. Cada uno es un marcador de la
  // checklist ("id") o un paso propio ("step" con su mapa y casilla): este se
  // vuelve un marcador mas, un check de verdad, colocado con la rejilla de los
@@ -79,7 +79,7 @@ export async function loadGame(game:Game):Promise<World>{
  const goals=goalList.map(g=>'step' in g?`${g.map}:story:${g.step}`:g.id);
  // Nota de un objetivo de la checklist (un consejo: Bulbasaur pide a Pikachu contento).
  const goalNotes=Object.fromEntries(goalList.flatMap(g=>!('step' in g)&&g.note?[[g.id,g.note]]:[])) as Record<string,{en:string;es:string}>;
- return {...a,markers:[...markers.filter(m=>!m.version||m.version===version),...steps],zones:enc.zones,checklist:list,dex,gates,choices,goals,goalNotes};
+ return {...a,markers:[...markers.filter(m=>!m.version||m.version===version),...steps],zones:enc.zones,checklist:list,dex,gates,choices,closings,goals,goalNotes};
 }
 // Datos de combate y, si las reglas los tienen, textos de los ataques.
 export const battleUrl=(game:Game)=>`${game.data}/battle.json`;

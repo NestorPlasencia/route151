@@ -2,10 +2,10 @@
 // Guia para quien empieza: que hacer ahora y, si toca un lider, como prepararse.
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {ChevronDown,Footprints,Info,KeyRound,List,Lock,LockOpen,MapPin,Target,X} from 'lucide-react';
+import {ChevronDown,Footprints,Info,KeyRound,List,Lock,LockOpen,MapPin,SkipForward,Target,TriangleAlert,X} from 'lucide-react';
 import {Help} from './learn';
 import {Figure,type Gate,type Marker} from './shared';
-import type {T} from './i18n';
+import type {Key,T} from './i18n';
 import type {Checklist,Dex} from './lists';
 import {BattleAdvice,effectiveness,opponentName,trainerOpponents,useSavedTeam,type Battle} from './team';
 
@@ -47,7 +47,21 @@ export function goalTitle(goal:Marker,markers:Marker[],checklist:Checklist,tr:T)
  return t(goal.category==='Battle'?'goalBeat':'goalGet',{name:name(goal.name)});
 }
 
-export function NextGoal({slot,markers,checklist,gates,goals,goalNotes,settled,done,unavailable,battle,dex,teamKey,onList,onMap,onRoute,tr}:{slot:HTMLElement|null;markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;done:number[];unavailable:(m:Marker)=>string|null;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
+// Lo que te dejas en la zona de la que sales, o lo que queda en un sitio que se
+// va a cerrar (`warn`, el aviso del barco). Pensado para ninos: una frase, la
+// cuenta en corto y dos botones grandes.
+export type Behind={zone:string;items:Marker[];warn?:string};
+const BEHIND_KINDS=[['Battles',(m:Marker)=>m.category==='Battle'],['Items',(m:Marker)=>m.category==='Item In Map'||m.category==='Item Gift'],['Gifts',(m:Marker)=>m.category==='In-Game Gift Pokémon']] as const;
+export function BehindNote({behind,onSee,onSkip,tr}:{behind:Behind;onSee:()=>void;onSkip:()=>void;tr:T}){
+ const {t,place}=tr;
+ const parts=BEHIND_KINDS.flatMap(([k,is])=>{const n=behind.items.filter(is).length;return n?[t((n===1?`behind${k}One`:`behind${k}`) as Key,{n})]:[]});
+ return <section className={`behind ${behind.warn?'behind-warn':''}`}>
+  <p><TriangleAlert/><span><b>{behind.warn??t('behindTitle',{zone:place(behind.zone)})}</b><small>{parts.join(' · ')}</small></span></p>
+  <div className="behind-actions"><button className="behind-see" onClick={onSee}><MapPin/>{t('behindSee')}</button><button onClick={onSkip}><SkipForward/>{t('behindSkip')}</button></div>
+ </section>;
+}
+
+export function NextGoal({slot,markers,checklist,gates,goals,goalNotes,settled,done,unavailable,canSkip,onSkip,alert,battle,dex,teamKey,onList,onMap,onRoute,tr}:{slot:HTMLElement|null;alert:string|null;markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;done:number[];unavailable:(m:Marker)=>string|null;canSkip:(m:Marker)=>boolean;onSkip:(m:Marker)=>void;battle:Battle|null;dex:Dex;teamKey:string;onList:(m:Marker)=>void;onMap:(m:Marker)=>void;onRoute:(m:Marker)=>void;tr:T}){
  const {t,name,place}=tr;
  const order=useMemo(()=>storyOrder(markers,checklist),[markers,checklist]);
  // Si la tarjeta sale de la vista al desplazar, se ensena la version compacta.
@@ -82,7 +96,9 @@ export function NextGoal({slot,markers,checklist,gates,goals,goalNotes,settled,d
  const inHome=where?.zone===home,starter=inHome&&goal.category==='In-Game Gift Pokémon',rival=leader&&RIVAL.test(goal.name);
  return <>
   {/* Al desplazar la lista, el objetivo queda arriba en una linea con Como llegar. */}
+  {/* Con algo que te dejas, un triangulo que sube hasta el aviso (va sobre la tarjeta). */}
   {!cardInView&&slot&&createPortal(<div className="goal-mini"><Target/><b>{goalTitle(goal,markers,checklist,tr)}</b>
+   {alert&&<button className="goal-mini-alert" onClick={()=>card.current?.closest('.list-body')?.scrollTo({top:0,behavior:'smooth'})} aria-label={alert} title={alert}><TriangleAlert/></button>}
    {goal.area&&!blockedBy?<button onClick={()=>onRoute(goal)} aria-label={t('routeHow')}><Footprints/>{t('routeHow')}</button>
     :<button onClick={()=>onList(goal)} aria-label={t('goalList')}><List/></button>}</div>,slot)}
   <section className="goal" ref={card}>
@@ -105,6 +121,8 @@ export function NextGoal({slot,markers,checklist,gates,goals,goalNotes,settled,d
    <button onClick={()=>onList(goal)}><List/>{t('goalList')}</button>
    {/* Como llegar ensena ademas el sitio en el mapa; si aun no se puede, solo el sitio. */}
    {goal.area&&(blockedBy?<button onClick={()=>onMap(goal)}><MapPin/>{t('goalMap')}</button>:<button className="goal-go" onClick={()=>onRoute(goal)}><Footprints/>{t('routeHow')}</button>)}
+   {/* Lo opcional (un regalo, un paso que no abre nada) se puede saltar. */}
+   {canSkip(goal)&&<button className="goal-skip" onClick={()=>onSkip(goal)}><SkipForward/>{t('skip')}</button>}
   </div>
   {leader&&!blockedBy&&<Prepare goal={goal} order={order} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onMap={onMap} tr={tr}/>}
  </section></>;

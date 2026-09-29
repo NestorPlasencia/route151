@@ -57,6 +57,10 @@ export type Gate={id:string;zones?:string[];maps?:string[];markers?:string[];nee
 // un fosil y el Pokemon que sale de el. Cada opcion son los marcadores que van
 // juntos; al marcar uno, los de las otras opciones quedan fuera.
 export type Choice={id:string;options:string[][]};
+// Sitios que se cierran para siempre (gates.json, `closes`): el S.S. Anne zarpa
+// al bajar con la MO01. Antes de `by` se avisa de lo que queda; con `gone`
+// marcado (Lt. Surge, que pide Corte) seguro que ya se fue y lo que falta se pierde.
+export type Closing={id:string;zones:string[];by:string;gone:string;warn:{en:string;es:string};why:{en:string;es:string}};
 // Marcador descartado -> el que elegiste en su lugar.
 export const choicesTaken=(choices:Choice[],isDone:(id:string)=>boolean)=>{
  const out=new Map<string,string>();

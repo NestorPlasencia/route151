@@ -1,9 +1,9 @@
 'use client';
 // Pestanas de lista: la checklist por zonas (en orden de juego) y la Pokedex.
 import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
-import {Check,ChevronDown,Flag,Lock,MapPin,Search} from 'lucide-react';
+import {Check,ChevronDown,Flag,Lock,MapPin,Search,SkipForward} from 'lucide-react';
 import {Figure,checkOrder,type Gate,type Marker} from './shared';
-import {LEADER,NextGoal,Unlocked,type Unlock} from './guide';
+import {BehindNote,LEADER,NextGoal,Unlocked,type Behind,type Unlock} from './guide';
 import type {T} from './i18n';
 import {BattleAdvice,trainerOpponents,type Battle} from './team';
 
@@ -24,16 +24,18 @@ const focusOf=(m:Marker):Focus[]=>m.category==='Story'?['story']:m.category==='B
 const FOCUS:[Focus,'filterAll'|'focusStory'|'focusLeaders'|'focusTrainers'|'focusItems'|'focusPokemon'|'focusGifts'][]=[
  ['all','filterAll'],['story','focusStory'],['leaders','focusLeaders'],['trainers','focusTrainers'],['items','focusItems'],['pokemon','focusPokemon'],['gifts','focusGifts']];
 
-export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,onRoute,unlock,onUnlockDismiss,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;onRoute:(m:Marker)=>void;unlock:Unlock|null;onUnlockDismiss:()=>void;done:number[];toggleDone:(uid:number,id?:string)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
+export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,skipped,onSkip,onUnskip,canSkip,behind,onSkipBehind,onRoute,unlock,onUnlockDismiss,done,toggleDone,onShow,onShowZone,detail,unavailable,hideUnavailable,setHideUnavailable,battle,dex,teamKey,tr}:{markers:Marker[];checklist:Checklist;gates:Gate[];goals:string[];goalNotes:Record<string,{en:string;es:string}>;settled:(m:Marker)=>boolean;skipped:Set<number>;onSkip:(m:Marker)=>void;onUnskip:(m:Marker)=>void;canSkip:(m:Marker)=>boolean;behind:Behind|null;onSkipBehind:(b:Behind)=>void;onRoute:(m:Marker)=>void;unlock:Unlock|null;onUnlockDismiss:()=>void;done:number[];toggleDone:(uid:number,id?:string)=>void;onShow:(m:Marker)=>void;onShowZone:(zone:string)=>void;detail:(m:Marker)=>string|null;unavailable:(m:Marker)=>string|null;hideUnavailable:boolean;setHideUnavailable:(on:boolean)=>void;battle:Battle|null;dex:Dex;teamKey:string;tr:T}){
  const {t,category,place,name}=tr;
  const isDone=(m:Marker)=>done.includes(m.uid);
  // No disponible todavia (y sin marcar): sale en gris y no cuenta para la zona.
- const blocked=(m:Marker)=>!isDone(m)&&!!unavailable(m);
- const counted=(list:Marker[])=>list.filter(m=>!blocked(m));
+ // Saltado: no cuenta, sale tachado con su icono y se recupera tocandolo.
+ const isSkipped=(m:Marker)=>skipped.has(m.uid);
+ const blocked=(m:Marker)=>!isDone(m)&&!isSkipped(m)&&!!unavailable(m);
+ const counted=(list:Marker[])=>list.filter(m=>!blocked(m)&&!isSkipped(m));
  // Se abre sola la primera zona con algo pendiente que se pueda hacer: Pueblo
  // Paleta si empiezas, o donde te quedaste. Es la ruta para quien no conoce el mapa.
  const [query,setQuery]=useState(''),[hideDone,setHideDone]=useState(false),[focus,setFocus]=useState<Focus>('all'),[open,setOpen]=useState<string[]>(()=>{
-  const next=checklist.zones.find(z=>markers.some(m=>checklist.markers[m.id]?.zone===z.name&&!isDone(m)&&!unavailable(m)));
+  const next=checklist.zones.find(z=>markers.some(m=>checklist.markers[m.id]?.zone===z.name&&!isDone(m)&&!skipped.has(m.uid)&&!unavailable(m)));
   return next?[next.name]:[];
  });
  // Equipos de entrenadores desplegados: plegados de inicio, se abren al tocar la fila.
@@ -46,16 +48,17 @@ export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,o
  const byZone=useMemo(()=>{const out=new Map<string,Map<string,Marker[]>>();for(const m of markers){const z=checklist.markers[m.id];if(!z)continue;const floors=out.get(z.zone)??out.set(z.zone,new Map()).get(z.zone)!;const k=z.floor??'';(floors.get(k)??floors.set(k,[]).get(k)!).push(m)}return out},[markers,checklist]);
  const q=query.trim().toLowerCase();
  // Se busca por el nombre que se ve y por el original en ingles.
- const keep=(m:Marker)=>!(hideUnavailable&&blocked(m))&&(focus==='all'||focusOf(m).includes(focus))&&(!hideDone||!isDone(m))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
+ const keep=(m:Marker)=>!(hideUnavailable&&blocked(m))&&(focus==='all'||focusOf(m).includes(focus))&&(!hideDone||!(isDone(m)||isSkipped(m)))&&(!q||`${name(m.name)} ${place(m.location)} ${m.name} ${m.location}`.toLowerCase().includes(q));
  // La alternativa que no elegiste (el otro fosil, el otro Hitmon) no cuenta: se
  // consigue solo por intercambio.
  const total=markers.filter(m=>isDone(m)||!settled(m)).length,completed=markers.filter(isDone).length;
  const floorName=(zone:string,f:string)=>place(f.startsWith(zone+' ')?f.slice(zone.length+1):f);
  // Una fila: casilla, figura, nombre y detalle; los entrenadores despliegan su
  // equipo. `where`: el piso, cuando sale fuera de su grupo (lo no disponible).
- const row=(m:Marker,where?:string)=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id),why=blocked(m)?unavailable(m):null;return <div key={m.id} id={`row-${m.id}`} className={`row ${isDone(m)?'done':''} ${foes.length?'row-battle':''} ${why?'row-locked':''} ${m.category==='Story'?'row-story':''}`}>
-  {/* No disponible: no se puede marcar hasta cumplir lo que pide. */}
-  <button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid,m.id)}>{isDone(m)?<Check/>:why?<Lock/>:null}</button>
+ const row=(m:Marker,where?:string)=>{const d=detail(m),foes=m.category==='Battle'?trainerOpponents(m.detail):[],shown=teams.includes(m.id),why=blocked(m)?unavailable(m):null;return <div key={m.id} id={`row-${m.id}`} className={`row ${isDone(m)?'done':''} ${isSkipped(m)?'row-skip':''} ${foes.length?'row-battle':''} ${why?'row-locked':''} ${m.category==='Story'?'row-story':''}`}>
+  {/* No disponible: no se puede marcar hasta cumplir lo que pide. Saltado: al tocarlo vuelve. */}
+  {isSkipped(m)?<button className="tick skip" aria-label={t('unskip')} title={t('skipped')} onClick={()=>onUnskip(m)}><SkipForward/></button>
+   :<button className={`tick ${isDone(m)?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid,m.id)}>{isDone(m)?<Check/>:why?<Lock/>:null}</button>}
   <Figure m={m}/>
   {/* Un entrenador muestra su equipo en una linea; tocandolo se despliega la
       ficha como en el mapa: cada Pokemon con su nivel, lo que da y con que atacarle. */}
@@ -87,7 +90,8 @@ export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,o
   </div>
   <div className="list-body">
    {unlock&&<Unlocked unlock={unlock} checklist={checklist} onZone={goToZone} onDismiss={onUnlockDismiss} tr={tr}/>}
-   {!q&&focus==='all'&&<NextGoal slot={goalSlot} markers={markers} checklist={checklist} gates={gates} goals={goals} goalNotes={goalNotes} settled={settled} done={done} unavailable={unavailable} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} onRoute={onRoute} tr={tr}/>}
+   {!q&&focus==='all'&&behind&&<BehindNote behind={behind} onSee={()=>goToZone(behind.zone)} onSkip={()=>onSkipBehind(behind)} tr={tr}/>}
+   {!q&&focus==='all'&&<NextGoal slot={goalSlot} markers={markers} checklist={checklist} gates={gates} goals={goals} goalNotes={goalNotes} settled={settled} done={done} unavailable={unavailable} canSkip={canSkip} onSkip={onSkip} alert={behind?behind.warn??t('behindTitle',{zone:place(behind.zone)}):null} battle={battle} dex={dex} teamKey={teamKey} onList={goToRow} onMap={onShow} onRoute={onRoute} tr={tr}/>}
    {checklist.parts.map(part=>{
     const zones=checklist.zones.filter(z=>z.part===part.n&&byZone.has(z.name));
     const all=zones.flatMap(z=>[...byZone.get(z.name)!.values()].flat());

@@ -2,7 +2,7 @@
 import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
-import {ArrowLeft,BookOpen,Check,RefreshCw,RotateCcw,ChevronDown,DoorOpen,Footprints,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,Sparkles,Swords,X} from 'lucide-react';
+import {ArrowLeft,BookOpen,Check,RefreshCw,RotateCcw,ChevronDown,DoorOpen,Footprints,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,SkipForward,Sparkles,Swords,Undo2,X} from 'lucide-react';
 import {Credits,FIELD_MOVES,Figure,checkOrder,choicesTaken,colorOf,groupsOf,haveNames,missingTool,obstacleMove,unmetGate,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
@@ -15,7 +15,7 @@ import {RoutePanel,tripItems,withoutGates,type TripItem} from './trip';
 import {BackupBox} from './backup';
 import {refreshApp} from './service-worker';
 import {LearnView} from './learn';
-import {goalTitle,nextGoalOf,type Unlock} from './guide';
+import {BehindNote,LEADER,goalTitle,nextGoalOf,type Behind,type Unlock} from './guide';
 import {TOUR_KEY,Tour} from './tour';
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
@@ -31,6 +31,9 @@ const FLY_NEEDS=['HM02','Leader Lt. Surge'];
 const FLOOR_RE=/\s+(B?\d+F|Roof|Rooftop|Elevator)$/i;
 // A la gente se le habla tambien por encima de un mostrador (a dos casillas).
 const PEOPLE=['Item Gift','In-Game Trade','Battle','In-Game Gift Pokémon','Shop'];
+// Lo que se avisa que te dejas al salir de una zona: entrenadores, objetos a la
+// vista y regalos. Ni los salvajes (se marcan por especie) ni los objetos ocultos.
+const LEFT_BEHIND=['Battle','Item In Map','Item Gift','In-Game Gift Pokémon'];
 const MOVE_KEY:Record<string,'moveSurf'|'moveCut'|'moveStrength'|'moveSmash'|'moveWaterfall'|'moveFlute'|'moveSwitch'|'movePlate'>={surf:'moveSurf',cut:'moveCut',strength:'moveStrength',smash:'moveSmash',waterfall:'moveWaterfall',flute:'moveFlute',switch:'moveSwitch',plate:'movePlate'};
 // Candado de lucide para los pines bloqueados: el pin es HTML de Leaflet, no React.
 // Bandera del siguiente objetivo en el mapa.
@@ -51,6 +54,9 @@ export default function Home(){
  const battle=battles[battleUrl(game)]??null,moveTextSrc=moveTextUrl(game);
  const [active,setActive]=useState<string[]>(groups.map(g=>g[0])),[selected,setSelected]=useState<Marker|null>(null),[stack,setStack]=useState<Marker[]|null>(null),[done,setDone]=useState<number[]>([]),[locations,setLocations]=useState(false),[about,setAbout]=useState(false),[layersOpen,setLayersOpen]=useState(false);
  const [encounterZone,setEncounterZone]=useState<EncounterZone|null>(null);
+ // Lo que decides saltar (no te interesa o ya no se puede): no cuenta en el total
+ // ni se vuelve a avisar. No es hecho: no abre nada y se puede deshacer.
+ const [skipped,setSkipped]=useState<number[]>([]);
  // Inicio para elegir juego, y el ultimo que se jugo (se marca en su tarjeta).
  const [home,setHome]=useState(false),[last,setLast]=useState<string|null>(null);
 
@@ -62,6 +68,7 @@ export default function Home(){
   let live=true;setWorld(null);setSelected(null);setStack(null);setEncounterZone(null);setLocations(false);saved.current=null;setArrival(null);
   setActive(groupsOf(game.id).map(g=>g[0]).filter(n=>!game.hidden.includes(n)));
   try{setDone(JSON.parse(localStorage.getItem(game.storage.done)||'[]'))}catch{setDone([])}
+  try{setSkipped(JSON.parse(localStorage.getItem(`${game.storage.done}-skip`)||'[]'))}catch{setSkipped([])}
   loadGame(game).then(w=>{if(!live)return;setWorld(w);setView({area:w.areas.find(a=>a.kind==='region')?.id??w.areas[0].id})}).catch(e=>console.error('No se pudo cargar',game.id,e));
   return()=>{live=false};
  },[game]);
@@ -176,6 +183,8 @@ export default function Home(){
  const reasonWith=useCallback((m:Marker,owned:Set<string>)=>{
   const chosen=taken.get(m.id),pick=chosen&&world?.markers.find(x=>x.id===chosen);
   if(pick)return t(m.category.includes('Pokémon')?'choiceTrade':'choiceOne',{chosen:name(pick.name)});
+  // Un sitio que ya se cerro para siempre (el barco zarpo): lo que quedaba se perdio.
+  const gone=world?.closings.find(c=>owned.has(c.gone)&&c.zones.includes(world.checklist.markers[m.id]?.zone??''));if(gone)return gone.why[lang];
   const gate=unmetGate(m,world?.gates??[],owned);if(gate)return gate.why[lang];
   // A lo que no se llega desde el inicio: el primer obstaculo del camino. Un
   // salvaje cuenta si llegas a su mapa (su pin puede caer en mitad del agua).
@@ -207,7 +216,9 @@ export default function Home(){
   try{const base=game.storage.done;for(const k of Object.keys(localStorage))if(k===base||k.startsWith(`${base}-`))localStorage.removeItem(k)}catch{}
   location.reload();
  };
- const settled=useCallback((m:Marker)=>done.includes(m.uid)||taken.has(m.id),[done,taken]);
+ // Saltado y sin hacer (si luego lo marcas, cuenta como hecho).
+ const skipSet=useMemo(()=>new Set(skipped.filter(u=>!done.includes(u))),[skipped,done]);
+ const settled=useCallback((m:Marker)=>done.includes(m.uid)||taken.has(m.id)||skipSet.has(m.uid),[done,taken,skipSet]);
  // El siguiente objetivo, el mismo que en la checklist: sale arriba del mapa.
  const nextGoal=useMemo(()=>world?nextGoalOf(world.markers.filter(m=>world.checklist.markers[m.id]),world.goals,settled):null,[world,settled]);
  // Puertas del mapa a las que aun no llegas: grises, con candado.
@@ -228,7 +239,7 @@ export default function Home(){
  const closeTour=()=>{setTour(false);try{localStorage.setItem(TOUR_KEY,'seen')}catch{}};
  useEffect(()=>setUnlock(null),[game]);
  // Sin marcar ni bloqueado: lo que de verdad queda por hacer.
- const pending=useCallback((m:Marker)=>!done.includes(m.uid)&&!unavailable(m),[done,unavailable]);
+ const pending=useCallback((m:Marker)=>!done.includes(m.uid)&&!skipSet.has(m.uid)&&!unavailable(m),[done,skipSet,unavailable]);
  const left=useMemo(()=>{
   const n=new Map<string,number>();
   for(const m of world?.markers??[])if(m.area&&!game.untracked.includes(m.category)&&pending(m))n.set(m.area,(n.get(m.area)??0)+1);
@@ -429,11 +440,11 @@ export default function Home(){
  // Con los pasitos encendidos, al marcar un objetivo la ruta sigue sola al
  // siguiente; una ruta a otra cosa (un objeto suelto) se cierra.
  useEffect(()=>{
-  if(!routeTo||!(done.includes(routeTo.uid)||taken.has(routeTo.id)))return;
+  if(!routeTo||!settled(routeTo))return;
   const next=world?.goals.includes(routeTo.id)&&nextGoal&&nextGoal.id!==routeTo.id?nextGoal:null;
   setRouteTo(next);
   setToast(next&&world?t('routeOnward',{name:goalTitle(next,world.markers,world.checklist,tr)}):t('routeDone'));
- },[routeTo,done,taken,t,world,nextGoal,tr]);
+ },[routeTo,settled,t,world,nextGoal,tr]);
  const startRoute=(m:Marker)=>{setRouteTo(m);setTab('mapa');setSelected(null);setStack(null);setEncounterZone(null)};
  // Zoom al mover la camara a un punto del camino: el que tenias si sigues en la
  // misma area (sin alejarte), si no uno de cerca.
@@ -489,14 +500,15 @@ export default function Home(){
   if(items[0]?.area===area.id)L.circleMarker(ll(items[0].pts[0]),{radius:8,color:'#fff',weight:3,fillColor:'#2d6df6',fillOpacity:1,interactive:false}).addTo(g);
   for(const {at,items} of stacks){
    // Verde si todo esta hecho; gris con candado si lo que falta aun no se puede hacer.
-   const completed=items.every(m=>done.includes(m.uid)),locked=!completed&&!items.some(pending);
+   // Saltado cuenta como terminado, con una raya en vez del check.
+   const completed=items.every(m=>done.includes(m.uid)||skipSet.has(m.uid)),skip=completed&&items.some(m=>skipSet.has(m.uid)),locked=!completed&&!items.some(pending);
    // Varias categorias en el mismo punto: el pin se reparte en sectores de color.
    const colors=[...new Set(items.map(m=>colorOf(m.category)))];
    const fill=colors.length>1?`conic-gradient(${colors.map((c,i)=>`${c} ${i*100/colors.length}% ${(i+1)*100/colors.length}%`).join(',')})`:colors[0];
    // Un pin sobre una puerta (los pasos de historia en una salida) se corre a un
    // costado, arriba a la derecha: asi se ven y se tocan los dos.
    const onDoor=world.warps.some(w=>w.area===area.id&&Math.abs(w.at[0]-at[0])<12&&Math.abs(w.at[1]-at[1])<12);
-   const icon=L.divIcon({className:`pin-wrap ${onDoor?'pin-aside':''}`,html:`<span class="pin ${completed?'pin-done':locked?'pin-locked':''}" style="--pin:${fill}">${completed?'✓':locked?LOCK_SVG:''}</span>${items.length>1?`<b class="pin-count">${items.length}</b>`:''}`,iconSize:[20,20],iconAnchor:onDoor?[-6,26]:[10,10]});
+   const icon=L.divIcon({className:`pin-wrap ${onDoor?'pin-aside':''}`,html:`<span class="pin ${skip?'pin-skip':completed?'pin-done':locked?'pin-locked':''}" style="--pin:${fill}">${skip?'–':completed?'✓':locked?LOCK_SVG:''}</span>${items.length>1?`<b class="pin-count">${items.length}</b>`:''}`,iconSize:[20,20],iconAnchor:onDoor?[-6,26]:[10,10]});
    L.marker(ll(at),{icon,zIndexOffset:onDoor?600:0}).on('click',()=>{if(items.length>1){setSelected(null);setStack(items)}else{setStack(null);setSelected(items[0])}}).addTo(g);
   }
   // Puertas: hacia un interior (o a otro piso) se entra; hacia una region se sale.
@@ -519,7 +531,7 @@ export default function Home(){
     .on('click',()=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})).addTo(g);
   }
   if(arrival&&arrival.area===area.id)L.marker(ll(arrival.at),{icon:L.divIcon({className:'arrive',html:'<span></span><i></i>',iconSize:[0,0]}),title:arrival.label,interactive:false,zIndexOffset:1000}).addTo(g);
- },[stacks,done,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place,trip,doorLocked,nextGoal]);
+ },[stacks,done,skipSet,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place,trip,doorLocked,nextGoal]);
 
  useLayoutEffect(()=>{
   const m=map.current,p=popup.current;if(!m||!p)return;
@@ -564,12 +576,15 @@ export default function Home(){
   }
   saveDone(old=>old.includes(uid)?old.filter(x=>x!==uid):[...old,uid]);
  };
+ const setSkip=(uids:number[],on:boolean)=>setSkipped(old=>{const n=on?[...new Set([...old,...uids])]:old.filter(x=>!uids.includes(x));try{localStorage.setItem(`${game.storage.done}-skip`,JSON.stringify(n))}catch{}return n});
+ const skipOne=(m:Marker)=>{setSkip([m.uid],true);setToast(t('skipToast'))};
+ const unskip=(m:Marker)=>setSkip([m.uid],false);
  // La Pokedex marca o desmarca de una vez todas las entradas de una especie.
  const doneKey=game.storage.done;
  const setMany=useCallback((uids:number[],on:boolean)=>setDone(old=>{const n=on?[...new Set([...old,...uids])]:old.filter(x=>!uids.includes(x));try{localStorage.setItem(doneKey,JSON.stringify(n))}catch{}return n}),[doneKey]);
  const tracked=useMemo(()=>new Set((world?.markers??[]).filter(m=>!game.untracked.includes(m.category)).map(m=>m.uid)),[world,game]);
- const completed=done.filter(uid=>tracked.has(uid)).length;
- const pct=tracked.size?Math.round(completed/tracked.size*100):0;
+ const completed=done.filter(uid=>tracked.has(uid)).length,trackedLeft=tracked.size-[...skipSet].filter(uid=>tracked.has(uid)).length;
+ const pct=trackedLeft?Math.round(completed/trackedLeft*100):0;
  // Ir al mapa desde las listas: el mapa sigue montado y coloca la camara al verse.
  const showOnMap=(m:Marker)=>{setTab('mapa');reveal(m,false)};
  // Llevar a una zona de la checklist: a su lugar del mapa si lo tiene y, si no
@@ -583,6 +598,27 @@ export default function Home(){
  };
  const detail=(m:Marker)=>{const e=m.encounter;return e?t('encounterRate',{levels:span(e),chance:e.chance,methods:e.methods.map(method).join(' · ')}):info(m)??null};
  const listed=useMemo(()=>world?world.markers.filter(m=>world.checklist.markers[m.id]):[],[world]);
+ // Se puede saltar lo opcional: no un lider, ni lo que abre el camino (lo que
+ // piden los bloqueos), ni el primer Pokemon.
+ const needed=useMemo(()=>new Set((world?.gates??[]).flatMap(g=>g.needs)),[world]);
+ const canSkip=useCallback((m:Marker)=>!LEADER.test(m.name)&&!needed.has(m.name)&&!(m.category==='In-Game Gift Pokémon'&&world?.checklist.markers[m.id]?.zone===world?.checklist.zones[0]?.name),[needed,world]);
+ // Lo que te dejas: al ir hacia un objetivo de otra zona, lo que queda por hacer
+ // en la zona de lo ultimo que marcaste. Antes de un sitio que se cierra (el
+ // S.S. Anne), lo que queda en el, con un aviso mas fuerte.
+ const leftovers=useMemo<Behind|null>(()=>{
+  if(!world||!nextGoal)return null;
+  const zoneOf=(m:Marker)=>world.checklist.markers[m.id]?.zone,goalZone=zoneOf(nextGoal);
+  // Los objetivos no: la MO01 tambien es un regalo del barco, y saltarla con el
+  // resto dejaba la historia sin Corte.
+  const leftIn=(zone:string)=>listed.filter(m=>zoneOf(m)===zone&&LEFT_BEHIND.includes(m.category)&&!world.goals.includes(m.id)&&canSkip(m)&&pending(m));
+  const closing=world.closings.find(c=>!have.has(c.by)&&(c.zones.includes(goalZone??'')||nextGoal.name===c.by));
+  if(closing){const items=closing.zones.flatMap(leftIn);if(items.length)return {zone:closing.zones[0],items,warn:closing.warn[lang]}}
+  // Un salvaje no dice donde estas: se marca por especie en todas sus zonas.
+  const last=lastTicked?byId.get(lastTicked):null,zone=last&&last.category!=='Pokémon'&&done.includes(last.uid)?zoneOf(last):null;
+  if(!zone||zone===goalZone)return null;
+  const items=leftIn(zone);return items.length?{zone,items}:null;
+ },[world,nextGoal,listed,pending,canSkip,have,lang,lastTicked,byId,done]);
+ const skipBehind=(b:Behind)=>{setSkip(b.items.map(m=>m.uid),true);setToast(t('behindSkipToast'))};
  // Por que nivel va la partida, mirando los gimnasios marcados en la lista.
  // Manda el ultimo que ganaste, no el siguiente: al salir del gimnasio de
  // Brock (nivel 14) se anda por 13-16, no por los 21 de Misty. Se le suma un
@@ -620,7 +656,9 @@ export default function Home(){
  // Casilla de la ficha, como en la checklist: sin marcar y bloqueado, candado y
  // no se puede marcar.
  const whyLocked=(m:Marker)=>done.includes(m.uid)?null:unavailable(m);
- const popTick=(m:Marker)=>{if(game.untracked.includes(m.category))return null;const why=whyLocked(m),on=done.includes(m.uid);
+ const popTick=(m:Marker)=>{if(game.untracked.includes(m.category))return null;
+  if(skipSet.has(m.uid))return <button className="tick skip" aria-label={t('unskip')} title={t('skipped')} onClick={()=>unskip(m)}><SkipForward/></button>;
+  const why=whyLocked(m),on=done.includes(m.uid);
   return <button className={`tick ${on?'on':''}`} aria-label={t('markDone')} disabled={!!why} title={why??undefined} onClick={()=>toggleDone(m.uid,m.id)}>{on?<Check/>:why?<Lock/>:null}</button>};
  const popWhy=(m:Marker)=>{const why=whyLocked(m);return why&&<p className="pop-why"><Lock/>{why}</p>};
  const obstacleHint=(m:Marker)=>{const mv=m.category==='Obstacle'?obstacleMove(m.name):null;if(!mv)return null;
@@ -666,6 +704,7 @@ export default function Home(){
    <button onClick={()=>reveal(subject,true)} aria-label={t('goalShow')} title={t('goalShow')}><MapPin/></button>
   </div>;
  })(routeTo??nextGoal!)}
+ {leftovers&&!tripOpen&&<BehindNote behind={leftovers} onSee={()=>showZone(leftovers.zone)} onSkip={()=>skipBehind(leftovers)} tr={tr}/>}
  {routeTo&&world&&tripOpen&&<RoutePanel target={name(routeTo.name)} fromRoom={!!lastSpot?.room} fly={trip?.canFly?{on:trip.flying,set:setFlyOn}:null}
   items={trip?.items??[]} partial={!!trip?.partial} status={!trip?'loading':trip.items?'ok':'none'} onStep={item=>{setTripOpen(false);stepTo(item)}}
   labelOf={it=>isRegion(it.area)?place(it.zone):place(areaById.get(it.area)?.label??it.zone)} isInterior={a=>!isRegion(a)} tr={tr}/>}
@@ -674,10 +713,13 @@ export default function Home(){
  {locations&&world&&<div className="locations">{here&&<button className="leave-inline" onClick={()=>{leave();setLocations(false)}}><ArrowLeft/>{t('backToMap',{region:place(areaById.get(exitRegion??'')?.label??'')})}</button>}
   {regions.map((r,i)=><Fragment key={r.id}><h3>{place(r.label).toUpperCase()}</h3><button className={area?.id===r.id?'current':''} onClick={()=>showRegion(r.id)}><MapIcon/>{t('wholeMap')}</button>{world.places.filter(p=>p.area===r.id||(i===0&&!isRegion(p.area))).map(loc=><button key={loc.name} onClick={()=>go(loc)}><MapPin/>{place(loc.name)}</button>)}</Fragment>)}
   <h3>{t('interiors')}</h3>{[...zoneFloors].map(([zone,list])=><div key={zone} className="dungeon"><h4>{place(zone)}</h4>{list.map(f=><button key={f.id} onClick={()=>enter(f.id)} className={here?.id===f.id?'current':''}><DoorOpen/>{place(f.label)}<b>{inArea.get(f.id)?.length??0}</b></button>)}</div>)}</div>}
- {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRowWithAdvice(selected)}{!done.includes(selected.uid)&&<button className="pop-route" onClick={()=>startRoute(selected)}><Footprints/>{t('routeHow')}</button>}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{checkOrder(stack!,m=>!!whyLocked(m)).map(m=><Fragment key={m.id}>{popRowWithAdvice(m,true)}</Fragment>)}</div>,popupBox)}
+ {popupBox&&(selected||stack)&&createPortal(selected?<div className="pop">{popRowWithAdvice(selected)}
+  {skipSet.has(selected.uid)?<div className="pop-actions"><button className="pop-skip" onClick={()=>unskip(selected)}><Undo2/>{t('unskip')}</button></div>
+   :!done.includes(selected.uid)&&<div className="pop-actions"><button className="pop-route" onClick={()=>startRoute(selected)}><Footprints/>{t('routeHow')}</button>
+    {!game.untracked.includes(selected.category)&&!whyLocked(selected)&&canSkip(selected)&&<button className="pop-skip" onClick={()=>skipOne(selected)}><SkipForward/>{t('skip')}</button>}</div>}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{checkOrder(stack!,m=>!!whyLocked(m)).map(m=><Fragment key={m.id}>{popRowWithAdvice(m,true)}</Fragment>)}</div>,popupBox)}
  {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={place(encounterZone.name)}><button className="close" onClick={()=>setEncounterZone(null)} aria-label={t('close')}><X/></button><small>{t('encountersWild').toUpperCase()}</small><h2>{place(encounterZone.name)}</h2><p>{t('availableHere',{n:encounterZone.pokemon.length})}</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>{t('encounterRate',{levels:`${min}${max!==min?`–${max}`:''}`,chance,methods:[...new Set(variants.map(v=>method(METHODS[v.method]??v.method)))].join(' · ')})}</span></div></article>})}</div></dialog></div>}
  </div>
- {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} gates={world.gates} goals={world.goals} goalNotes={world.goalNotes} settled={settled} onRoute={startRoute} unlock={unlock} onUnlockDismiss={()=>setUnlock(null)} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} unavailable={unavailable} hideUnavailable={hideUnavailable} setHideUnavailable={setHideUnavailable} battle={battle} dex={world.dex} teamKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
+ {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} gates={world.gates} goals={world.goals} goalNotes={world.goalNotes} settled={settled} skipped={skipSet} onSkip={skipOne} onUnskip={unskip} canSkip={canSkip} behind={leftovers} onSkipBehind={skipBehind} onRoute={startRoute} unlock={unlock} onUnlockDismiss={()=>setUnlock(null)} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} unavailable={unavailable} hideUnavailable={hideUnavailable} setHideUnavailable={setHideUnavailable} battle={battle} dex={world.dex} teamKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
  {/* La Pokedex y el ranking comparten pestana, cada uno con su lista: se
      cambia con el selector de arriba (el ranking solo en FireRed/LeafGreen). */}
  {tab==='pokedex'&&(()=>{

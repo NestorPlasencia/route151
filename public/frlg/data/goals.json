@@ -11,6 +11,7 @@
   {"id": "MAP_ROUTE22:scene:Rival:33,4", "name": "Rival"},
   {"step": "cross-forest", "map": "MAP_VIRIDIAN_FOREST", "x": 5, "y": 9, "name": {"en": "Cross Viridian Forest", "es": "Cruza el Bosque Verde"}, "detail": {"en": "Head out the north end towards Route 2 and Pewter City; its trainers use Bug Pokémon.", "es": "Sal por el norte hacia la Ruta 2 y Ciudad Plateada; sus entrenadores usan Pokémon Bicho."}},
   {"id": "MAP_PEWTER_CITY_GYM:Battle:6,5", "name": "Leader Brock"},
+  {"step": "running-shoes", "map": "MAP_PEWTER_CITY", "x": 46, "y": 21, "name": {"en": "Get the Running Shoes", "es": "Recibe las Deportivas"}, "detail": {"en": "After beating Brock, head for the east exit of Pewter: Oak's aide stops you and gives you the Running Shoes. Hold B to run.", "es": "Tras ganar a Brock, ve hacia la salida este de Plateada: el ayudante de Oak te para y te da las Deportivas. Mantén B para correr."}},
   {"id": "MAP_ROUTE4_POKEMON_CENTER_1F:gift:SPECIES_MAGIKARP:1,3", "name": "Magikarp"},
   {"id": "MAP_MT_MOON_B2F:gift:ITEM_HELIX_FOSSIL:14,7", "name": "Helix Fossil"},
   {"id": "MAP_MT_MOON_B2F:gift:ITEM_DOME_FOSSIL:13,7", "name": "Dome Fossil"},
@@ -18,6 +19,7 @@
   {"id": "MAP_CERULEAN_CITY:scene:Rival:22,6", "name": "Rival"},
   {"id": "MAP_ROUTE25_SEA_COTTAGE:gift:ITEM_SS_TICKET:7,5", "name": "S.S. Ticket"},
   {"id": "MAP_CERULEAN_CITY_GYM:Battle:8,6", "name": "Leader Misty"},
+  {"step": "vs-seeker", "map": "MAP_VERMILION_CITY_POKEMON_CENTER_1F", "x": 6, "y": 5, "name": {"en": "Get the VS Seeker", "es": "Recibe el Buscapelea"}, "detail": {"en": "The woman in the Vermilion Pokémon Center gives it to you. Use it to battle trainers you already beat again: good for training and money.", "es": "Te lo da la chica del Centro Pokémon de Carmín. Sirve para volver a luchar con entrenadores que ya venciste: buen entrenamiento y dinero."}},
   {"id": "MAP_VERMILION_CITY_POKEMON_FAN_CLUB:gift:ITEM_BIKE_VOUCHER:5,4", "name": "Bike Voucher"},
   {"id": "MAP_VERMILION_CITY_HOUSE1:gift:ITEM_OLD_ROD:4,5", "name": "Old Rod"},
   {"id": "MAP_CERULEAN_CITY_BIKE_SHOP:gift:ITEM_BICYCLE:9,3", "name": "Bicycle"},
@@ -86,6 +88,7 @@
   {"id": "MAP_FOUR_ISLAND_ICEFALL_CAVE_1F:Item In Map:12,16", "name": "HM07"},
   {"id": "MAP_FIVE_ISLAND_ROCKET_WAREHOUSE:gift:ITEM_SAPPHIRE:27,4", "name": "Sapphire"},
   {"step": "sapphire-celio", "map": "MAP_ONE_ISLAND_POKEMON_CENTER_1F", "x": 15, "y": 6, "name": {"en": "Give the Sapphire to Celio", "es": "Entrega el Zafiro a Celio"}, "detail": {"en": "Bring back the Sapphire from the Rocket Warehouse: Celio finishes his network.", "es": "Trae el Zafiro del Almacén Rocket: Celio termina su red."}},
+  {"step": "roaming-beast", "map": "MAP_ROUTE1", "x": 12, "y": 8, "name": {"en": "Catch the roaming legendary", "es": "Atrapa a la bestia errante"}, "detail": {"en": "Once the Sapphire is in Celio's machine, a level 50 legendary roams the routes of Kanto: Entei if you chose Bulbasaur, Suicune with Charmander, Raikou with Squirtle. It moves every time you change route and flees on its first turn: trap it with Mean Look or use the Master Ball.", "es": "Con el Zafiro en la máquina de Celio, una bestia legendaria de nivel 50 vaga por las rutas de Kanto: Entei si elegiste a Bulbasaur, Suicune con Charmander, Raikou con Squirtle. Cambia de sitio cada vez que cambias de ruta y huye en su primer turno: atrápala con Mal de Ojo o usa la Master Ball."}},
   {"id": "MAP_CERULEAN_CAVE_B1F:static:7,12", "name": "Mewtwo"}
  ]
 }
