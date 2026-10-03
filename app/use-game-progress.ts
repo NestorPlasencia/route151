@@ -6,9 +6,13 @@ export function useGameProgress(game:Game,attempt:number){
  const [done,setDone]=useState<number[]>([]),[skipped,setSkipped]=useState<number[]>([]);
  const [imported,setImported]=useState<SaveRecord|null>(null);
  useEffect(()=>{
+  const load=()=>{
   try{setDone(JSON.parse(localStorage.getItem(game.storage.done)||'[]'))}catch{setDone([])}
   try{setSkipped(JSON.parse(localStorage.getItem(`${game.storage.done}-skip`)||'[]'))}catch{setSkipped([])}
   try{const record:unknown=JSON.parse(localStorage.getItem(`${game.storage.done}-sav`)||'null');setImported(validSaveRecord(record)&&record.game===game.id?record:null)}catch{setImported(null)}
+  };
+  const changed=(event:Event)=>{if((event as CustomEvent<string>).detail===game.id)load()};
+  load();addEventListener('route151-progress-changed',changed);return()=>removeEventListener('route151-progress-changed',changed);
  },[game,attempt]);
  const saveDone=(update:(old:number[])=>number[])=>setDone(old=>{const next=update(old);try{localStorage.setItem(game.storage.done,JSON.stringify(next))}catch{}return next});
  const setSkip=(uids:number[],on:boolean)=>setSkipped(old=>{const next=on?[...new Set([...old,...uids])]:old.filter(x=>!uids.includes(x));try{localStorage.setItem(`${game.storage.done}-skip`,JSON.stringify(next))}catch{}return next});

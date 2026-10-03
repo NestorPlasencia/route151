@@ -30,6 +30,7 @@ declare module 'lucide-react' {
   export const ChevronDown: Icon;
   export const DoorOpen: Icon;
   export const Gift: Icon;
+  export const Gamepad: Icon;
   export const HeartCrack: Icon;
   export const Images: Icon;
   export const Info: Icon;

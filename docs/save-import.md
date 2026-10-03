@@ -69,7 +69,49 @@ Compatibilidad comprobada: los dos guardados ingleses de RoC's PC y fixtures
 sintéticos con nombres españoles. Falta comprobar una partida real española.
 Yellow, modificaciones del formato por ROM hacks y registros de Pokémon con
 codificación japonesa quedan fuera de esta primera versión. No hay conexión
-en vivo al emulador ni vigilancia automática de archivos todavía.
+en vivo a la RAM ni vigilancia automática de archivos de un emulador externo.
+
+Jugar dentro de Route 151
+------------------------
+
+El botón de mando «Jugar y registrar» abre EmulatorJS 4.2.3 con el core mGBA,
+junto a la checklist. Elige una ROM `.gba` original de FireRed o LeafGreen en
+inglés o español, correspondiente al juego seleccionado, y opcionalmente un
+SAV de 128 KiB. No se incluyen ROMs, BIOS ni partidas comerciales. La cabecera
+se comprueba antes de arrancar; no garantiza que una ROM con modificaciones
+sea compatible. Sin SAV elegido se usa el guardado del navegador para esa ROM,
+si existe. Su identidad usa SHA-256 de la ROM, no solo el nombre del archivo.
+
+Pulsa «Cargar emulador» y después «Iniciar juego». Al usar **Guardar dentro de
+Pokémon**, el adaptador comprueba el SAV cada tres segundos. Solo importa bytes
+distintos y válidos, actualiza la lista y la Pokédex sin recargar la página, y
+opcionalmente el equipo. Los miembros anteriores se conservan como suplentes.
+Un equipo incompatible se conserva en el registro, sin reemplazar el equipo
+actual. «Sincronizar ahora» permite reintentar una escritura fallida y
+«Descargar SAV» exporta la partida del juego. Los estados rápidos no sustituyen
+el guardado normal. Guarda dentro de Pokémon antes de cerrar el emulador.
+
+Cada sesión conserva una única copia del progreso anterior para «Deshacer la
+última importación» en Créditos. Las marcas manuales se conservan y cargar un
+estado anterior no elimina marcas ya registradas. Detener una sesión cancela
+sus lecturas pendientes; una pestaña distinta no puede mandar snapshots.
+La ROM y el SAV no se envían a un servidor. El iframe carga únicamente archivos
+locales y tiene una política de contenido que bloquea conexiones externas.
+
+`npm run emulator:assets` descarga solo los recursos oficiales enumerados en
+`scripts/emulator-assets.json` y verifica su SHA-256. `npm run build` también
+los prepara; se incluyen en la descarga sin conexión de FRLG. Las licencias
+originales se conservan: EmulatorJS incluye GPL-3.0 y el paquete del core incluye
+su `license.txt`, accesible desde el menú del emulador.
+
+La sincronización se prueba con sectores sintéticos, guardados públicos y el
+adaptador de EmulatorJS. En navegador se comprobó el arranque de FireRed (USA)
+con una ROM aportada por el usuario: el SAV de RoC registra 655 entradas y sus
+seis miembros del equipo. La integración no consulta memoria de una partida
+sin guardar. Falta comprobar la ejecución de una ROM española real.
+
+Referencias: [EmulatorJS 4.2.3](https://github.com/EmulatorJS/EmulatorJS/tree/v4.2.3)
+y [API de archivos de guardado](https://github.com/EmulatorJS/EmulatorJS/blob/v4.2.3/data/src/GameManager.js).
 
 Guardados públicos de prueba
 ---------------------------

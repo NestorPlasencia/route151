@@ -1,0 +1,52 @@
+[
+  {
+    "path": "loader.js",
+    "sha256": "69e0903bf1e2f62ced78895e7e511fa26e11316f7eb734925c35e919ba1287b2",
+    "bytes": 7594
+  },
+  {
+    "path": "emulator.min.js",
+    "sha256": "6aec3fd7bb2721255801b0a6af02e47e78b05e28a1822b1f213aacbd348abaee",
+    "bytes": 426343
+  },
+  {
+    "path": "emulator.min.css",
+    "sha256": "16406c60b2dc3b04ae9b115e308613e6f567a0cc7068e21d9d0c1e5030fb395e",
+    "bytes": 25630
+  },
+  {
+    "path": "version.json",
+    "sha256": "d8991427000a96fb97daefdb62178071e9bbff911760706148e584ae8d69f9e7",
+    "bytes": 126
+  },
+  {
+    "path": "cores/reports/mgba.json",
+    "sha256": "08219f6c855a9d996f04ed21169bb0c5ac64d469a8a536468b9876205b5c268d",
+    "bytes": 118
+  },
+  {
+    "path": "cores/mgba-wasm.data",
+    "sha256": "01fcaf6d4296ef1db6676e0c69400c4474e24572d0b2b99cc097e4ae885e02d7",
+    "bytes": 1055616
+  },
+  {
+    "path": "cores/mgba-legacy-wasm.data",
+    "sha256": "e300d2f368c82bf61d77c972c36e367cf16408ec3d50beede080337519a3d696",
+    "bytes": 1054993
+  },
+  {
+    "path": "compression/extract7z.js",
+    "sha256": "4ac9933b995a516cb6b3ca4027db860278372a20c21c405d93ceb1998498853a",
+    "bytes": 280155
+  },
+  {
+    "path": "compression/extractzip.js",
+    "sha256": "3cc825428724213acd43d30552a78008e0869b2326de17dee240dbff9ee2f629",
+    "bytes": 196199
+  },
+  {
+    "bytes": 9601,
+    "sha256": "88be7f8de1e1fce480ce8883a975fc7c7985208e5b100a297591cea07bc97e46",
+    "path": "localization/es-ES.json"
+  }
+]

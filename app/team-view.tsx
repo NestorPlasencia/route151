@@ -33,7 +33,11 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
  // quieres mirar los ataques o cambiar el nivel.
  const [open,setOpen]=useState<string[]>([]);
  const toggle=(id:string)=>setOpen(ids=>ids.includes(id)?ids.filter(x=>x!==id):[...ids,id]);
- useEffect(()=>{try{setTeam(JSON.parse(localStorage.getItem(storageKey)||'[]'))}catch{setTeam([])}},[storageKey]);
+ useEffect(()=>{
+  const load=()=>{try{setTeam(JSON.parse(localStorage.getItem(storageKey)||'[]'))}catch{setTeam([])}};
+  const changed=(event:Event)=>{if((event as CustomEvent<string>).detail===storageKey)load()};
+  load();addEventListener('route151-team-changed',changed);return()=>removeEventListener('route151-team-changed',changed);
+ },[storageKey]);
  const save=(next:TeamMon[])=>{setTeam(next);try{localStorage.setItem(storageKey,JSON.stringify(next));dispatchEvent(new CustomEvent('route151-team-changed',{detail:storageKey}))}catch{}};
  const species=useMemo(()=>new Map(dex.species.map(s=>[s.n,s])),[dex]);
  const q=query.trim().toLowerCase();

@@ -42,6 +42,7 @@ next-env.d.ts
 /data/yellow/pokeyellow/
 # lector de fichas: lo rehace `npm run build` desde node_modules
 /public/vendor/tesseract/
+/public/vendor/emulatorjs/
 /public/offline/
 
 # python

@@ -20,7 +20,7 @@ export async function buildManifests(){
  const common=[...await files(join(publicRoot,'icons')),...await files(join(publicRoot,'data')),...await files(join(publicRoot,'vendor'))];
  await mkdir(join(publicRoot,'offline'),{recursive:true});
  for(const game of catalog){
-  const prefix=game.data.split('/')[1],local=[...common,...await files(join(publicRoot,prefix))];
+  const prefix=game.data.split('/')[1],local=[...common.filter(file=>game.gen===3||!file.includes(join('vendor','emulatorjs'))),...await files(join(publicRoot,prefix)),...(game.gen===3?await files(join(publicRoot,'emulator')):[])];
   const assets=new Set(['/','/manifest.webmanifest','/favicon.svg']);
   const hash=createHash('sha256');
   for(const file of [...staticFiles,...local].sort((a,b)=>a.localeCompare(b))){
