@@ -1,25 +1,30 @@
 'use client';
 import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import type {Map as LeafletMap,LayerGroup,ImageOverlay,Popup} from 'leaflet';
+import {useGameMap} from './use-game-map';
+import {drawMap} from './map-drawing';
 import {ArrowLeft,BookOpen,Check,RefreshCw,RotateCcw,ChevronDown,DoorOpen,Footprints,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,SkipForward,Sparkles,Swords,Undo2,X} from 'lucide-react';
-import {Credits,FIELD_MOVES,Figure,checkOrder,choicesTaken,colorOf,groupsOf,haveNames,missingTool,obstacleMove,unmetGate,type Encounter,type Marker} from './shared';
-import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang,type Names} from './i18n';
+import {Credits,FIELD_MOVES,Figure,checkOrder,choicesTaken,groupsOf,haveNames,missingTool,obstacleMove,unmetGate,type Encounter,type Marker} from './shared';
+import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
-import {RankingView} from './ranking';
 import {GameHome} from './home';
-import {BattleAdvice,TeamView,effortText,trainerOpponents,type Battle,type Opponent} from './team';
-import {GAMES,METHODS,battleUrl,loadGame,moveTextUrl,type Area,type EncounterZone,type Place,type Pt,type World} from './games';
-import {blockerOf,findRoute,legsOf,movesYouHave,openTree,prepare,reachTiles,reached,targetAt,type Nav,type Target,type Tree,type World as RouteWorld} from './pathfind';
+import {BattleAdvice,effortText,trainerOpponents,type Opponent} from './team';
+import {GAMES,METHODS,battleUrl,moveTextUrl,type Area,type EncounterZone,type Place,type Pt} from './games';
+import {blockerOf,findRoute,legsOf,reached,targetAt,movesYouHave} from './pathfind';
+import {useNavigation} from './use-navigation';
+import {useGameProgress} from './use-game-progress';
 import {RoutePanel,tripItems,withoutGates,type TripItem} from './trip';
 import {BackupBox} from './backup';
 import {refreshApp} from './service-worker';
-import {LearnView} from './learn';
 import {BehindNote,LEADER,goalTitle,nextGoalOf,type Behind,type Unlock} from './guide';
 import {TOUR_KEY,Tour} from './tour';
-import {loadJson} from './load-json';
+import {useBattle,useGameWorld,useMoveText,useNames} from './use-game-data';
 import {LoadNotice} from './load-notice';
 import {OfflineDownload} from './offline';
+import dynamic from 'next/dynamic';
+const RankingView=dynamic(()=>import('./ranking').then(m=>m.RankingView));
+const LearnView=dynamic(()=>import('./learn').then(m=>m.LearnView));
+const TeamView=dynamic(()=>import('./team-view').then(m=>m.TeamView));
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
 const span=(e:Encounter)=>`${e.min}${e.max!==e.min?`–${e.max}`:''}`;
@@ -33,42 +38,33 @@ const FLY_NEEDS=['HM02','Leader Lt. Surge'];
 // Un piso (o el ascensor): la ultima palabra de su nombre es 1F, B2F, Roof, Elevator...levator...
 const FLOOR_RE=/\s+(B?\d+F|Roof|Rooftop|Elevator)$/i;
 // A la gente se le habla tambien por encima de un mostrador (a dos casillas).
-const PEOPLE=['Item Gift','In-Game Trade','Battle','In-Game Gift Pokémon','Shop'];
 // Lo que se avisa que te dejas al salir de una zona: entrenadores, objetos a la
 // vista y regalos. Ni los salvajes (se marcan por especie) ni los objetos ocultos.
+const PEOPLE=['Item Gift','In-Game Trade','Battle','In-Game Gift Pokémon','Shop'];
 const LEFT_BEHIND=['Battle','Item In Map','Item Gift','In-Game Gift Pokémon'];
 const MOVE_KEY:Record<string,'moveSurf'|'moveCut'|'moveStrength'|'moveSmash'|'moveWaterfall'|'moveFlute'|'moveSwitch'|'movePlate'>={surf:'moveSurf',cut:'moveCut',strength:'moveStrength',smash:'moveSmash',waterfall:'moveWaterfall',flute:'moveFlute',switch:'moveSwitch',plate:'movePlate'};
 // Candado de lucide para los pines bloqueados: el pin es HTML de Leaflet, no React.
 // Bandera del siguiente objetivo en el mapa.
-const FLAG_SVG='<svg viewBox="0 0 24 24" width="18" height="18" fill="#ffd936" stroke="#172034" stroke-width="2" stroke-linejoin="round"><path d="M4 22V3"/><path d="M4 4h13l-2.5 4L17 12H4"/></svg>';
-const LOCK_SVG='<svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
 export default function Home(){
- const popup=useRef<Popup|null>(null),[popupBox,setPopupBox]=useState<HTMLDivElement|null>(null);
- const el=useRef<HTMLDivElement>(null),map=useRef<LeafletMap|null>(null),layer=useRef<LayerGroup|null>(null),overlay=useRef<ImageOverlay|null>(null),shownArea=useRef<string|null>(null),leaflet=useRef<typeof import('leaflet')|null>(null);
- const [mapReady,setMapReady]=useState(false);
- const [loadAttempt,setLoadAttempt]=useState(0),[worldFailure,setWorldFailure]=useState<string|null>(null);
- const [battleAttempt,setBattleAttempt]=useState(0),[battleFailure,setBattleFailure]=useState<string|null>(null);
- const [navAttempt,setNavAttempt]=useState(0),[navFailure,setNavFailure]=useState<string|null>(null);
- const [namesAttempt,setNamesAttempt]=useState(0),[namesFailure,setNamesFailure]=useState(false);
- const [moveTextAttempt,setMoveTextAttempt]=useState(0),[moveTextFailure,setMoveTextFailure]=useState<string|null>(null);
- const [mapAttempt,setMapAttempt]=useState(0),[mapFailure,setMapFailure]=useState(false);
- const [gameId,setGameId]=useState(GAMES[0].id),[world,setWorld]=useState<World|null>(null),[lang,setLang]=useState<Lang>('en'),[names,setNames]=useState<Names>(null);
- const tr=useMemo(()=>translator(lang,names),[lang,names]),{t,category,method,place,name}=tr,{detail:tDetail}=tr,layerName=tr.layer;
- // Los nombres en espanol de los objetos (de PokeAPI) solo se bajan si hacen falta.
- useEffect(()=>{if(lang!=='es'||names)return;const controller=new AbortController();setNamesFailure(false);
-  loadJson<NonNullable<Names>>('/data/names-es.json',{signal:controller.signal}).then(n=>{if(!n||[n.items,n.moves,n.abilities,n.natures].some(table=>!table||typeof table!=='object'||Array.isArray(table)||Object.values(table).some(value=>typeof value!=='string')))throw new Error('Invalid translations');setNames(n)}).catch(e=>{if(!controller.signal.aborted){setNamesFailure(true);console.error('No se pudieron cargar los nombres',e)}});
-  return()=>controller.abort();
- },[lang,names,namesAttempt]);
+ const [gameId,setGameId]=useState(GAMES[0].id),[lang,setLang]=useState<Lang>('en');
  const game=GAMES.find(g=>g.id===gameId)??GAMES[0],groups=groupsOf(game.id);
- const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'|'team'>('checklist'),[dexView,setDexView]=useState<'dex'|'ranking'|'learn'>('dex'),[battles,setBattles]=useState<Record<string,Battle>>({}),[moveText,setMoveText]=useState<Record<string,{en:string;es:string}>|null>(null),[view,setView]=useState<View>({area:''});
+ const {world,worldFailure,loadAttempt,setLoadAttempt}=useGameWorld(game);
+ const {value:names,failure:namesFailure,setAttempt:setNamesAttempt}=useNames(lang);
+ const tr=useMemo(()=>translator(lang,names),[lang,names]),{t,category,method,place,name}=tr,{detail:tDetail}=tr,layerName=tr.layer;
+ const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'|'team'>('checklist'),[dexView,setDexView]=useState<'dex'|'ranking'|'learn'>('dex'),[view,setView]=useState<View>({area:''});
  // Cada juego tiene sus datos de combate (Yellow, los de Gen 1): se guardan por archivo.
- const battle=battles[battleUrl(game)]??null,moveTextSrc=moveTextUrl(game);
- const [active,setActive]=useState<string[]>(groups.map(g=>g[0])),[selected,setSelected]=useState<Marker|null>(null),[stack,setStack]=useState<Marker[]|null>(null),[done,setDone]=useState<number[]>([]),[locations,setLocations]=useState(false),[about,setAbout]=useState(false),[layersOpen,setLayersOpen]=useState(false);
+ const moveTextSrc=moveTextUrl(game);
+ const {value:moveText,failure:moveTextFailure,setAttempt:setMoveTextAttempt}=useMoveText(moveTextSrc,tab==='team');
+ const [active,setActive]=useState<string[]>(groups.map(g=>g[0])),[selected,setSelected]=useState<Marker|null>(null),[stack,setStack]=useState<Marker[]|null>(null),[locations,setLocations]=useState(false),[about,setAbout]=useState(false),[layersOpen,setLayersOpen]=useState(false);
+ const [mapVisited,setMapVisited]=useState(false);
+ useEffect(()=>{if(tab==='mapa')setMapVisited(true)},[tab]);
+ const clearMap=useCallback(()=>{setSelected(null);setStack(null)},[]);
+ const {popup,popupBox,el,map,layer,overlay,shownArea,leaflet,mapReady,mapFailure,setMapAttempt}=useGameMap(mapVisited,clearMap);
  const [encounterZone,setEncounterZone]=useState<EncounterZone|null>(null);
  // Lo que decides saltar (no te interesa o ya no se puede): no cuenta en el total
  // ni se vuelve a avisar. No es hecho: no abre nada y se puede deshacer.
- const [skipped,setSkipped]=useState<number[]>([]);
+ const {done,skipped,saveDone,setSkip,setMany}=useGameProgress(game,loadAttempt);
  // Inicio para elegir juego, y el ultimo que se jugo (se marca en su tarjeta).
  const [home,setHome]=useState(false),[last,setLast]=useState<string|null>(null);
 
@@ -77,13 +73,10 @@ export default function Home(){
  useEffect(()=>{let saved:string|null=null;try{saved=localStorage.getItem(GAME_KEY)}catch{}const id=[new URLSearchParams(location.search).get('game'),saved].find(x=>GAMES.some(g=>g.id===x));if(id)setGameId(id);else setHome(true);setLast(GAMES.some(g=>g.id===saved)?saved:null);setLang(savedLang())},[]);
  // Cada juego carga sus datos y su progreso, y empieza en su primera region.
  useEffect(()=>{
-  let live=true;const controller=new AbortController();setWorldFailure(null);setWorld(null);setSelected(null);setStack(null);setEncounterZone(null);setLocations(false);saved.current=null;setArrival(null);
+  setSelected(null);setStack(null);setEncounterZone(null);setLocations(false);saved.current=null;setArrival(null);
   setActive(groupsOf(game.id).map(g=>g[0]).filter(n=>!game.hidden.includes(n)));
-  try{setDone(JSON.parse(localStorage.getItem(game.storage.done)||'[]'))}catch{setDone([])}
-  try{setSkipped(JSON.parse(localStorage.getItem(`${game.storage.done}-skip`)||'[]'))}catch{setSkipped([])}
-  loadGame(game,controller.signal).then(w=>{if(!live)return;setWorld(w);setView({area:w.areas.find(a=>a.kind==='region')?.id??w.areas[0].id})}).catch(e=>{if(live){setWorldFailure(game.id);console.error('No se pudo cargar',game.id,e)}});
-  return()=>{live=false;controller.abort()};
  },[game,loadAttempt]);
+ useEffect(()=>{if(world)setView({area:world.areas.find(a=>a.kind==='region')?.id??world.areas[0].id})},[world]);
  const pickGame=(id:string)=>{setGameId(id);setLast(id);try{localStorage.setItem(GAME_KEY,id)}catch{}};
  // Desde el inicio se entra siempre al mapa del juego elegido.
  // Desde el inicio se entra a la checklist: la ruta, con la primera zona abierta y
@@ -93,17 +86,7 @@ export default function Home(){
  useEffect(()=>{document.documentElement.lang=lang},[lang]);
  // Tambien se carga al abrir un entrenador o un Pokemon salvaje del mapa.
  const needsBattle=tab==='team'||tab==='checklist'||(tab==='pokedex'&&dexView!=='dex')||selected?.category==='Battle'||!!selected?.encounter||!!stack?.some(m=>m.category==='Battle'||m.encounter);
- useEffect(()=>{if(!needsBattle||battle)return;const url=battleUrl(game);
-  const controller=new AbortController();setBattleFailure(null);
-  loadJson<Battle>(url,{signal:controller.signal}).then(b=>{if(!b.species||!b.moves||!b.chart||!b.natures||!b.abilities)throw new Error('Invalid battle data');setBattles(all=>({...all,[url]:b}))}).catch(e=>{if(!controller.signal.aborted){setBattleFailure(url);console.error('No se pudieron cargar los datos de combate',e)}});
-  return()=>controller.abort();
- },[needsBattle,battle,game,battleAttempt]);
- // Solo si las reglas del juego los tienen (en Gen 1 no hay descripciones).
- useEffect(()=>{if(tab!=='team'||moveText||!moveTextSrc)return;
-  const controller=new AbortController();setMoveTextFailure(null);
-  loadJson<Record<string,{en:string;es:string}>>(moveTextSrc,{signal:controller.signal}).then(texts=>{if(!texts||typeof texts!=='object'||Array.isArray(texts)||Object.values(texts).some(text=>!text||typeof text.en!=='string'||typeof text.es!=='string'))throw new Error('Invalid move descriptions');setMoveText(texts)}).catch(e=>{if(!controller.signal.aborted){setMoveTextFailure(moveTextSrc);console.error('No se pudo cargar la descripcion de los ataques',e)}});
-  return()=>controller.abort();
- },[tab,moveText,moveTextSrc,moveTextAttempt]);
+ const {value:battle,failure:battleFailure,setAttempt:setBattleAttempt}=useBattle(battleUrl(game),needsBattle);
 
  const areaById=useMemo(()=>new Map((world?.areas??[]).map(a=>[a.id,a])),[world]);
  const regions=useMemo(()=>world?.areas.filter(a=>a.kind==='region')??[],[world]);
@@ -148,41 +131,7 @@ export default function Home(){
  // Lo que ya elegiste en su lugar (otro inicial, el otro fosil): solo por intercambio.
  const taken=useMemo(()=>{const byId=new Map((world?.markers??[]).map(m=>[m.id,m]));
   return choicesTaken(world?.choices??[],id=>{const m=byId.get(id);return !!m&&done.includes(m.uid)})},[world,done]);
- // La rejilla de los mapas (nav.json): para las rutas y para saber a que llegas.
- const [navData,setNavData]=useState<{url:string;w:RouteWorld}|null>(null);
- const navUrl=`${game.data}/nav.json`,navWorld=navData?.url===navUrl?navData.w:null;
- useEffect(()=>{if(!world||navWorld)return;const controller=new AbortController();setNavFailure(null);
-  loadJson<Nav>(navUrl,{signal:controller.signal}).then(n=>{if(!n.maps||!n.moves||!Array.isArray(n.starts)||!Array.isArray(n.ferry))throw new Error('Invalid navigation data');const w=prepare(n);if(!controller.signal.aborted)setNavData({url:navUrl,w})}).catch(e=>{if(!controller.signal.aborted){setNavFailure(navUrl);console.error('No se pudo cargar la rejilla de rutas',e)}});
-  return()=>controller.abort();
- },[world,navWorld,navUrl,navAttempt]);
- // Zonas y mapas que la historia aun no abre con lo que tienes (guardias, Snorlax...).
- const storyLeft=useCallback((owned:Set<string>)=>(world?.gates??[]).filter(x=>!x.id.startsWith('hm-')&&x.needs.some(n=>!owned.has(n))),[world]);
- const closedBy=useCallback((owned:Set<string>)=>{const story=storyLeft(owned);
-  return (map:string)=>{const z=navWorld?.grids.get(map)?.m.zone;return story.find(x=>!!x.maps?.includes(map)||(!!z&&!!x.zones?.includes(z)))??null}},[storyLeft,navWorld]);
- // Casilla de cada marcador en la rejilla, y el arbol de caminos con todo abierto.
- const targets=useMemo(()=>{const out=new Map<string,Target>();if(navWorld&&world)for(const m of world.markers)if(m.area&&m.at){const x=targetAt(navWorld,m.area,m.at,PEOPLE.includes(m.category));if(x)out.set(m.id,x)}return out},[navWorld,world]);
- const tree=useMemo(()=>navWorld?openTree(navWorld):null,[navWorld]);
- // El mismo arbol con solo tus MO (sin cierres de la historia), por firma de MO.
- const treeCache=useRef<{url:string;trees:Map<string,Tree>}>({url:'',trees:new Map()});
- const treeWith=useCallback((can:Set<string>)=>{
-  if(!navWorld)return null;
-  if(treeCache.current.url!==navUrl)treeCache.current={url:navUrl,trees:new Map()};
-  const sig=[...can].sort().join();let hit=treeCache.current.trees.get(sig);
-  if(!hit){hit=openTree(navWorld,can);treeCache.current.trees.set(sig,hit)}
-  return hit;
- },[navWorld,navUrl]);
- // Lo que pisas desde el inicio con lo que tienes. Solo cambia al tener otra MO
- // o abrir un paso de la historia: se guarda por esa firma.
- const reachCache=useRef<{url:string;tiles:Map<string,{tiles:Set<number>;maps:Set<number>}>}>({url:'',tiles:new Map()});
- const reachFor=useCallback((owned:Set<string>)=>{
-  if(!navWorld)return null;
-  if(reachCache.current.url!==navUrl)reachCache.current={url:navUrl,tiles:new Map()};
-  const can=movesYouHave(navWorld.nav,owned),story=storyLeft(owned),closed=closedBy(owned);
-  const sig=[...can].sort().join()+'|'+story.map(x=>x.id).join();
-  let hit=reachCache.current.tiles.get(sig);
-  if(!hit){const tiles=reachTiles(navWorld,can,m=>!!closed(m));hit={tiles,maps:new Set([...tiles].map(k=>Math.floor(k/65536)))};reachCache.current.tiles.set(sig,hit)}
-  return {...hit,can,closed};
- },[navWorld,navUrl,storyLeft,closedBy]);
+ const {navUrl,navWorld,navFailure,setNavAttempt,targets,tree,treeWith,reachFor}=useNavigation(game,world);
  // Pokemon que tienes (para los intercambios): marcados, registrados en la
  // Pokedex o en tu equipo. Se relee al volver de esas pestanas.
  const [speciesRev,setSpeciesRev]=useState(0);
@@ -265,28 +214,6 @@ export default function Home(){
  },[world,game.untracked,pending]);
  const finished=useCallback((from:string,to:string)=>behind(from,to).every(a=>!left.get(a)),[behind,left]);
 
- useEffect(()=>{
-  // Un solo mapa para todos los juegos: al cambiar de juego solo cambia la imagen.
-  if(!el.current||map.current)return;let disposed=false;setMapFailure(false);
-  import('leaflet').then(mod=>{
-   if(disposed||!el.current)return;const L=mod.default;leaflet.current=L;
-   const m=L.map(el.current,{crs:L.CRS.Simple,zoomSnap:.25,zoomDelta:.5,maxZoom:2,zoomControl:false,attributionControl:false});
-   L.control.zoom({position:'bottomright'}).addTo(m);
-   // Pixelado nitido solo al acercar; al alejar, el suavizado evita el muare.
-   m.on('zoomend',()=>{el.current?.classList.toggle('crisp',m.getZoom()>=0);el.current?.classList.toggle('far',m.getZoom()<-1)});
-   // Ficha de un marcador: un popup junto al pin; React pinta su contenido.
-   const box=document.createElement('div');L.DomEvent.disableClickPropagation(box);
-   popup.current=L.popup({closeButton:false,closeOnClick:false,autoClose:false,className:'marker-pop',offset:[0,-6],autoPan:false,maxWidth:390}).setContent(box);
-   // Leaflet cierra los popups en el 'preclick' de cualquier clic, tambien sobre
-   // un pin: al volver a pulsar el mismo pin se cerraba y no se reabria. Se
-   // cierra solo con un clic en el mapa (fuera de los pines) o con Escape.
-   // Eligiendo donde estas (Como llegar), el toque marca el sitio y no cierra nada.
-   m.on('click',()=>{setSelected(null);setStack(null)});setPopupBox(box);
-   layer.current=L.layerGroup().addTo(m);map.current=m;setMapReady(true);
-  }).catch(e=>{if(!disposed){setMapFailure(true);console.error('No se pudo cargar Leaflet',e)}});
-  return()=>{disposed=true;map.current?.remove();map.current=null};
- },[mapAttempt]);
-
  // Cambiar de area cambia la imagen; cada vista decide donde se posa la camara.
  // Solo con el mapa a la vista: oculto (se empieza en la checklist) mide 0x0, el
  // encuadre sale invalido y el mapa se veia negro al abrirlo. La vista que llega
@@ -312,7 +239,7 @@ export default function Home(){
   if(view.restore)m.setView(view.restore.center,view.restore.zoom,{animate:!changed});
   else if(view.focus)m.setView(ll(view.focus),Math.max(fit,view.zoom??0),{animate:!changed});
   else m.fitBounds(b,{animate:!changed});
- },[view,area,mapReady,tab]);
+ },[view,area,mapReady,tab,leaflet,overlay,shownArea,map]);
 
  const shown=useMemo(()=>(area?inArea.get(area.id)??[]:[]).filter(m=>active.includes(m.category)&&!(hideUnavailable&&unavailable(m))),[area,inArea,active,hideUnavailable,unavailable]);
  // Muchos objetos comparten punto exacto (hasta 14): se pintan como un solo pin
@@ -466,7 +393,7 @@ export default function Home(){
  const startRoute=(m:Marker)=>{setRouteTo(m);setTab('mapa');setSelected(null);setStack(null);setEncounterZone(null)};
  // Zoom al mover la camara a un punto del camino: el que tenias si sigues en la
  // misma area (sin alejarte), si no uno de cerca.
- const keepZoom=useCallback((to:string)=>{const z=map.current?.getZoom();return to===area?.id&&z!==undefined?Math.max(z,-.5):.5},[area]);
+ const keepZoom=useCallback((to:string)=>{const z=map.current?.getZoom();return to===area?.id&&z!==undefined?Math.max(z,-.5):.5},[area,map]);
  // Al empezar una ruta, la camara va a su inicio. Solo entonces: marcar algo con
  // la ruta abierta cambia de donde sales, pero no te mueve el mapa.
  const framed=useRef('');
@@ -484,79 +411,16 @@ export default function Home(){
  const nav=useRef({enter,exitTo});
  useEffect(()=>{nav.current={enter,exitTo}});
  useEffect(()=>{
-  const L=leaflet.current,g=layer.current;if(!L||!g||!world||!area)return;g.clearLayers();
-  // El camino de "Como llegar" en esta area: linea azul con borde blanco, y un
-  // punto donde empieza. Al cruzar a otra zona por el borde, la linea sigue.
-  const items=trip?.draw??[];
-  // La linea solo une casillas vecinas (un salto son dos): si el camino entra en
-  // un edificio y sale por otra puerta, la linea se corta en vez de cruzarlo.
-  const pieces=(pts:[number,number][])=>pts.reduce<[number,number][][]>((out,p,i)=>{
-   const q=pts[i-1];if(!q||Math.hypot(p[0]-q[0],p[1]-q[1])>40)out.push([p]);else out[out.length-1].push(p);return out},[]);
-  items.forEach((it,i)=>{
-   if(it.area!==area.id)return;
-   const prev=items[i-1];
-   for(const seg of pieces(prev&&prev.area===it.area&&it.enter==='edge'?[prev.pts[prev.pts.length-1],...it.pts]:it.pts)){
-    const pts=seg.map(ll);
-    L.polyline(pts,{color:'#fff',weight:10,opacity:.95,interactive:false,lineCap:'round',lineJoin:'round'}).addTo(g);
-    L.polyline(pts,{color:'#2d6df6',weight:5,opacity:1,interactive:false,lineCap:'round',lineJoin:'round'}).addTo(g);
-    // Flechas sobre la linea cada tres casillas: hacia donde se camina.
-    let run=24;
-    for(let j=1;j<seg.length;j++){
-     const [ax,ay]=seg[j-1],[bx,by]=seg[j],len=Math.hypot(bx-ax,by-ay);
-     for(;run<=len;run+=48){const f=run/len,deg=Math.atan2(by-ay,bx-ax)*180/Math.PI;
-      L.marker(ll([ax+(bx-ax)*f,ay+(by-ay)*f]),{icon:L.divIcon({className:'pin-wrap',html:`<span class="route-arrow" style="transform:rotate(${deg}deg)"></span>`,iconSize:[12,12],iconAnchor:[6,6]}),interactive:false,zIndexOffset:-100}).addTo(g)}
-     run-=len;
-    }
-   }
-  });
-  // El siguiente objetivo, con una bandera sobre su pin.
-  if(nextGoal?.area===area.id&&nextGoal.at)L.marker(ll(nextGoal.at),{icon:L.divIcon({className:'pin-wrap',html:`<span class="goal-flag">${FLAG_SVG}</span>`,iconSize:[28,28],iconAnchor:[4,30]}),interactive:false,zIndexOffset:900}).addTo(g);
-  // Donde el camino quita un obstaculo: su MO encima (tijeras, roca, puno).
-  const ACT:Record<string,string>={cut:'✂',strength:'✊',smash:'⛏',flute:'🎵',switch:'🔘',plate:'🪨'};
-  for(const it of items)if(it.area===area.id)for(const a of it.acts)
-   L.marker(ll(a.at),{icon:L.divIcon({className:'pin-wrap',html:`<span class="route-act" title="${t(MOVE_KEY[a.how]??'moveCut')}">${ACT[a.how]??''}</span>`,iconSize:[24,24],iconAnchor:[12,12]}),interactive:false,zIndexOffset:400}).addTo(g);
-  if(items[0]?.area===area.id)L.circleMarker(ll(items[0].pts[0]),{radius:8,color:'#fff',weight:3,fillColor:'#2d6df6',fillOpacity:1,interactive:false}).addTo(g);
-  for(const {at,items} of stacks){
-   // Verde si todo esta hecho; gris con candado si lo que falta aun no se puede hacer.
-   // Saltado cuenta como terminado, con una raya en vez del check.
-   const completed=items.every(m=>done.includes(m.uid)||skipSet.has(m.uid)),skip=completed&&items.some(m=>skipSet.has(m.uid)),locked=!completed&&!items.some(pending);
-   // Varias categorias en el mismo punto: el pin se reparte en sectores de color.
-   const colors=[...new Set(items.map(m=>colorOf(m.category)))];
-   const fill=colors.length>1?`conic-gradient(${colors.map((c,i)=>`${c} ${i*100/colors.length}% ${(i+1)*100/colors.length}%`).join(',')})`:colors[0];
-   // Un pin sobre una puerta (los pasos de historia en una salida) se corre a un
-   // costado, arriba a la derecha: asi se ven y se tocan los dos.
-   const onDoor=world.warps.some(w=>w.area===area.id&&Math.abs(w.at[0]-at[0])<12&&Math.abs(w.at[1]-at[1])<12);
-   const icon=L.divIcon({className:`pin-wrap ${onDoor?'pin-aside':''}`,html:`<span class="pin ${skip?'pin-skip':completed?'pin-done':locked?'pin-locked':''}" style="--pin:${fill}">${skip?'–':completed?'✓':locked?LOCK_SVG:''}</span>${items.length>1?`<b class="pin-count">${items.length}</b>`:''}`,iconSize:[20,20],iconAnchor:onDoor?[-6,26]:[10,10]});
-   L.marker(ll(at),{icon,zIndexOffset:onDoor?600:0}).on('click',()=>{if(items.length>1){setSelected(null);setStack(items)}else{setStack(null);setSelected(items[0])}}).addTo(g);
-  }
-  // Puertas: hacia un interior (o a otro piso) se entra; hacia una region se sale.
-  const door=(cls:string,text='')=>L.divIcon({className:'pin-wrap',html:`<span class="door ${cls}">${text}</span>`,iconSize:[26,26],iconAnchor:[13,13]});
-  // Dentro de un ascensor, una puerta por piso con su nombre (B4F, 5F...).
-  const lift=/ELEVATOR/.test(area.id);
-  // La puerta por la que el camino sale de aqui (en un ascensor, el piso al que
-  // ir): la mas cercana al ultimo punto del tramo, hacia el area siguiente.
-  const exits=new Set<object>();
-  items.forEach((it,i)=>{
-   const nx=items[i+1];if(it.area!==area.id||!nx||nx.area===area.id||nx.enter!=='door')return;
-   const end=it.pts[it.pts.length-1],cands=world.warps.filter(w=>w.area===area.id&&w.to===nx.area);
-   const best=cands.reduce<typeof cands[number]|null>((b,w)=>!b||Math.hypot(w.at[0]-end[0],w.at[1]-end[1])<Math.hypot(b.at[0]-end[0],b.at[1]-end[1])?w:b,null);
-   if(best)exits.add(best);
-  });
-  for(const w of world.warps)if(w.area===area.id){
-   const toRegion=isRegion(w.to),dest=areaById.get(w.to);
-   const shut=!lift&&doorLocked(w.area,w.at);
-   L.marker(ll(w.at),{icon:door(`${shut?'locked':toRegion?'exit':finished(w.area,w.to)?'done':''} ${lift?'lift':''} ${exits.has(w)?'next':''}`,lift?place(dest?.label??'').split(' ').pop():''),title:`${toRegion?t('exitTo',{place:place(placeAt(w.to,w.toAt)??dest?.label??'')}):`${place(dest?.label??t('interior'))}${finished(w.area,w.to)?` · ${t('nothingLeft')}`:''}`}${shut?` · ${t('unavailable')}`:''}`,zIndexOffset:500})
-    .on('click',()=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})).addTo(g);
-  }
-  if(arrival&&arrival.area===area.id)L.marker(ll(arrival.at),{icon:L.divIcon({className:'arrive',html:'<span></span><i></i>',iconSize:[0,0]}),title:arrival.label,interactive:false,zIndexOffset:1000}).addTo(g);
- },[stacks,done,skipSet,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place,trip,doorLocked,nextGoal]);
+  const L=leaflet.current,g=layer.current;if(!L||!g||!world||!area)return;
+  drawMap({L,g,world,area,areaById,items:trip?.draw??[],nextGoal,stacks,done,skipSet,pending,isRegion,finished,doorLocked,placeAt,arrival,tr,onPick:items=>{if(items.length>1){setSelected(null);setStack(items)}else{setStack(null);setSelected(items[0])}},onDoor:(w,toRegion)=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})});
+ },[stacks,done,skipSet,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place,trip,doorLocked,nextGoal,layer,leaflet,tr]);
 
  useLayoutEffect(()=>{
   const m=map.current,p=popup.current;if(!m||!p)return;
   const at=(selected??stack?.[0])?.at,where=(selected??stack?.[0])?.area;
   if(at&&where===area?.id){if(!m.hasLayer(p))p.setLatLng(ll(at)).openOn(m);else p.setLatLng(ll(at))}
   else if(m.hasLayer(p))m.closePopup(p);
- },[selected,stack,area,mapReady]);
+ },[selected,stack,area,mapReady,map,popup]);
  // Leaflet no se entera de que React cambio el contenido: se recoloca a mano.
  // El popup se coloca a mano, sin mover el mapa: encima del pin si cabe; si no
  // (pin pegado arriba, bajo la cabecera o la barra de pisos, donde una mazmorra
@@ -579,9 +443,8 @@ export default function Home(){
   if(shift){p.options.offset=L.point(shift,p.options.offset.y);p.update();if(tip)tip.style.marginLeft=`${-20-shift}px`;r=box.getBoundingClientRect()}
   const dy=r.bottom>stage.bottom-10?r.bottom-stage.bottom+10:0;
   if(dy)m.panBy([0,dy],{animate:true});
- },[selected,stack,done,area,battle]);
+ },[selected,stack,done,area,battle,leaflet,popup,map]);
  const toggleGroup=(name:string)=>setActive(a=>a.includes(name)?a.filter(x=>x!==name):[...a,name]);
- const saveDone=(update:(old:number[])=>number[])=>setDone(old=>{const n=update(old);try{localStorage.setItem(game.storage.done,JSON.stringify(n))}catch{}return n});
  const toggleDone=(uid:number,id?:string)=>{
   // Lo ultimo que marcas es donde estas: de ahi sale la siguiente ruta.
   if(id&&!done.includes(uid)){setLastTicked(id);try{localStorage.setItem(`${game.storage.done}-last`,id)}catch{}}
@@ -594,12 +457,9 @@ export default function Home(){
   }
   saveDone(old=>old.includes(uid)?old.filter(x=>x!==uid):[...old,uid]);
  };
- const setSkip=(uids:number[],on:boolean)=>setSkipped(old=>{const n=on?[...new Set([...old,...uids])]:old.filter(x=>!uids.includes(x));try{localStorage.setItem(`${game.storage.done}-skip`,JSON.stringify(n))}catch{}return n});
  const skipOne=(m:Marker)=>{setSkip([m.uid],true);setToast(t('skipToast'))};
  const unskip=(m:Marker)=>setSkip([m.uid],false);
  // La Pokedex marca o desmarca de una vez todas las entradas de una especie.
- const doneKey=game.storage.done;
- const setMany=useCallback((uids:number[],on:boolean)=>setDone(old=>{const n=on?[...new Set([...old,...uids])]:old.filter(x=>!uids.includes(x));try{localStorage.setItem(doneKey,JSON.stringify(n))}catch{}return n}),[doneKey]);
  const tracked=useMemo(()=>new Set((world?.markers??[]).filter(m=>!game.untracked.includes(m.category)).map(m=>m.uid)),[world,game]);
  const completed=done.filter(uid=>tracked.has(uid)).length,trackedLeft=tracked.size-[...skipSet,...never].filter(uid=>tracked.has(uid)).length;
  const pct=trackedLeft?Math.round(completed/trackedLeft*100):0;
