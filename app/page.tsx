@@ -17,6 +17,8 @@ import {refreshApp} from './service-worker';
 import {LearnView} from './learn';
 import {BehindNote,LEADER,goalTitle,nextGoalOf,type Behind,type Unlock} from './guide';
 import {TOUR_KEY,Tour} from './tour';
+import {loadJson} from './load-json';
+import {LoadNotice} from './load-notice';
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
 const span=(e:Encounter)=>`${e.min}${e.max!==e.min?`–${e.max}`:''}`;
@@ -44,10 +46,19 @@ export default function Home(){
  const popup=useRef<Popup|null>(null),[popupBox,setPopupBox]=useState<HTMLDivElement|null>(null);
  const el=useRef<HTMLDivElement>(null),map=useRef<LeafletMap|null>(null),layer=useRef<LayerGroup|null>(null),overlay=useRef<ImageOverlay|null>(null),shownArea=useRef<string|null>(null),leaflet=useRef<typeof import('leaflet')|null>(null);
  const [mapReady,setMapReady]=useState(false);
+ const [loadAttempt,setLoadAttempt]=useState(0),[worldFailure,setWorldFailure]=useState<string|null>(null);
+ const [battleAttempt,setBattleAttempt]=useState(0),[battleFailure,setBattleFailure]=useState<string|null>(null);
+ const [navAttempt,setNavAttempt]=useState(0),[navFailure,setNavFailure]=useState<string|null>(null);
+ const [namesAttempt,setNamesAttempt]=useState(0),[namesFailure,setNamesFailure]=useState(false);
+ const [moveTextAttempt,setMoveTextAttempt]=useState(0),[moveTextFailure,setMoveTextFailure]=useState<string|null>(null);
+ const [mapAttempt,setMapAttempt]=useState(0),[mapFailure,setMapFailure]=useState(false);
  const [gameId,setGameId]=useState(GAMES[0].id),[world,setWorld]=useState<World|null>(null),[lang,setLang]=useState<Lang>('en'),[names,setNames]=useState<Names>(null);
  const tr=useMemo(()=>translator(lang,names),[lang,names]),{t,category,method,place,name}=tr,{detail:tDetail}=tr,layerName=tr.layer;
  // Los nombres en espanol de los objetos (de PokeAPI) solo se bajan si hacen falta.
- useEffect(()=>{if(lang!=='es'||names)return;fetch('/data/names-es.json').then(r=>r.json()).then(setNames).catch(e=>console.error('No se pudieron cargar los nombres',e))},[lang,names]);
+ useEffect(()=>{if(lang!=='es'||names)return;const controller=new AbortController();setNamesFailure(false);
+  loadJson<NonNullable<Names>>('/data/names-es.json',{signal:controller.signal}).then(n=>{if(!n||[n.items,n.moves,n.abilities,n.natures].some(table=>!table||typeof table!=='object'||Array.isArray(table)||Object.values(table).some(value=>typeof value!=='string')))throw new Error('Invalid translations');setNames(n)}).catch(e=>{if(!controller.signal.aborted){setNamesFailure(true);console.error('No se pudieron cargar los nombres',e)}});
+  return()=>controller.abort();
+ },[lang,names,namesAttempt]);
  const game=GAMES.find(g=>g.id===gameId)??GAMES[0],groups=groupsOf(game.id);
  const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'|'team'>('checklist'),[dexView,setDexView]=useState<'dex'|'ranking'|'learn'>('dex'),[battles,setBattles]=useState<Record<string,Battle>>({}),[moveText,setMoveText]=useState<Record<string,{en:string;es:string}>|null>(null),[view,setView]=useState<View>({area:''});
  // Cada juego tiene sus datos de combate (Yellow, los de Gen 1): se guardan por archivo.
@@ -65,13 +76,13 @@ export default function Home(){
  useEffect(()=>{let saved:string|null=null;try{saved=localStorage.getItem(GAME_KEY)}catch{}const id=[new URLSearchParams(location.search).get('game'),saved].find(x=>GAMES.some(g=>g.id===x));if(id)setGameId(id);else setHome(true);setLast(GAMES.some(g=>g.id===saved)?saved:null);setLang(savedLang())},[]);
  // Cada juego carga sus datos y su progreso, y empieza en su primera region.
  useEffect(()=>{
-  let live=true;setWorld(null);setSelected(null);setStack(null);setEncounterZone(null);setLocations(false);saved.current=null;setArrival(null);
+  let live=true;const controller=new AbortController();setWorldFailure(null);setWorld(null);setSelected(null);setStack(null);setEncounterZone(null);setLocations(false);saved.current=null;setArrival(null);
   setActive(groupsOf(game.id).map(g=>g[0]).filter(n=>!game.hidden.includes(n)));
   try{setDone(JSON.parse(localStorage.getItem(game.storage.done)||'[]'))}catch{setDone([])}
   try{setSkipped(JSON.parse(localStorage.getItem(`${game.storage.done}-skip`)||'[]'))}catch{setSkipped([])}
-  loadGame(game).then(w=>{if(!live)return;setWorld(w);setView({area:w.areas.find(a=>a.kind==='region')?.id??w.areas[0].id})}).catch(e=>console.error('No se pudo cargar',game.id,e));
-  return()=>{live=false};
- },[game]);
+  loadGame(game,controller.signal).then(w=>{if(!live)return;setWorld(w);setView({area:w.areas.find(a=>a.kind==='region')?.id??w.areas[0].id})}).catch(e=>{if(live){setWorldFailure(game.id);console.error('No se pudo cargar',game.id,e)}});
+  return()=>{live=false;controller.abort()};
+ },[game,loadAttempt]);
  const pickGame=(id:string)=>{setGameId(id);setLast(id);try{localStorage.setItem(GAME_KEY,id)}catch{}};
  // Desde el inicio se entra siempre al mapa del juego elegido.
  // Desde el inicio se entra a la checklist: la ruta, con la primera zona abierta y
@@ -82,12 +93,16 @@ export default function Home(){
  // Tambien se carga al abrir un entrenador o un Pokemon salvaje del mapa.
  const needsBattle=tab==='team'||tab==='checklist'||(tab==='pokedex'&&dexView!=='dex')||selected?.category==='Battle'||!!selected?.encounter||!!stack?.some(m=>m.category==='Battle'||m.encounter);
  useEffect(()=>{if(!needsBattle||battle)return;const url=battleUrl(game);
-  fetch(url).then(r=>r.json()).then((b:Battle)=>setBattles(all=>({...all,[url]:b}))).catch(e=>console.error('No se pudieron cargar los datos de combate',e));
- },[needsBattle,battle,game]);
+  const controller=new AbortController();setBattleFailure(null);
+  loadJson<Battle>(url,{signal:controller.signal}).then(b=>{if(!b.species||!b.moves||!b.chart||!b.natures||!b.abilities)throw new Error('Invalid battle data');setBattles(all=>({...all,[url]:b}))}).catch(e=>{if(!controller.signal.aborted){setBattleFailure(url);console.error('No se pudieron cargar los datos de combate',e)}});
+  return()=>controller.abort();
+ },[needsBattle,battle,game,battleAttempt]);
  // Solo si las reglas del juego los tienen (en Gen 1 no hay descripciones).
  useEffect(()=>{if(tab!=='team'||moveText||!moveTextSrc)return;
-  fetch(moveTextSrc).then(r=>r.json()).then(setMoveText).catch(e=>console.error('No se pudo cargar la descripcion de los ataques',e));
- },[tab,moveText,moveTextSrc]);
+  const controller=new AbortController();setMoveTextFailure(null);
+  loadJson<Record<string,{en:string;es:string}>>(moveTextSrc,{signal:controller.signal}).then(texts=>{if(!texts||typeof texts!=='object'||Array.isArray(texts)||Object.values(texts).some(text=>!text||typeof text.en!=='string'||typeof text.es!=='string'))throw new Error('Invalid move descriptions');setMoveText(texts)}).catch(e=>{if(!controller.signal.aborted){setMoveTextFailure(moveTextSrc);console.error('No se pudo cargar la descripcion de los ataques',e)}});
+  return()=>controller.abort();
+ },[tab,moveText,moveTextSrc,moveTextAttempt]);
 
  const areaById=useMemo(()=>new Map((world?.areas??[]).map(a=>[a.id,a])),[world]);
  const regions=useMemo(()=>world?.areas.filter(a=>a.kind==='region')??[],[world]);
@@ -135,10 +150,10 @@ export default function Home(){
  // La rejilla de los mapas (nav.json): para las rutas y para saber a que llegas.
  const [navData,setNavData]=useState<{url:string;w:RouteWorld}|null>(null);
  const navUrl=`${game.data}/nav.json`,navWorld=navData?.url===navUrl?navData.w:null;
- useEffect(()=>{if(!world||navWorld)return;let live=true;
-  fetch(navUrl).then(r=>r.json()).then((n:Nav)=>{if(live)setNavData({url:navUrl,w:prepare(n)})}).catch(e=>console.error('No se pudo cargar la rejilla de rutas',e));
-  return()=>{live=false};
- },[world,navWorld,navUrl]);
+ useEffect(()=>{if(!world||navWorld)return;const controller=new AbortController();setNavFailure(null);
+  loadJson<Nav>(navUrl,{signal:controller.signal}).then(n=>{if(!n.maps||!n.moves||!Array.isArray(n.starts)||!Array.isArray(n.ferry))throw new Error('Invalid navigation data');const w=prepare(n);if(!controller.signal.aborted)setNavData({url:navUrl,w})}).catch(e=>{if(!controller.signal.aborted){setNavFailure(navUrl);console.error('No se pudo cargar la rejilla de rutas',e)}});
+  return()=>controller.abort();
+ },[world,navWorld,navUrl,navAttempt]);
  // Zonas y mapas que la historia aun no abre con lo que tienes (guardias, Snorlax...).
  const storyLeft=useCallback((owned:Set<string>)=>(world?.gates??[]).filter(x=>!x.id.startsWith('hm-')&&x.needs.some(n=>!owned.has(n))),[world]);
  const closedBy=useCallback((owned:Set<string>)=>{const story=storyLeft(owned);
@@ -249,7 +264,7 @@ export default function Home(){
 
  useEffect(()=>{
   // Un solo mapa para todos los juegos: al cambiar de juego solo cambia la imagen.
-  if(!el.current||map.current)return;let disposed=false;
+  if(!el.current||map.current)return;let disposed=false;setMapFailure(false);
   import('leaflet').then(mod=>{
    if(disposed||!el.current)return;const L=mod.default;leaflet.current=L;
    const m=L.map(el.current,{crs:L.CRS.Simple,zoomSnap:.25,zoomDelta:.5,maxZoom:2,zoomControl:false,attributionControl:false});
@@ -265,9 +280,9 @@ export default function Home(){
    // Eligiendo donde estas (Como llegar), el toque marca el sitio y no cierra nada.
    m.on('click',()=>{setSelected(null);setStack(null)});setPopupBox(box);
    layer.current=L.layerGroup().addTo(m);map.current=m;setMapReady(true);
-  }).catch(e=>console.error('No se pudo cargar Leaflet',e));
+  }).catch(e=>{if(!disposed){setMapFailure(true);console.error('No se pudo cargar Leaflet',e)}});
   return()=>{disposed=true;map.current?.remove();map.current=null};
- },[]);
+ },[mapAttempt]);
 
  // Cambiar de area cambia la imagen; cada vista decide donde se posa la camara.
  // Solo con el mapa a la vista: oculto (se empieza en la checklist) mide 0x0, el
@@ -641,6 +656,14 @@ export default function Home(){
   return last?Math.floor(last+(next-last)*.25):Math.max(5,next-5);
  },[world,done]);
  const tabs=([['checklist',t('tabChecklist'),ListChecks],['mapa',t('tabMap'),MapIcon],['pokedex',t('tabDex'),BookOpen],['team',t('tabTeam'),Swords]] as const);
+ const worldFailed=worldFailure===game.id,battleFailed=battleFailure===battleUrl(game)&&!battle;
+ const retryWorld=()=>setLoadAttempt(n=>n+1),retryBattle=()=>setBattleAttempt(n=>n+1);
+ const worldNotice=<LoadNotice message={worldFailed?t('loadGameFailed',{game:game.short}):t('loadingGame',{game:game.short})} onRetry={worldFailed?retryWorld:undefined} tr={tr}/>;
+ const battleNotice=<LoadNotice message={t('loadBattleFailed')} onRetry={retryBattle} tr={tr}/>;
+ const extraFailure=world&&(navFailure===navUrl&&!navWorld?{message:t('loadRoutesFailed'),retry:()=>setNavAttempt(n=>n+1)}
+  :lang==='es'&&namesFailure&&!names?{message:t('loadNamesFailed'),retry:()=>setNamesAttempt(n=>n+1)}
+  :tab==='team'&&moveTextFailure===moveTextSrc&&!moveText?{message:t('loadMoveTextFailed'),retry:()=>setMoveTextAttempt(n=>n+1)}
+  :battleFailed&&needsBattle&&(tab==='checklist'||tab==='mapa')?{message:t('loadBattleFailed'),retry:retryBattle}:null);
  const areaName=(id?:string)=>id?place(areaById.get(id)?.label??'—'):'—';
  // Ficha de un marcador: el lugar junto a la categoria si es corto.
  // Lo que vende una tienda, con los objetos traducidos; los demas detalles solo
@@ -712,7 +735,7 @@ export default function Home(){
   items={trip?.items??[]} partial={!!trip?.partial} status={!trip?'loading':trip.items?'ok':'none'} onStep={item=>{setTripOpen(false);stepTo(item)}}
   labelOf={it=>isRegion(it.area)?place(it.zone):place(areaById.get(it.area)?.label??it.zone)} isInterior={a=>!isRegion(a)} tr={tr}/>}
  </div>
- {!world&&<div className="loading">{t('loadingGame',{game:game.short})}</div>}<div className="map-note">{t('mapNote')}</div></div>
+ {(!world||!mapReady)&&<div className="loading">{!world?worldNotice:<LoadNotice message={mapFailure?t('loadMapFailed'):t('loading')} onRetry={mapFailure?()=>setMapAttempt(n=>n+1):undefined} tr={tr}/>}</div>}<div className="map-note">{t('mapNote')}</div></div>
  {locations&&world&&<div className="locations">{here&&<button className="leave-inline" onClick={()=>{leave();setLocations(false)}}><ArrowLeft/>{t('backToMap',{region:place(areaById.get(exitRegion??'')?.label??'')})}</button>}
   {regions.map((r,i)=><Fragment key={r.id}><h3>{place(r.label).toUpperCase()}</h3><button className={area?.id===r.id?'current':''} onClick={()=>showRegion(r.id)}><MapIcon/>{t('wholeMap')}</button>{world.places.filter(p=>p.area===r.id||(i===0&&!isRegion(p.area))).map(loc=><button key={loc.name} onClick={()=>go(loc)}><MapPin/>{place(loc.name)}</button>)}</Fragment>)}
   <h3>{t('interiors')}</h3>{[...zoneFloors].map(([zone,list])=><div key={zone} className="dungeon"><h4>{place(zone)}</h4>{list.map(f=><button key={f.id} onClick={()=>enter(f.id)} className={here?.id===f.id?'current':''}><DoorOpen/>{place(f.label)}<b>{inArea.get(f.id)?.length??0}</b></button>)}</div>)}</div>}
@@ -722,19 +745,21 @@ export default function Home(){
     {!game.untracked.includes(selected.category)&&!whyLocked(selected)&&canSkip(selected)&&<button className="pop-skip" onClick={()=>skipOne(selected)}><SkipForward/>{t('skip')}</button>}</div>}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{checkOrder(stack!,m=>!!whyLocked(m)).map(m=><Fragment key={m.id}>{popRowWithAdvice(m,true)}</Fragment>)}</div>,popupBox)}
  {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={place(encounterZone.name)}><button className="close" onClick={()=>setEncounterZone(null)} aria-label={t('close')}><X/></button><small>{t('encountersWild').toUpperCase()}</small><h2>{place(encounterZone.name)}</h2><p>{t('availableHere',{n:encounterZone.pokemon.length})}</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>{t('encounterRate',{levels:`${min}${max!==min?`–${max}`:''}`,chance,methods:[...new Set(variants.map(v=>method(METHODS[v.method]??v.method)))].join(' · ')})}</span></div></article>})}</div></dialog></div>}
  </div>
- {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} gates={world.gates} goals={world.goals} goalNotes={world.goalNotes} settled={settled} skipped={skipSet} onSkip={skipOne} onUnskip={unskip} canSkip={canSkip} behind={leftovers} onSkipBehind={skipBehind} onRoute={startRoute} unlock={unlock} onUnlockDismiss={()=>setUnlock(null)} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} unavailable={unavailable} hideUnavailable={hideUnavailable} setHideUnavailable={setHideUnavailable} battle={battle} dex={world.dex} teamKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{t('loadingChecklist')}</div>)}
+ {extraFailure&&<LoadNotice message={extraFailure.message} onRetry={extraFailure.retry} tr={tr} banner/>}
+ {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} gates={world.gates} goals={world.goals} goalNotes={world.goalNotes} settled={settled} skipped={skipSet} onSkip={skipOne} onUnskip={unskip} canSkip={canSkip} behind={leftovers} onSkipBehind={skipBehind} onRoute={startRoute} unlock={unlock} onUnlockDismiss={()=>setUnlock(null)} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} unavailable={unavailable} hideUnavailable={hideUnavailable} setHideUnavailable={setHideUnavailable} battle={battle} dex={world.dex} teamKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{worldNotice}</div>)}
  {/* La Pokedex y el ranking comparten pestana, cada uno con su lista: se
      cambia con el selector de arriba (el ranking solo en FireRed/LeafGreen). */}
  {tab==='pokedex'&&(()=>{
   const switcher=<div className="list-switch">{([['dex',t('tabDex')],['ranking',t('tabRanking')],['learn',t('tabLearn')]] as const).map(([k,label])=>
    <button key={k} className={`chip ${dexView===k?'on':''}`} aria-pressed={dexView===k} onClick={()=>setDexView(k)}>{label}</button>)}</div>;
-  if(!world)return <div className="listview loading-list">{t('loadingDex')}</div>;
+  if(!world)return <div className="listview loading-list">{worldNotice}</div>;
+  if(dexView!=='dex'&&battleFailed)return <div className="listview">{switcher}{battleNotice}</div>;
   if(dexView==='learn')return <LearnView battle={battle} gen={game.gen} switcher={switcher} tr={tr}/>;
   return dexView==='ranking'&&switcher
    ?<RankingView dex={world.dex} battle={battle} byId={byId} done={done} dexKey={game.storage.dex} storageKey={`${game.storage.done}-team`} switcher={switcher} tr={tr}/>
    :<PokedexView dex={world.dex} byId={byId} done={done} setMany={setMany} onShow={showOnMap} game={game.short} storageKey={game.storage.dex} switcher={switcher} tr={tr}/>;
  })()}
- {tab==='team'&&(world?<TeamView dex={world.dex} battle={battle} moveText={moveTextSrc?moveText:null} storageKey={`${game.storage.done}-team`} suggestedLevel={suggestedLevel} tr={tr}/>:<div className="listview loading-list">{t('loadingTeam')}</div>)}
+ {tab==='team'&&(world?battleFailed?<div className="listview loading-list">{battleNotice}</div>:<TeamView dex={world.dex} battle={battle} moveText={moveTextSrc?moveText:null} storageKey={`${game.storage.done}-team`} suggestedLevel={suggestedLevel} tr={tr}/>:<div className="listview loading-list">{worldNotice}</div>)}
  {tour&&!home&&<Tour onClose={closeTour} tr={tr}/>}
  {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label={t('credits')}><button className="close" onClick={()=>setAbout(false)} aria-label={t('close')}><X/></button><BackupBox tr={tr}/><button className="tour-again" onClick={()=>{setAbout(false);setTour(true)}}>{t('tourAgain')}</button><button className="tour-again reset-game" onClick={()=>resetGame()}><RotateCcw/>{t('resetGame',{game:game.title})}</button><small>{t('about')}</small><h2>{t('credits')}</h2><Credits game={game.id} tr={tr}/></dialog></div>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>

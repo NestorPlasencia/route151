@@ -6,6 +6,7 @@ import type {Choice,Closing,Gate,Marker} from './shared';
 import {registerStory,registerTeach} from './i18n';
 import type {Checklist,Dex} from './lists';
 import {rulesFor,type Gen} from './rules';
+import {loadJson} from './load-json';
 
 export type Pt=[number,number];
 export type Area={id:string;kind:'region'|'interior';label:string;zone?:string;image:string;width:number;height:number};
@@ -27,8 +28,6 @@ export type Game={
  hidden:string[];untracked:string[];
 };
 
-async function json<T>(url:string):Promise<T>{const r=await fetch(url);if(!r.ok)throw new Error(`${r.status} ${url}`);return r.json() as Promise<T>}
-
 // Metodos de encuentro como los nombra PokeAPI; los datos de ahora ya traen el
 // nombre final, asi que solo se traduce lo que venga con ese formato.
 export const METHODS:Record<string,string>={walk:'Grass','old-rod':'Old Rod','good-rod':'Good Rod','super-rod':'Super Rod',surf:'Surf'};
@@ -39,17 +38,29 @@ export const METHODS:Record<string,string>={walk:'Grass','old-rod':'Old Rod','go
 // Numero estable para guardar el progreso: el mismo FNV-1a de 31 bits que
 // scripts/common/world.py (uid_of), para que un paso valga lo mismo en los dos.
 const uidOf=(text:string)=>{let h=2166136261;for(const b of new TextEncoder().encode(text)){h^=b;h=Math.imul(h,16777619)>>>0}return h&0x7fffffff};
+const strings=(value:unknown):value is string[]=>Array.isArray(value)&&value.every(v=>typeof v==='string');
+const bilingual=(value:{en:string;es:string}|undefined)=>!!value&&typeof value.en==='string'&&typeof value.es==='string';
 
-export async function loadGame(game:Game):Promise<World>{
+export async function loadGame(game:Game,signal?:AbortSignal):Promise<World>{
  const {data,version}=game;
+ const json=<T>(file:string)=>loadJson<T>(`${data}/${file}`,{signal});
  const [a,markers,enc,checklist,dex]=await Promise.all([
-  json<{areas:Area[];warps:Warp[];places:Place[]}>(`${data}/areas.json`),json<(Marker&{version?:string})[]>(`${data}/markers.json`),
-  json<{zones:EncounterZone[]}>(`${data}/encounters-${version}.json`),json<Checklist>(`${data}/checklist.json`),json<Dex>(`${data}/pokedex-${version}.json`)]);
+  json<{areas:Area[];warps:Warp[];places:Place[]}>('areas.json'),json<(Marker&{version?:string})[]>('markers.json'),
+  json<{zones:EncounterZone[]}>(`encounters-${version}.json`),json<Checklist>('checklist.json'),json<Dex>(`pokedex-${version}.json`)]);
+ if(!a.areas?.length||!Array.isArray(a.warps)||!Array.isArray(a.places)||!Array.isArray(markers)
+  ||!Array.isArray(enc.zones)||!Array.isArray(checklist.zones)||!checklist.markers||!Array.isArray(dex.species))throw new Error('Invalid game data');
  // Bloqueos: los de la historia (a mano) y los de las MO (sacados de los mapas:
- // lo que queda detras de un arbol o del agua). Si un juego no los tiene, nada.
- const fileOf=(file:string)=>json<{gates:Gate[];choices?:Choice[];closes?:Closing[]}>(`${data}/${file}`).catch(()=>({gates:[] as Gate[],choices:[] as Choice[],closes:[] as Closing[]}));
+ // lo que queda detras de un arbol o del agua). Son esenciales: no se permite
+ // continuar sin ellos y presentar zonas bloqueadas como si estuvieran abiertas.
+ const fileOf=(file:string)=>json<{gates:Gate[];choices?:Choice[];closes?:Closing[]}>(file);
  const [story,hm]=await Promise.all([fileOf('gates.json'),fileOf('hm-gates.json')]);
+ if(!Array.isArray(story.gates)||!Array.isArray(hm.gates)
+  ||(story.choices!==undefined&&!Array.isArray(story.choices))||(story.closes!==undefined&&!Array.isArray(story.closes)))throw new Error('Invalid gates');
  const gates=[...story.gates,...hm.gates],choices=story.choices??[],closings=story.closes??[];
+ if(!gates.every(g=>g&&typeof g.id==='string'&&strings(g.needs)&&bilingual(g.why)
+  &&[g.zones,g.maps,g.markers].every(list=>list===undefined||strings(list)))
+  ||!choices.every(c=>c&&typeof c.id==='string'&&Array.isArray(c.options)&&c.options.every(strings))
+  ||!closings.every(c=>c&&typeof c.id==='string'&&strings(c.zones)&&typeof c.by==='string'&&typeof c.gone==='string'&&bilingual(c.warn)&&bilingual(c.why)))throw new Error('Invalid gate entries');
  // Objetivos (goals.json, a mano), en orden. Cada uno es un marcador de la
  // checklist ("id") o un paso propio ("step" con su mapa y casilla): este se
  // vuelve un marcador mas, un check de verdad, colocado con la rejilla de los
@@ -57,13 +68,17 @@ export async function loadGame(game:Game):Promise<World>{
  // como el de cualquier marcador, para que el progreso no se pierda.
  type Goal=({id:string;name?:string;note?:{en:string;es:string}}|{step:string;map:string;x:number;y:number;name:{en:string;es:string};detail:{en:string;es:string}})&{optional?:boolean};
  const [goalList,nav]=await Promise.all([
-  json<{goals:Goal[]}>(`${data}/goals.json`).then(g=>g.goals).catch(()=>[] as Goal[]),
-  json<{maps:Record<string,{zone:string;area:string;x:number;y:number}>}>(`${data}/nav.json`).then(n=>n.maps).catch(()=>({} as Record<string,{zone:string;area:string;x:number;y:number}>))]);
+  json<{goals:Goal[]}>('goals.json').then(g=>g.goals),
+  json<{maps:Record<string,{zone:string;area:string;x:number;y:number}>}>('nav.json').then(n=>n.maps)]);
+ if(!Array.isArray(goalList)||!nav||typeof nav!=='object'||Array.isArray(nav))throw new Error('Invalid goals or navigation');
+ if(!goalList.every(g=>g&&typeof g==='object'&&('step' in g
+  ?typeof g.step==='string'&&typeof g.map==='string'&&Number.isInteger(g.x)&&Number.isInteger(g.y)&&bilingual(g.name)&&bilingual(g.detail)
+  :typeof g.id==='string'&&(g.note===undefined||bilingual(g.note)))))throw new Error('Invalid goal entries');
  const prefix=data.split('/').filter(Boolean)[0],areaById=new Map(a.areas.map(x=>[x.id,x]));
  const steps:(Marker&{zone:string;floor:string|null})[]=[];
  for(const g of goalList){
   if(!('step' in g))continue;
-  const m=nav[g.map];if(!m)continue;
+  const m=nav[g.map];if(!m)throw new Error(`Missing goal map: ${g.map}`);
   const inside=areaById.get(m.area)?.kind==='interior',floor=inside?areaById.get(m.area)!.label:null;
   steps.push({id:`${g.map}:story:${g.step}`,uid:uidOf(`${prefix}:story:${g.step}`),category:'Story',name:g.name.en,detail:g.detail.en,
    location:floor??m.zone,area:m.area,at:[(m.x+g.x)*16+8,(m.y+g.y)*16+8],icon:null,zone:m.zone,floor});

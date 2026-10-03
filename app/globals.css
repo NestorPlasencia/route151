@@ -821,3 +821,11 @@ button:disabled .check-box{border-color:#d5dde8;background:#f1f4f8;animation:non
 .map-goal button.map-goal-tick{background:none;border:0}
 .goal-mini button.goal-mini-alert{background:#e07b00;padding:0 9px}
 .goal-mini button.goal-mini-alert svg{width:17px}
+
+/* Mensajes de carga y reintento, tambien en el mapa y en pantallas pequenas. */
+.load-notice{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:var(--muted)}
+.load-notice p{margin:0;max-width:42ch;line-height:1.5}
+.load-notice button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 16px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--blue);font-weight:600;cursor:pointer}
+.load-notice button svg{width:16px;height:16px}
+.load-notice-banner{flex:none;flex-direction:row;flex-wrap:wrap;padding:12px 16px;background:#fff7d3;color:#604a12}
+.loading .load-notice{color:#e4eafa}

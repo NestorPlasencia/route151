@@ -1,6 +1,6 @@
 // Service worker de Route 151: permite instalar la app y usarla sin conexion.
 // Sube VERSION cuando cambie la estrategia de cache para descartar la anterior.
-const VERSION = 'v4';
+const VERSION = 'v5';
 const SHELL = `route151-shell-${VERSION}`;
 const ASSETS = `route151-assets-${VERSION}`;
 const DATA = `route151-data-${VERSION}`;
@@ -102,6 +102,12 @@ self.addEventListener('fetch', (event) => {
     // guardado permite escanear sin conexion.
     event.respondWith(cacheFirst(request, ASSETS));
   } else if (/^\/(data|icons|frlg|yellow)\//.test(url.pathname)) {
+    if (url.pathname.endsWith('.json') && request.cache === 'reload') {
+      // Las cargas y reintentos de datos esperan la respuesta nueva. Sin red,
+      // la ultima copia sigue sirviendo, en lugar de perder el modo offline.
+      event.respondWith(networkFirst(request, DATA));
+      return;
+    }
     // Mismo nombre de archivo aunque se regeneren: se refrescan solos.
     event.respondWith(staleWhileRevalidate(event, DATA));
   }
