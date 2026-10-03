@@ -5,6 +5,7 @@
 import {useState} from 'react';
 import {BookOpen,Download,Footprints,ListChecks,Swords,Target} from 'lucide-react';
 import type {Key,T} from './i18n';
+import {Modal} from './modal';
 
 export const TOUR_KEY='ruta151-tour';
 const SLIDES:[typeof ListChecks,Key,Key][]=[
@@ -20,8 +21,7 @@ export function Tour({onClose,tr}:{onClose:()=>void;tr:T}){
  const {t}=tr;
  const [i,setI]=useState(0);
  const [Icon,title,text]=SLIDES[i],last=i===SLIDES.length-1;
- return <div className="modal-backdrop tour-backdrop" role="presentation">
-  <dialog open className="modal tour" aria-modal="true" aria-label={t('tourTitle')}>
+ return <Modal className="modal tour" label={t('tourTitle')} onClose={onClose} dismissBackdrop={false}>
    <small>{t('tourTitle')} · {i+1}/{SLIDES.length}</small>
    <i className="tour-icon"><Icon/></i>
    <h2>{t(title)}</h2>
@@ -30,8 +30,7 @@ export function Tour({onClose,tr}:{onClose:()=>void;tr:T}){
    <div className="tour-actions">
     {!last&&<button className="tour-skip" onClick={onClose}>{t('tourSkip')}</button>}
     {i>0&&<button className="tour-back" onClick={()=>setI(i-1)}>{t('back')}</button>}
-    <button className="tour-next" onClick={()=>last?onClose():setI(i+1)}>{t(last?'tourStart':'tourNext')}</button>
+    <button data-dialog-focus className="tour-next" onClick={()=>last?onClose():setI(i+1)}>{t(last?'tourStart':'tourNext')}</button>
    </div>
-  </dialog>
- </div>;
+ </Modal>;
 }

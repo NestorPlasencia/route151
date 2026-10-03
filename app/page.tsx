@@ -3,24 +3,23 @@ import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} 
 import {createPortal} from 'react-dom';
 import {useGameMap} from './use-game-map';
 import {drawMap} from './map-drawing';
-import {ArrowLeft,BookOpen,Check,RefreshCw,RotateCcw,ChevronDown,DoorOpen,Footprints,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,SkipForward,Sparkles,Swords,Undo2,X} from 'lucide-react';
-import {Credits,FIELD_MOVES,Figure,checkOrder,choicesTaken,groupsOf,haveNames,missingTool,obstacleMove,unmetGate,type Encounter,type Marker} from './shared';
+import {ArrowLeft,BookOpen,Check,RefreshCw,ChevronDown,DoorOpen,Footprints,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,SkipForward,Sparkles,Swords,Undo2} from 'lucide-react';
+import {FIELD_MOVES,Figure,checkOrder,choicesTaken,groupsOf,haveNames,missingTool,obstacleMove,unmetGate,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang} from './i18n';
 import {ChecklistView,PokedexView} from './lists';
 import {GameHome} from './home';
 import {BattleAdvice,effortText,trainerOpponents,type Opponent} from './team';
-import {GAMES,METHODS,battleUrl,moveTextUrl,type Area,type EncounterZone,type Place,type Pt} from './games';
+import {GAMES,battleUrl,moveTextUrl,type Area,type EncounterZone,type Place,type Pt} from './games';
 import {blockerOf,findRoute,legsOf,reached,targetAt,movesYouHave} from './pathfind';
 import {useNavigation} from './use-navigation';
 import {useGameProgress} from './use-game-progress';
 import {RoutePanel,tripItems,withoutGates,type TripItem} from './trip';
-import {BackupBox} from './backup';
 import {refreshApp} from './service-worker';
 import {BehindNote,LEADER,goalTitle,nextGoalOf,type Behind,type Unlock} from './guide';
 import {TOUR_KEY,Tour} from './tour';
 import {useBattle,useGameWorld,useMoveText,useNames} from './use-game-data';
 import {LoadNotice} from './load-notice';
-import {OfflineDownload} from './offline';
+import {AboutDialog,EncounterDialog} from './game-dialogs';
 import dynamic from 'next/dynamic';
 const RankingView=dynamic(()=>import('./ranking').then(m=>m.RankingView));
 const LearnView=dynamic(()=>import('./learn').then(m=>m.LearnView));
@@ -246,8 +245,7 @@ export default function Home(){
  // con su recuento, o el de arriba taparia a los demas.
  const stacks=useMemo(()=>{const g=new Map<string,{at:Pt;items:Marker[]}>();for(const m of shown){const k=m.at!.join(','),s=g.get(k);if(s)s.items.push(m);else g.set(k,{at:m.at!,items:[m]})}return [...g.values()]},[shown]);
  useEffect(()=>setStack(null),[view.area]);
- useEffect(()=>{if(!about)return;const close=(e:KeyboardEvent)=>e.key==='Escape'&&setAbout(false);addEventListener('keydown',close);return()=>removeEventListener('keydown',close)},[about]);
- useEffect(()=>{if(!stack&&!selected&&!encounterZone)return;const close=(e:KeyboardEvent)=>{if(e.key!=='Escape')return;if(selected)setSelected(null);else if(stack)setStack(null);else setEncounterZone(null)};addEventListener('keydown',close);return()=>removeEventListener('keydown',close)},[stack,selected,encounterZone]);
+ useEffect(()=>{if(!stack&&!selected&&!encounterZone)return;const close=(e:KeyboardEvent)=>{if(e.key!=='Escape'||document.querySelector('dialog:modal'))return;if(selected)setSelected(null);else if(stack)setStack(null);else setEncounterZone(null)};addEventListener('keydown',close);return()=>removeEventListener('keydown',close)},[stack,selected,encounterZone]);
  const counts=useMemo(()=>{const c:Record<string,number>={};(area?inArea.get(area.id)??[]:[]).forEach(m=>c[m.category]=(c[m.category]??0)+1);return c},[area,inArea]);
 
  // Al salir de una region se guarda la vista para volver exactamente alli.
@@ -606,7 +604,7 @@ export default function Home(){
   {skipSet.has(selected.uid)?<div className="pop-actions"><button className="pop-skip" onClick={()=>unskip(selected)}><Undo2/>{t('unskip')}</button></div>
    :!done.includes(selected.uid)&&<div className="pop-actions"><button className="pop-route" onClick={()=>startRoute(selected)}><Footprints/>{t('routeHow')}</button>
     {!game.untracked.includes(selected.category)&&!whyLocked(selected)&&canSkip(selected)&&<button className="pop-skip" onClick={()=>skipOne(selected)}><SkipForward/>{t('skip')}</button>}</div>}</div>:<div className="pop pop-list"><small className="pop-title">{t('atThisSpot',{n:stack!.length})} · {areaName(stack![0].area)}</small>{checkOrder(stack!,m=>!!whyLocked(m)).map(m=><Fragment key={m.id}>{popRowWithAdvice(m,true)}</Fragment>)}</div>,popupBox)}
- {encounterZone&&!selected&&!stack&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setEncounterZone(null)}}><dialog open className="drawer encounter-drawer" aria-modal="true" aria-label={place(encounterZone.name)}><button className="close" onClick={()=>setEncounterZone(null)} aria-label={t('close')}><X/></button><small>{t('encountersWild').toUpperCase()}</small><h2>{place(encounterZone.name)}</h2><p>{t('availableHere',{n:encounterZone.pokemon.length})}</p><div className="encounter-list">{encounterZone.pokemon.map(mon=>{const variants=mon.areas.flatMap(a=>a.encounters);const min=Math.min(...variants.map(v=>v.minLevel)),max=Math.max(...variants.map(v=>v.maxLevel)),chance=Math.max(...variants.map(v=>v.chance));return <article key={mon.id}><img src={mon.sprite} alt=""/><div><b>{mon.name.replace(/-/g,' ')}</b><span>{t('encounterRate',{levels:`${min}${max!==min?`–${max}`:''}`,chance,methods:[...new Set(variants.map(v=>method(METHODS[v.method]??v.method)))].join(' · ')})}</span></div></article>})}</div></dialog></div>}
+ {encounterZone&&!selected&&!stack&&<EncounterDialog zone={encounterZone} tr={tr} onClose={()=>setEncounterZone(null)}/>}
  </div>
  {extraFailure&&<LoadNotice message={extraFailure.message} onRetry={extraFailure.retry} tr={tr} banner/>}
  {tab==='checklist'&&(world?<ChecklistView markers={listed} checklist={world.checklist} gates={world.gates} goals={world.goals} goalNotes={world.goalNotes} settled={settled} skipped={skipSet} onSkip={skipOne} onUnskip={unskip} canSkip={canSkip} behind={leftovers} onSkipBehind={skipBehind} onRoute={startRoute} unlock={unlock} onUnlockDismiss={()=>setUnlock(null)} done={done} toggleDone={toggleDone} onShow={showOnMap} onShowZone={showZone} detail={detail} unavailable={unavailable} hideUnavailable={hideUnavailable} setHideUnavailable={setHideUnavailable} battle={battle} dex={world.dex} teamKey={`${game.storage.done}-team`} tr={tr}/>:<div className="listview loading-list">{worldNotice}</div>)}
@@ -624,7 +622,7 @@ export default function Home(){
  })()}
  {tab==='team'&&(world?battleFailed?<div className="listview loading-list">{battleNotice}</div>:<TeamView dex={world.dex} battle={battle} moveText={moveTextSrc?moveText:null} storageKey={`${game.storage.done}-team`} suggestedLevel={suggestedLevel} tr={tr}/>:<div className="listview loading-list">{worldNotice}</div>)}
  {tour&&!home&&<Tour onClose={closeTour} tr={tr}/>}
- {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label={t('credits')}><button className="close" onClick={()=>setAbout(false)} aria-label={t('close')}><X/></button><OfflineDownload game={game.id} tr={tr}/><BackupBox tr={tr}/><button className="tour-again" onClick={()=>{setAbout(false);setTour(true)}}>{t('tourAgain')}</button><button className="tour-again reset-game" onClick={()=>resetGame()}><RotateCcw/>{t('resetGame',{game:game.title})}</button><small>{t('about')}</small><h2>{t('credits')}</h2><Credits game={game.id} tr={tr}/></dialog></div>}
+ {about&&<AboutDialog game={game} tr={tr} onClose={()=>setAbout(false)} onTour={()=>{setAbout(false);setTour(true)}} onReset={resetGame}/>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>
  {home&&<GameHome current={game.id} last={last} lang={lang} onLang={pickLang} onPick={choose} tr={tr}/>}
  </main>

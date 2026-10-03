@@ -2,9 +2,10 @@
 // Aprender a jugar: la tabla de tipos del juego y un glosario de los terminos
 // de la app (IV, EV, naturaleza...), cada uno explicado segun su generacion.
 // Una "?" junto a un termino abre su explicacion donde se usa.
-import {useEffect,useState} from 'react';
+import {useState} from 'react';
 import {createPortal} from 'react-dom';
 import {CircleHelp,X} from 'lucide-react';
+import {Modal} from './modal';
 import type {T} from './i18n';
 import type {Battle} from './team';
 import type {Gen} from './rules';
@@ -61,14 +62,11 @@ export const entryOf=(id:string,gen:Gen)=>GLOSSARY.find(e=>e.id===id&&e.gens.inc
 export function Help({term,gen,tr}:{term:string;gen:Gen;tr:T}){
  const [open,setOpen]=useState(false);
  const e=entryOf(term,gen);
- useEffect(()=>{if(!open)return;const close=(ev:KeyboardEvent)=>ev.key==='Escape'&&setOpen(false);addEventListener('keydown',close);return()=>removeEventListener('keydown',close)},[open]);
  if(!e)return null;
  return <>
   <button type="button" className="help" aria-label={tr.t('helpWhat',{term:pick(e.title,tr)})} onClick={ev=>{ev.preventDefault();ev.stopPropagation();setOpen(true)}}><CircleHelp/></button>
   {/* Fuera del <label> donde va la "?": dentro, tocar la hoja activaria el campo. */}
-  {open&&createPortal(<div className="help-backdrop" role="presentation" onClick={ev=>{if(ev.target===ev.currentTarget)setOpen(false)}}>
-   <dialog open className="help-sheet" aria-label={pick(e.title,tr)}><button className="close" onClick={()=>setOpen(false)} aria-label={tr.t('close')}><X/></button><b>{pick(e.title,tr)}</b><p>{pick(e.text,tr)}</p></dialog>
-  </div>,document.body)}
+  {open&&createPortal(<Modal className="help-sheet" label={pick(e.title,tr)} onClose={()=>setOpen(false)}><button data-dialog-focus className="close" onClick={()=>setOpen(false)} aria-label={tr.t('close')}><X/></button><b>{pick(e.title,tr)}</b><p>{pick(e.text,tr)}</p></Modal>,document.body)}
  </>;
 }
 
