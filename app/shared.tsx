@@ -3,6 +3,7 @@
 import {useEffect,useState} from 'react';
 import {Flag,Gift,MapPin,Mountain,Search,Sparkles,Store,Swords} from 'lucide-react';
 import type {T} from './i18n';
+export {TOOLS,haveNames,missingTool,choicesTaken,unmetGate,checkOrder} from './progress';
 
 export type Encounter={zone:string;min:number;max:number;chance:number;methods:string[];sprite?:string};
 // `area` y `at`: donde se pinta (sin ellos solo aparece en las listas);
@@ -23,20 +24,6 @@ export const colorOf=(category:string)=>frlgGroups.find(g=>g[0]===category)?.[2]
 // Herramientas que hacen falta para un metodo de encuentro, por el nombre de su
 // marcador en la checklist (el mismo en todos los juegos): la cana para pescar,
 // la MO para surfear o romper rocas. Andar por hierba o cueva no pide nada.
-export const TOOLS:Record<string,string>={'Old Rod':'Old Rod','Good Rod':'Good Rod','Super Rod':'Super Rod',Surf:'HM03','Rock Smash':'HM06'};
-// Lo que ya tienes: los nombres de los marcadores marcados en tu checklist (la
-// Cana Vieja, la MO03, "Leader Brock"...). De ahi salen herramientas y bloqueos.
-export const haveNames=(markers:Marker[],done:number[])=>new Set(markers.filter(m=>done.includes(m.uid)).map(m=>m.name));
-// La herramienta que te falta para atrapar este Pokemon, o null si alguna de sus
-// formas de encontrarlo ya te sirve (hierba y pesca: con la hierba basta).
-export const missingTool=(m:Marker,owned:Set<string>)=>{
- const methods=m.category==='Pokémon'?m.encounter?.methods??[]:[];
- if(!methods.length||methods.some(method=>!TOOLS[method]||owned.has(TOOLS[method])))return null;
- // La primera que se consigue de las que sirven: si vale la Cana Buena, no pide la Super.
- const order=Object.values(TOOLS);
- return methods.map(method=>TOOLS[method]).sort((x,y)=>order.indexOf(x)-order.indexOf(y))[0];
-};
-
 // MO de campo que quitan un obstaculo del mapa, con lo que piden (la MO y la
 // medalla que deja usarla fuera de combate; igual en los juegos de Kanto, como
 // en scripts/common/hm_gates.py) y el nombre de su obstaculo en los marcadores.
@@ -64,23 +51,10 @@ export type Choice={id:string;options:string[][]};
 // marcado (Lt. Surge, que pide Corte) seguro que ya se fue y lo que falta se pierde.
 export type Closing={id:string;zones:string[];by:string;gone:string;warn:{en:string;es:string};why:{en:string;es:string}};
 // Marcador descartado -> el que elegiste en su lugar.
-export const choicesTaken=(choices:Choice[],isDone:(id:string)=>boolean)=>{
- const out=new Map<string,string>();
- for(const c of choices){const pick=c.options.find(o=>o.some(isDone));if(!pick)continue;
-  const chosen=pick.find(isDone)!;for(const o of c.options)if(o!==pick)for(const id of o)if(!isDone(id))out.set(id,chosen)}
- return out;
-};
-export const unmetGate=(m:Marker&{map?:string;zone?:string},gates:Gate[],have:Set<string>)=>gates.find(g=>
- (g.zones?.includes(m.zone??'')||g.maps?.includes(m.map??'')||g.markers?.includes(m.id))&&!g.needs.includes(m.name)&&g.needs.some(n=>!have.has(n)))??null;
-
 // Orden dentro de cada seccion: primero los pasos de la historia, luego lo que se recoge (objetos, regalos,
 // tiendas), luego los combates y al final lo que se captura (salvajes, Pokemon
 // de regalo, intercambios). Lo no disponible, detras de todo. Estable: dentro
 // de cada grupo se queda el orden del juego.
-const KIND:Record<string,number>={Story:-1,Battle:1,'Pokémon':2,'In-Game Gift Pokémon':2,'In-Game Trade':2};
-export const checkOrder=<T extends Marker>(list:T[],blocked:(m:T)=>boolean)=>
- list.map((m,i)=>({m,i,k:(blocked(m)?10:0)+(KIND[m.category]??0)})).sort((a,b)=>a.k-b.k||a.i-b.i).map(x=>x.m);
-
 // Todos los marcadores traen su figurita: los combates, el sprite del mapa.
 export const iconOf=(m:{icon?:string|null})=>m.icon??undefined;
 

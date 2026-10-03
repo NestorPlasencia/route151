@@ -6,6 +6,8 @@ import {ChevronDown,Footprints,Info,KeyRound,List,Lock,LockOpen,MapPin,SkipForwa
 import {Help} from './learn';
 import {Figure,type Gate,type Marker} from './shared';
 import type {Key,T} from './i18n';
+import {nextGoalOf} from './progress';
+export {nextGoalOf} from './progress';
 import type {Checklist,Dex} from './lists';
 import {BattleAdvice,effectiveness,opponentName,trainerOpponents,useSavedTeam,type Battle} from './team';
 
@@ -31,9 +33,6 @@ const milestone=(m:Marker,needed:Set<string>,home:boolean)=>m.category==='Story'
 
 // El siguiente objetivo de goals.json: el primero sin hacer (ni descartado por
 // otra eleccion). Lo usan la tarjeta de la checklist y la barra del mapa.
-export const nextGoalOf=(markers:Marker[],goals:string[],settled:(m:Marker)=>boolean)=>{
- const byId=new Map(markers.map(m=>[m.id,m]));return goals.map(id=>byId.get(id)).find(m=>!!m&&!settled(m))??null;
-};
 // Como se dice un objetivo: un paso con su nombre; el primer Pokemon y el rival a
 // su manera; un combate, "Vence a"; lo demas, "Consigue".
 export function goalTitle(goal:Marker,markers:Marker[],checklist:Checklist,tr:T){

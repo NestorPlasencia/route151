@@ -153,6 +153,24 @@ await test('replaces only application progress and never exports the recovery jo
   assert.deepEqual(collectBackup(storage).data, { 'ruta151-yellow': '[2]' });
 });
 
+await test('a restored game retains checks, skipped goals, Pokédex and team after a fresh read', () => {
+  const storage = new MemoryStorage({'other-app':'keep'});
+  const data = {
+    'ruta151-yellow': '[1,2]',
+    'ruta151-yellow-skip': '[3]',
+    'ruta151-yellow-dex': '[25]',
+    'ruta151-yellow-team': JSON.stringify([mon]),
+    'ruta151-firered': '[4]',
+    'ruta151-firered-last': 'MAP_PALLET_TOWN:story:leave-house',
+  };
+  importBackup(storage, parseBackup(backup(data), games));
+  assert.deepEqual(collectBackup(storage).data, data);
+  assert.deepEqual(JSON.parse(storage.getItem('ruta151-yellow')), [1,2]);
+  assert.deepEqual(JSON.parse(storage.getItem('ruta151-yellow-team')), [mon]);
+  assert.deepEqual(JSON.parse(storage.getItem('ruta151-firered')), [4]);
+  assert.equal(storage.getItem('other-app'),'keep');
+});
+
 await test('aborts without touching old progress if the recovery copy cannot be stored', () => {
   const storage = new MemoryStorage({ 'ruta151-yellow': '[1]' });
   storage.setItem = () => {
