@@ -17,14 +17,14 @@ export type Battle={gen?:Gen;
 export type Guess='level'|'nature'|'ability'|'moves';
 // `out`: debilitado o fuera de combate por lo que sea. Sigue en el equipo,
 // pero no se propone para pelear hasta que lo cures.
-export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[];bench?:boolean;out?:boolean;stats?:number[];guess?:Guess[]};
+export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[];bench?:boolean;out?:boolean;stats?:number[];guess?:Guess[];nickname?:string;speciesName?:string;ivs?:number[];evs?:number[]};
 
 export const STATS=['hp','atk','def','spa','spd','spe'] as const;
 const IV=15;
 // Gen 3: PS y las demas estadisticas con sus formulas, y la naturaleza al final.
-export function statsOf(base:number[],level:number,nature:[string|null,string|null]=[null,null],ivs:number[]=STATS.map(()=>IV)){
+export function statsOf(base:number[],level:number,nature:[string|null,string|null]=[null,null],ivs:number[]=STATS.map(()=>IV),evs:number[]=STATS.map(()=>0)){
  return STATS.map((key,i)=>{
-  const raw=Math.floor((2*base[i]+ivs[i])*level/100);
+  const raw=Math.floor((2*base[i]+ivs[i]+Math.floor(evs[i]/4))*level/100);
   if(key==='hp')return base[i]===1?1:raw+level+10; // Shedinja no existe aqui, pero por si acaso
   const mod=nature[0]===key?1.1:nature[1]===key?0.9:1;
   return Math.floor((raw+5)*mod);
@@ -62,7 +62,7 @@ export function damage(battle:Battle,attacker:TeamMon,move:Move,target:number,ta
 export function damageVs(battle:Battle,attacker:TeamMon,move:Move,foe:Species,targetLevel:number){
  const me=battle.species[attacker.n];
  if(!me||!foe||!move.power)return null;
- const mine=attacker.stats??statsOf(me.base,attacker.level,battle.natures[attacker.nature]??[null,null]);
+ const mine=attacker.stats??statsOf(me.base,attacker.level,battle.natures[attacker.nature]??[null,null],attacker.ivs,attacker.evs);
  const theirs=statsOf(foe.base,targetLevel);
  const physical=move.category==='physical';
  const a=mine[physical?1:3],d=theirs[physical?2:4];
@@ -261,6 +261,7 @@ export function trainingValue(battle:Battle,forms:number[],natureKey:string,ivs:
 // o no cuadran. De un rango se toma su punto medio, sin pasar del maximo (31;
 // en Gen 1, 30 = DV 15 doblado): lo de mas son EVs o Stat Exp.
 export function ivsOf(battle:Battle,mon:TeamMon){
+ if(mon.ivs)return mon.ivs;
  const s=battle.species[mon.n],stats=mon.stats;if(!s||!stats)return null;
  const mods=battle.natures[mon.nature]??[null,null],top=rulesOf(battle).training.max;
  const fits=STATS.map((stat,i)=>genes(s.base[i],mon.level,stats[i],stat,mods));

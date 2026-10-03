@@ -19,14 +19,14 @@ const LEGENDARY=new Set([144,145,146,150,151,243,244,245,249,250,251]);
 
 type Filter='caught'|'noLegendary'|'noTrade';
 
-export function RankingView({dex,battle,byId,done,dexKey,storageKey,switcher,tr}:{dex:Dex;battle:Battle|null;byId:Map<string,Marker>;done:number[];dexKey:string;storageKey:string;switcher?:ReactNode;tr:T}){
+export function RankingView({dex,battle,byId,done,dexKey,storageKey,switcher,tr,imported=[]}:{dex:Dex;battle:Battle|null;byId:Map<string,Marker>;done:number[];dexKey:string;storageKey:string;switcher?:ReactNode;tr:T;imported?:number[]}){
  const {t,type}=tr;
  const [query,setQuery]=useState(''),[team,setTeam]=useState<TeamMon[]>([]),[manual,setManual]=useState<number[]>([]),[on,setOn]=useState<Filter[]>([]),[kind,setKind]=useState<string|null>(null);
  // Las familias que ya llevas se marcan, para ver de un vistazo donde quedan.
  useEffect(()=>{try{const saved:TeamMon[]=JSON.parse(localStorage.getItem(storageKey)||'[]');setTeam(Array.isArray(saved)?saved:[])}catch{setTeam([])}},[storageKey]);
  // Lo registrado a mano en la Pokedex (las especies sin entradas en la checklist).
  useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem(dexKey)||'[]');setManual(Array.isArray(saved)?saved:[])}catch{setManual([])}},[dexKey]);
- const caught=useMemo(()=>caughtSpecies(dex,byId,done,manual),[dex,byId,done,manual]);
+ const caught=useMemo(()=>caughtSpecies(dex,byId,done,manual,imported),[dex,byId,done,manual,imported]);
  const rows=useMemo(()=>{
   if(!battle)return [];
   const byN=new Map(dex.species.map(s=>[s.n,s]));

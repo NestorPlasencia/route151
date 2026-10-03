@@ -6,6 +6,8 @@ import {Figure,checkOrder,type Gate,type Marker} from './shared';
 import {BehindNote,LEADER,NextGoal,Unlocked,type Behind,type Unlock} from './guide';
 import type {T} from './i18n';
 import {BattleAdvice,trainerOpponents,type Battle} from './team';
+import {uidsOf,caughtSpecies} from './dex-progress';
+export {caughtSpecies} from './dex-progress';
 
 type Zone={name:string;part:number;count:number;floors:string[]};
 export type Checklist={source:string;note?:string;parts:{n:number;title:string}[];zones:Zone[];markers:Record<string,{zone:string;floor?:string}>};
@@ -158,14 +160,10 @@ export function ChecklistView({markers,checklist,gates,goals,goalNotes,settled,s
 
 
 // uid de las entradas de la checklist de una especie (salvaje, regalo, intercambio).
-const uidsOf=(byId:Map<string,Marker>,s:Species)=>[...new Set(s.found.flatMap(f=>f.ids.flatMap(id=>{const m=byId.get(id);return m?[m.uid]:[]})))];
 // Especies registradas: las que tienen entradas en la checklist cuentan si
 // alguna esta completa; las demas, si se marcaron a mano en la Pokedex.
-export const caughtSpecies=(dex:Dex,byId:Map<string,Marker>,done:number[],manual:number[])=>new Set(dex.species.filter(s=>{
- const uids=uidsOf(byId,s);return uids.length?uids.some(uid=>done.includes(uid)):manual.includes(s.n);
-}).map(s=>s.n));
 
-export function PokedexView({dex,byId,done,setMany,onShow,game,storageKey,switcher,tr}:{dex:Dex;byId:Map<string,Marker>;done:number[];setMany:(uids:number[],on:boolean)=>void;onShow:(m:Marker)=>void;game:string;storageKey:string;switcher?:ReactNode;tr:T}){
+export function PokedexView({dex,byId,done,setMany,onShow,game,storageKey,switcher,tr,imported=[]}:{dex:Dex;byId:Map<string,Marker>;done:number[];setMany:(uids:number[],on:boolean)=>void;onShow:(m:Marker)=>void;game:string;storageKey:string;switcher?:ReactNode;tr:T;imported?:number[]}){
  const {t,how,type,note,evo,place}=tr;
  // Sincronizada con la checklist: una especie con entradas alli esta registrada
  // si alguna esta completa, y marcarla aqui marca (o desmarca) todas. Las que no
@@ -179,7 +177,7 @@ export function PokedexView({dex,byId,done,setMany,onShow,game,storageKey,switch
   if(linked.length){setMany(linked.flatMap(s=>uidsOf(byId,s)),true);list=list.filter(n=>!linked.some(s=>s.n===n));try{localStorage.setItem(storageKey,JSON.stringify(list))}catch{}}
   setManual(list);
  },[storageKey,dex,byId,setMany]);
- const caughtSet=useMemo(()=>caughtSpecies(dex,byId,done,manual),[dex,byId,done,manual]);
+ const caughtSet=useMemo(()=>caughtSpecies(dex,byId,done,manual,imported),[dex,byId,done,manual,imported]);
  const caught=(s:Species)=>caughtSet.has(s.n);
  const toggle=(s:Species)=>{const uids=uidsOf(byId,s);if(uids.length)setMany(uids,!caught(s));else saveManual(manual.includes(s.n)?manual.filter(x=>x!==s.n):[...manual,s.n])};
  const names=useMemo(()=>new Map(dex.species.map(s=>[s.n,s.name])),[dex]);
@@ -199,7 +197,7 @@ export function PokedexView({dex,byId,done,setMany,onShow,game,storageKey,switch
      :s.get==='evo'&&s.from?t(s.from.method?'evolvesFromHow':'evolvesFrom',{name:names.get(s.from.n)??'',how:evo(s.from.method??'')})
      :t('notAvailable',{game});
     return <div key={s.n} className={`dex-row ${c?'done':''} ${s.get==='none'?'unavailable':''}`}>
-     <button className={`tick ${c?'on':''}`} aria-label={t('registered')} onClick={()=>toggle(s)} title={uidsOf(byId,s).length?t('syncedChecklist'):undefined}>{c&&<Check/>}</button>
+     <button className={`tick ${c?'on':''}`} aria-label={t('registered')} disabled={imported.includes(s.n)} onClick={()=>toggle(s)} title={imported.includes(s.n)?t('savRegistered'):uidsOf(byId,s).length?t('syncedChecklist'):undefined}>{c&&<Check/>}</button>
      <Figure m={{icon:s.icon,category:'Pokémon'}}/>
      <button className="dex-text" onClick={()=>setOpenN(isOpen?null:s.n)} aria-expanded={isOpen}>
       <b><em>#{pad(s.n)}</em>{s.name}</b>

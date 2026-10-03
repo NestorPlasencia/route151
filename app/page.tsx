@@ -24,6 +24,7 @@ import dynamic from 'next/dynamic';
 const RankingView=dynamic(()=>import('./ranking').then(m=>m.RankingView));
 const LearnView=dynamic(()=>import('./learn').then(m=>m.LearnView));
 const TeamView=dynamic(()=>import('./team-view').then(m=>m.TeamView));
+const SaveImportDialog=dynamic(()=>import('./save-import-dialog').then(m=>m.SaveImportDialog));
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
 const span=(e:Encounter)=>`${e.min}${e.max!==e.min?`–${e.max}`:''}`;
@@ -63,7 +64,8 @@ export default function Home(){
  const [encounterZone,setEncounterZone]=useState<EncounterZone|null>(null);
  // Lo que decides saltar (no te interesa o ya no se puede): no cuenta en el total
  // ni se vuelve a avisar. No es hecho: no abre nada y se puede deshacer.
- const {done,skipped,saveDone,setSkip,setMany}=useGameProgress(game,loadAttempt);
+ const {done,skipped,saveDone,setSkip,setMany,imported}=useGameProgress(game,loadAttempt);
+ const [saveImportOpen,setSaveImportOpen]=useState(false);
  // Inicio para elegir juego, y el ultimo que se jugo (se marca en su tarjeta).
  const [home,setHome]=useState(false),[last,setLast]=useState<string|null>(null);
 
@@ -126,7 +128,7 @@ export default function Home(){
  const [hideUnavailable,setHideState]=useState(false);
  useEffect(()=>{try{setHideState(localStorage.getItem('ruta151-unavailable')==='hide')}catch{}},[]);
  const setHideUnavailable=(on:boolean)=>{setHideState(on);try{localStorage.setItem('ruta151-unavailable',on?'hide':'show')}catch{}};
- const have=useMemo(()=>haveNames(world?.markers??[],done),[world,done]);
+ const have=useMemo(()=>new Set([...haveNames(world?.markers??[],done),...(imported?.snapshot.keyItems.map(i=>i.name)??[])]),[world,done,imported]);
  // Lo que ya elegiste en su lugar (otro inicial, el otro fosil): solo por intercambio.
  const taken=useMemo(()=>{const byId=new Map((world?.markers??[]).map(m=>[m.id,m]));
   return choicesTaken(world?.choices??[],id=>{const m=byId.get(id);return !!m&&done.includes(m.uid)})},[world,done]);
@@ -139,11 +141,11 @@ export default function Home(){
   const out=new Set<string>();if(!world||speciesRev<0)return out;
   for(const m of world.markers)if(['Pokémon','In-Game Gift Pokémon','In-Game Trade'].includes(m.category)&&done.includes(m.uid))out.add(m.name);
   try{
-   const nums=new Set<number>([...JSON.parse(localStorage.getItem(game.storage.dex)||'[]'),...(JSON.parse(localStorage.getItem(`${game.storage.done}-team`)||'[]') as {n:number}[]).map(x=>x.n)]);
+   const nums=new Set<number>([...(imported?.snapshot.owned??[]),...JSON.parse(localStorage.getItem(game.storage.dex)||'[]'),...(JSON.parse(localStorage.getItem(`${game.storage.done}-team`)||'[]') as {n:number}[]).map(x=>x.n)]);
    for(const sp of world.dex.species)if(nums.has(sp.n))out.add(sp.name);
   }catch{}
   return out;
- },[world,done,game,speciesRev]);
+ },[world,done,game,speciesRev,imported]);
  const reasonWith=useCallback((m:Marker,owned:Set<string>)=>{
   const chosen=taken.get(m.id),pick=chosen&&world?.markers.find(x=>x.id===chosen);
   if(pick)return t(m.category.includes('Pokémon')?'choiceTrade':'choiceOne',{chosen:name(pick.name)});
@@ -617,12 +619,13 @@ export default function Home(){
   if(dexView!=='dex'&&battleFailed)return <div className="listview">{switcher}{battleNotice}</div>;
   if(dexView==='learn')return <LearnView battle={battle} gen={game.gen} switcher={switcher} tr={tr}/>;
   return dexView==='ranking'&&switcher
-   ?<RankingView dex={world.dex} battle={battle} byId={byId} done={done} dexKey={game.storage.dex} storageKey={`${game.storage.done}-team`} switcher={switcher} tr={tr}/>
-   :<PokedexView dex={world.dex} byId={byId} done={done} setMany={setMany} onShow={showOnMap} game={game.short} storageKey={game.storage.dex} switcher={switcher} tr={tr}/>;
+   ?<RankingView dex={world.dex} battle={battle} byId={byId} done={done} dexKey={game.storage.dex} storageKey={`${game.storage.done}-team`} switcher={switcher} tr={tr} imported={imported?.snapshot.owned}/>
+   :<PokedexView dex={world.dex} byId={byId} done={done} setMany={setMany} onShow={showOnMap} game={game.short} storageKey={game.storage.dex} switcher={switcher} tr={tr} imported={imported?.snapshot.owned}/>;
  })()}
  {tab==='team'&&(world?battleFailed?<div className="listview loading-list">{battleNotice}</div>:<TeamView dex={world.dex} battle={battle} moveText={moveTextSrc?moveText:null} storageKey={`${game.storage.done}-team`} suggestedLevel={suggestedLevel} tr={tr}/>:<div className="listview loading-list">{worldNotice}</div>)}
  {tour&&!home&&<Tour onClose={closeTour} tr={tr}/>}
- {about&&<AboutDialog game={game} tr={tr} onClose={()=>setAbout(false)} onTour={()=>{setAbout(false);setTour(true)}} onReset={resetGame}/>}
+ {about&&<AboutDialog game={game} tr={tr} onClose={()=>setAbout(false)} onTour={()=>{setAbout(false);setTour(true)}} onReset={resetGame} onImport={()=>{setAbout(false);setSaveImportOpen(true)}}/>}
+ {saveImportOpen&&world&&<SaveImportDialog game={game} world={world} tr={tr} onClose={()=>setSaveImportOpen(false)}/>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>
  {home&&<GameHome current={game.id} last={last} lang={lang} onLang={pickLang} onPick={choose} tr={tr}/>}
  </main>

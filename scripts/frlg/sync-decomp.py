@@ -16,6 +16,9 @@ REPO = 'https://github.com/pret/pokefirered.git'
 COMMIT = 'c75f352304d529f6ba92d4f74b9cf8b5c3810788'
 DEST = 'data/frlg/pokefirered'
 PATHS = [
+    '/charmap.txt',
+    '/include/constants/flags.h',
+    '/include/constants/pokedex.h',
     '/data/maps/',
     '/data/layouts/',
     '/data/tilesets/',

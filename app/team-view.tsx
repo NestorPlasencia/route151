@@ -63,6 +63,9 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
    (['level','nature','ability','moves'] as Guess[]).includes(field as Guess)?[field as Guess]:[]);
   const guess=mon.guess?.filter(field=>!touched.includes(field));
   const next={...mon,...change,guess:guess?.length?guess:undefined};
+  if(Object.hasOwn(change,'stats')){delete next.ivs;delete next.evs}
+  else if(mon.ivs&&mon.evs&&(change.level!==undefined||change.nature!==undefined))
+   next.stats=statsOf(battle!.species[next.n].base,next.level,battle!.natures[next.nature]??[null,null],mon.ivs,mon.evs);
   // Si los ataques siguen siendo supuestos y cambias el nivel, se rehacen: a
   // otro nivel el juego le habria ensenado otra cosa.
   if(change.level!==undefined&&change.moves===undefined&&guess?.includes('moves'))
@@ -139,7 +142,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
   ?<i className="team-guess" title={t('assumedHelp')}>{t('assumed')}</i>:null;
  const card=(mon:TeamMon)=>{
   const s=battle.species[mon.n],info=species.get(mon.n),pool=movePool(battle,mon);
-  const estimate=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null]);
+  const estimate=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null],mon.ivs,mon.evs);
   const stats=mon.stats??estimate,own=!!mon.stats,profile=buildProfile(battle,mon);
   const known=mon.moves.filter(Boolean).length;
   // La ficha nace plegada: anadir un Pokemon no deberia abrir un formulario.
@@ -152,7 +155,7 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
    <div className="team-row">
     <Figure m={{icon:info?.icon,category:'Pokémon'}}/>
     <div className="team-title">
-     <span className="team-name"><b>{info?.name??mon.n}</b>
+     <span className="team-name"><b>{info?.name??mon.speciesName??mon.n}</b>
       <span className="types">{s.types.map(ty=><i key={ty} className={`type t-${ty}`}>{typeName(ty)}</i>)}</span>
       {mon.out&&<i className="team-ko">{t('out')}</i>}
       {ready&&<i className="team-ready">{t('canEvolve')}</i>}
@@ -195,9 +198,9 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
     <dt>{statLabel(stat)}</dt>
     <dd><Num value={stats[i]} min={1} max={999} label={statLabel(stat)}
      onChange={n=>update(mon.id,{stats:stats.map((v,j)=>j===i||(single&&i===3&&j===4)?n:v)})}/></dd>
-    <small>{t('baseStat',{n:s.base[i]})}{own&&' · '}{own&&(fit=>fit?ivLabel(fit):<span title={t('ivNoFitHelp')}>{t('ivNoFit')}</span>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}</small>
+    <small>{t('baseStat',{n:s.base[i]})}{own&&' · '}{mon.ivs?`IV ${mon.ivs[i]} · EV ${mon.evs?.[i]??0}`:own&&(fit=>fit?ivLabel(fit):<span title={t('ivNoFitHelp')}>{t('ivNoFit')}</span>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}</small>
    </div>])}</dl>
-   <p className="team-note"><Help term="stats" gen={gen} tr={tr}/><Help term={dv?'dv':'iv'} gen={gen} tr={tr}/>{own&&<span className="team-iv">{t(dv?'dvNote':'ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
+   <p className="team-note"><Help term="stats" gen={gen} tr={tr}/><Help term={dv?'dv':'iv'} gen={gen} tr={tr}/>{own&&!mon.ivs&&<span className="team-iv">{t(dv?'dvNote':'ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
    {value&&band&&<div className="training">
     <h4>{t('training')}<Help term="training" gen={gen} tr={tr}/></h4>
     <div className="training-head">

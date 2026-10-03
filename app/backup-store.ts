@@ -1,4 +1,5 @@
 import type { Game } from './games';
+import {validSaveRecord} from './save-record';
 
 const PREFIX = 'ruta151-';
 export const BACKUP_STAMP = 'ruta151-backup-date';
@@ -47,6 +48,10 @@ function team(value: unknown, maxSpecies: number): boolean {
       mon.moves.every((move) => move === null || text(move, 1)) &&
       (mon.bench === undefined || typeof mon.bench === 'boolean') &&
       (mon.out === undefined || typeof mon.out === 'boolean') &&
+      (mon.nickname === undefined || text(mon.nickname)) &&
+      (mon.speciesName === undefined || text(mon.speciesName)) &&
+      (mon.ivs === undefined || (Array.isArray(mon.ivs) && mon.ivs.length === 6 && mon.ivs.every(n => integer(n, 0, 31)))) &&
+      (mon.evs === undefined || (Array.isArray(mon.evs) && mon.evs.length === 6 && mon.evs.every(n => integer(n, 0, 255)) && mon.evs.reduce((a,b) => a+b, 0) <= 510)) &&
       (mon.stats === undefined ||
         (Array.isArray(mon.stats) &&
           mon.stats.length === 6 &&
@@ -104,6 +109,10 @@ export function parseBackup(
           valid = numbers(JSON.parse(entry), 1, maxSpecies);
         else if (key === `${game.storage.done}-team`)
           valid = team(JSON.parse(entry), maxSpecies);
+        else if (key === `${game.storage.done}-sav`) {
+          const saved: unknown = JSON.parse(entry);
+          valid = validSaveRecord(saved) && saved.game === game.id;
+        }
         else if (key === `${game.storage.done}-last`) valid = text(entry, 1);
         else continue;
         break;

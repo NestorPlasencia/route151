@@ -6,10 +6,11 @@ import {OfflineDownload} from './offline';
 import {Credits} from './shared';
 import {METHODS,type Game,type EncounterZone} from './games';
 import type {T} from './i18n';
-export function AboutDialog({game,tr,onClose,onTour,onReset}:{game:Game;tr:T;onClose:()=>void;onTour:()=>void;onReset:()=>void}){
+export function AboutDialog({game,tr,onClose,onTour,onReset,onImport}:{game:Game;tr:T;onClose:()=>void;onTour:()=>void;onReset:()=>void;onImport:()=>void}){
  const {t}=tr;
  return <Modal label={t('credits')} onClose={onClose}>
   <button data-dialog-focus className="close" onClick={onClose} aria-label={t('close')}><X/></button>
+  <button className="tour-again" onClick={onImport}>{t('savImport')}</button>
   <OfflineDownload game={game.id} tr={tr}/><BackupBox tr={tr}/>
   <button className="tour-again" onClick={onTour}>{t('tourAgain')}</button>
   <button className="tour-again reset-game" onClick={onReset}><RotateCcw/>{t('resetGame',{game:game.title})}</button>
