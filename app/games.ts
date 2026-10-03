@@ -7,6 +7,8 @@ import {registerStory,registerTeach} from './i18n';
 import type {Checklist,Dex} from './lists';
 import {rulesFor,type Gen} from './rules';
 import {loadJson} from './load-json';
+import catalog from './games.json';
+import {parseGameCatalog} from './game-catalog';
 
 export type Pt=[number,number];
 export type Area={id:string;kind:'region'|'interior';label:string;zone?:string;image:string;width:number;height:number};
@@ -103,8 +105,4 @@ export async function loadGame(game:Game,signal?:AbortSignal):Promise<World>{
 export const battleUrl=(game:Game)=>`${game.data}/battle.json`;
 export const moveTextUrl=(game:Game)=>rulesFor(game.gen).moveText?`${game.data}/move-text.json`:null;
 
-export const GAMES:Game[]=[
- {id:'yellow',short:'Yellow',title:'Pokémon Yellow',storage:{done:'ruta151-yellow',dex:'ruta151-yellow-dex'},data:'/yellow/data',version:'yellow',gen:1,hidden:['Obstacle'],untracked:['Obstacle','Shop']},
- {id:'firered',short:'FireRed',title:'Pokémon FireRed',storage:{done:'ruta151-firered',dex:'ruta151-firered-dex'},data:'/frlg/data',version:'firered',gen:3,hidden:['Obstacle'],untracked:['Obstacle','Shop']},
- {id:'leafgreen',short:'LeafGreen',title:'Pokémon LeafGreen',storage:{done:'ruta151-leafgreen',dex:'ruta151-leafgreen-dex'},data:'/frlg/data',version:'leafgreen',gen:3,hidden:['Obstacle'],untracked:['Obstacle','Shop']},
-];
+export const GAMES:Game[]=parseGameCatalog(catalog);

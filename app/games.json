@@ -1,0 +1,35 @@
+[
+  {
+    "id": "yellow",
+    "short": "Yellow",
+    "title": "Pokémon Yellow",
+    "storage": { "done": "ruta151-yellow", "dex": "ruta151-yellow-dex" },
+    "data": "/yellow/data",
+    "version": "yellow",
+    "gen": 1,
+    "hidden": ["Obstacle"],
+    "untracked": ["Obstacle", "Shop"]
+  },
+  {
+    "id": "firered",
+    "short": "FireRed",
+    "title": "Pokémon FireRed",
+    "storage": { "done": "ruta151-firered", "dex": "ruta151-firered-dex" },
+    "data": "/frlg/data",
+    "version": "firered",
+    "gen": 3,
+    "hidden": ["Obstacle"],
+    "untracked": ["Obstacle", "Shop"]
+  },
+  {
+    "id": "leafgreen",
+    "short": "LeafGreen",
+    "title": "Pokémon LeafGreen",
+    "storage": { "done": "ruta151-leafgreen", "dex": "ruta151-leafgreen-dex" },
+    "data": "/frlg/data",
+    "version": "leafgreen",
+    "gen": 3,
+    "hidden": ["Obstacle"],
+    "untracked": ["Obstacle", "Shop"]
+  }
+]

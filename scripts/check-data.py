@@ -1,6 +1,6 @@
 """Comprueba los datos generados de todos los juegos con las mismas reglas.
 
-Lee la lista de juegos de app/games.ts (carpeta de datos, version, generacion),
+Lee el catalogo compartido app/games.json (carpeta de datos, version, generacion),
 asi que un juego nuevo queda cubierto sin tocar este script. Para cada uno:
 
 - archivos: los mismos para todos (areas, marcadores, checklist, combate,
@@ -21,16 +21,44 @@ Uso:  python scripts/check-data.py [--verbose]
 """
 import json, os, re, sys
 from collections import Counter
+from pathlib import Path
 
-PUBLIC = 'public'
+ROOT = Path(__file__).resolve().parents[1]
+PUBLIC = str(ROOT / 'public')
+CATALOG = ROOT / 'app' / 'games.json'
 VERBOSE = '--verbose' in sys.argv
 
 
-def games():
-    """Los juegos de app/games.ts: id, carpeta de datos, version y generacion."""
-    text = open('app/games.ts', encoding='utf-8').read()
-    return [dict(zip(('id', 'data', 'version', 'gen'), g)) for g in
-            re.findall(r"\{id:'(\w+)'.*?data:'([^']+)',version:'(\w+)',gen:(\d)", text)]
+def games(path=None):
+    """El mismo JSON que importa la app; nunca depende del formato TypeScript."""
+    with open(CATALOG if path is None else path, encoding='utf-8') as source:
+        catalog = json.load(source)
+    if not isinstance(catalog, list) or not catalog:
+        raise ValueError('el catalogo de juegos debe ser una lista no vacia')
+    ids = set()
+    keys = {'ruta151-game', 'ruta151-lang', 'ruta151-tour', 'ruta151-unavailable', 'ruta151-backup-date'}
+    text = lambda value: isinstance(value, str) and bool(value.strip())
+    slug = lambda value: text(value) and bool(re.fullmatch(r'[a-z0-9][a-z0-9-]*', value))
+    storage_key = lambda value: text(value) and bool(re.fullmatch(r'ruta151-[a-z0-9-]+', value))
+    strings = lambda value: isinstance(value, list) and all(text(entry) for entry in value)
+    for entry in catalog:
+        storage = entry.get('storage') if isinstance(entry, dict) else None
+        if (not isinstance(entry, dict) or not slug(entry.get('id'))
+                or not all(text(entry.get(key)) for key in ('short', 'title', 'data'))
+                or not re.fullmatch(r'/(?:[a-z0-9-]+/)+data', entry['data'])
+                or not slug(entry.get('version')) or type(entry.get('gen')) is not int
+                or entry['gen'] not in (1, 3) or not isinstance(storage, dict)
+                or not all(storage_key(storage.get(key)) for key in ('done', 'dex'))
+                or not all(strings(entry.get(key)) for key in ('hidden', 'untracked'))):
+            raise ValueError('entrada invalida en el catalogo de juegos')
+        if entry['id'] in ids:
+            raise ValueError(f"id de juego repetido: {entry['id']}")
+        ids.add(entry['id'])
+        for key in (storage['done'], storage['dex'], *(storage['done'] + '-' + suffix for suffix in ('skip', 'team', 'last'))):
+            if key in keys:
+                raise ValueError(f'clave de progreso repetida: {key}')
+            keys.add(key)
+    return catalog
 
 
 def load(path):
@@ -43,7 +71,8 @@ def check(game):
     warn = lambda msg: warnings.append(msg)
     base = PUBLIC + game['data']
     files = {'areas': 'areas.json', 'markers': 'markers.json', 'checklist': 'checklist.json', 'battle': 'battle.json',
-             'encounters': f"encounters-{game['version']}.json", 'dex': f"pokedex-{game['version']}.json"}
+             'encounters': f"encounters-{game['version']}.json", 'dex': f"pokedex-{game['version']}.json",
+             'gates': 'gates.json', 'hm_gates': 'hm-gates.json', 'goals': 'goals.json', 'nav': 'nav.json'}
     missing = [f for f in files.values() if not os.path.exists(f'{base}/{f}')]
     if missing:
         return [f'faltan archivos: {missing}'], []
@@ -241,9 +270,19 @@ def check(game):
 
 
 def main():
+    try:
+        catalog = games()
+        if not catalog:
+            raise ValueError('no se encontro ningun juego')
+    except (OSError, ValueError) as error:
+        print(f'ERROR catalogo de juegos: {error}', file=sys.stderr)
+        return 1
     failed = False
-    for game in games():
-        errors, warnings = check(game)
+    for game in catalog:
+        try:
+            errors, warnings = check(game)
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            errors, warnings = [f'no se pudieron validar los datos: {error}'], []
         failed |= bool(errors)
         print(f"{game['id']:10} {'OK' if not errors else 'ERROR'}  {len(errors)} errores, {len(warnings)} avisos")
         for e in errors[:30]:
@@ -254,8 +293,8 @@ def main():
         if VERBOSE:
             for w in warnings:
                 print('     ', w)
-    sys.exit(1 if failed else 0)
+    return 1 if failed else 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
