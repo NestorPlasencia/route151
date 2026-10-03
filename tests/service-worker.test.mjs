@@ -20,7 +20,8 @@ function worker(fetch) {
   vm.runInNewContext(source, {
     URL,
     fetch,
-    caches: { open: async () => cache },
+    caches: { open: async () => cache, match: request => cache.match(request) },
+    importScripts: () => {},
     self: {
       location: { origin: 'https://route.test' },
       addEventListener: (name, handler) => listeners.set(name, handler),

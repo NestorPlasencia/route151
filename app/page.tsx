@@ -19,6 +19,7 @@ import {BehindNote,LEADER,goalTitle,nextGoalOf,type Behind,type Unlock} from './
 import {TOUR_KEY,Tour} from './tour';
 import {loadJson} from './load-json';
 import {LoadNotice} from './load-notice';
+import {OfflineDownload} from './offline';
 
 type View={area:string;focus?:Pt;zoom?:number;restore?:{center:[number,number];zoom:number}};
 const span=(e:Encounter)=>`${e.min}${e.max!==e.min?`–${e.max}`:''}`;
@@ -763,7 +764,7 @@ export default function Home(){
  })()}
  {tab==='team'&&(world?battleFailed?<div className="listview loading-list">{battleNotice}</div>:<TeamView dex={world.dex} battle={battle} moveText={moveTextSrc?moveText:null} storageKey={`${game.storage.done}-team`} suggestedLevel={suggestedLevel} tr={tr}/>:<div className="listview loading-list">{worldNotice}</div>)}
  {tour&&!home&&<Tour onClose={closeTour} tr={tr}/>}
- {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label={t('credits')}><button className="close" onClick={()=>setAbout(false)} aria-label={t('close')}><X/></button><BackupBox tr={tr}/><button className="tour-again" onClick={()=>{setAbout(false);setTour(true)}}>{t('tourAgain')}</button><button className="tour-again reset-game" onClick={()=>resetGame()}><RotateCcw/>{t('resetGame',{game:game.title})}</button><small>{t('about')}</small><h2>{t('credits')}</h2><Credits game={game.id} tr={tr}/></dialog></div>}
+ {about&&<div className="modal-backdrop" role="presentation" onClick={e=>{if(e.target===e.currentTarget)setAbout(false)}}><dialog open className="modal" aria-modal="true" aria-label={t('credits')}><button className="close" onClick={()=>setAbout(false)} aria-label={t('close')}><X/></button><OfflineDownload game={game.id} tr={tr}/><BackupBox tr={tr}/><button className="tour-again" onClick={()=>{setAbout(false);setTour(true)}}>{t('tourAgain')}</button><button className="tour-again reset-game" onClick={()=>resetGame()}><RotateCcw/>{t('resetGame',{game:game.title})}</button><small>{t('about')}</small><h2>{t('credits')}</h2><Credits game={game.id} tr={tr}/></dialog></div>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>
  {home&&<GameHome current={game.id} last={last} lang={lang} onLang={pickLang} onPick={choose} tr={tr}/>}
  </main>

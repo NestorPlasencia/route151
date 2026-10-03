@@ -1,6 +1,6 @@
 // Service worker de Route 151: permite instalar la app y usarla sin conexion.
 // Sube VERSION cuando cambie la estrategia de cache para descartar la anterior.
-const VERSION = 'v5';
+const VERSION = 'v6';
 const SHELL = `route151-shell-${VERSION}`;
 const ASSETS = `route151-assets-${VERSION}`;
 const DATA = `route151-data-${VERSION}`;
@@ -11,6 +11,7 @@ const PRECACHE = [
   '/icons/pwa-192.png',
 ];
 const SPRITES = 'https://raw.githubusercontent.com';
+importScripts('/offline-worker.js');
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -29,7 +30,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((k) => k.startsWith('route151-') && !keep.includes(k))
+            .filter((k) => k.startsWith('route151-') && !keep.includes(k) && !k.startsWith(`route151-game-${VERSION}-`))
             .map((k) => caches.delete(k)),
         ),
       )
@@ -46,8 +47,8 @@ async function networkFirst(request, cacheName) {
     return response;
   } catch (error) {
     const cached =
-      (await cache.match(request)) ??
-      (request.mode === 'navigate' ? await cache.match('/') : undefined);
+      (await caches.match(request)) ??
+      (request.mode === 'navigate' ? await caches.match('/') : undefined);
     if (cached) return cached;
     throw error;
   }
@@ -56,7 +57,7 @@ async function networkFirst(request, cacheName) {
 // Cache primero: para archivos que no cambian (bundles con hash, sprites).
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
+  const cached = await cache.match(request) ?? await caches.match(request);
   if (cached) return cached;
   const response = await fetch(request);
   if (response.ok || response.type === 'opaque')
@@ -67,7 +68,7 @@ async function cacheFirst(request, cacheName) {
 // Responde con la copia guardada y la actualiza en segundo plano.
 async function staleWhileRevalidate(event, cacheName) {
   const cache = await caches.open(cacheName);
-  const cached = await cache.match(event.request);
+  const cached = await cache.match(event.request) ?? await caches.match(event.request);
   const update = fetch(event.request).then((response) => {
     if (response.ok) cache.put(event.request, response.clone()).catch(() => {});
     return response;
@@ -92,6 +93,8 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request, SHELL));
+  } else if (PRECACHE.includes(url.pathname)) {
+    event.respondWith(cacheFirst(request, SHELL));
   } else if (url.pathname.startsWith('/_next/static/') && url.pathname.endsWith('.css')) {
     // Los estilos pueden conservar el nombre aunque cambien: con cache primero
     // el movil se quedaba con los viejos (botones sin su forma nueva). Red

@@ -6,6 +6,14 @@ export type Lang = (typeof LANGS)[number];
 export const LANG_NAMES: Record<Lang, string> = {en: 'EN', es: 'ES'};
 
 const TEXT = {
+ offlineTitle: ['Offline game', 'Juego sin conexión'],
+ offlineDownload: ['Download this game for offline use', 'Descargar este juego para usarlo sin conexión'],
+ offlineReady: ['Available offline', 'Disponible sin conexión'],
+ offlineVerified: ['All files have been verified. Your browser may clear downloads to free space.', 'Todos los archivos están comprobados. El navegador puede borrar descargas para liberar espacio.'],
+ offlineProgress: ['Downloading: {n} / {total} files', 'Descargando: {n} / {total} archivos'],
+ offlineFailed: ['The download is incomplete. Connect to the internet and retry.', 'La descarga está incompleta. Conéctate a internet y reintenta.'],
+ offlineHint: ['Includes maps, sprites, all views and the scanner. Keep the app open until it finishes.', 'Incluye mapas, sprites, todas las vistas y el escáner. Mantén la app abierta hasta terminar.'],
+ offlineUnavailable: ['Offline downloads are available in the installed or production app.', 'Las descargas están disponibles en la app instalada o en producción.'],
  companion: ['{game} Companion', 'Guía de {game}'],
  game: ['Game', 'Juego'],
  language: ['Language', 'Idioma'],

@@ -9,6 +9,7 @@
     "dev": "next dev",
     "prebuild": "node scripts/build-ocr-assets.mjs",
     "build": "next build",
+    "postbuild": "node scripts/build-offline-manifests.mjs",
     "start": "next start",
     "pwa:icons": "node scripts/build-pwa-icons.mjs",
     "ocr:assets": "node scripts/build-ocr-assets.mjs",
