@@ -13,6 +13,7 @@
     "pwa:icons": "node scripts/build-pwa-icons.mjs",
     "ocr:assets": "node scripts/build-ocr-assets.mjs",
     "lint": "oxlint",
+    "test": "node --test tests/*.test.mjs",
     "check:data": "python scripts/check-data.py",
     "format": "oxfmt"
   },
