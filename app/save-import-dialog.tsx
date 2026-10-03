@@ -10,7 +10,7 @@ import type {T} from './i18n';
 import {loadJson} from './load-json';
 import {parseGameSave,SaveFileError,type SaveCatalog} from './save-file';
 import type {SaveRecord} from './save-record';
-import {PREVIOUS_SAVE,applySaveImport,prepareSaveImport,saveProgress,supportedPokemon,undoSaveImport} from './save-import';
+import {PREVIOUS_SAVE,applySaveImport,prepareSaveImport,saveEvidence,supportedPokemon,undoSaveImport} from './save-import';
 type Preview={record:SaveRecord;catalog:SaveCatalog;battle:Battle};
 export function SaveImportDialog({game,world,tr,onClose}:{game:Game;world:World;tr:T;onClose:()=>void}){
  const {t}=tr;
@@ -36,6 +36,7 @@ export function SaveImportDialog({game,world,tr,onClose}:{game:Game;world:World;
  const apply=()=>{if(!preview)return;try{const next=prepareSaveImport(localStorage,game,GAMES,preview.record,preview.catalog,world,preview.battle,{team,boxes,merge});applySaveImport(localStorage,next,game.id);reload()}catch(error){failed(error)}};
  const undo=()=>{try{undoSaveImport(localStorage,GAMES);reload()}catch(error){failed(error)}};
  const s=preview?.record.snapshot,compatible=preview&&s?supportedPokemon({...s,flags:new Set(s.flags)},preview.battle):[],supportedParty=s?.party.filter(m=>!m.egg).every(m=>compatible.includes(m))??false;
+ const detected=preview&&s?saveEvidence({...s,flags:new Set(s.flags)},preview.catalog,world.markers):[];
  return <Modal className="drawer sav-dialog" label={t('savTitle',{game:game.title})} onClose={onClose}>
   <button data-dialog-focus className="close" onClick={onClose} aria-label={t('close')}><X/></button>
   <h2>{t('savTitle',{game:game.title})}</h2>
@@ -51,7 +52,9 @@ export function SaveImportDialog({game,world,tr,onClose}:{game:Game;world:World;
     <ul className="sav-party">{s.party.map((mon,i)=><li key={i}><b>{mon.name}{mon.nickname&&mon.nickname.toLowerCase()!==mon.name.toLowerCase()?` (${mon.nickname})`:''} · {t('levelShort',{n:mon.level})}{mon.egg?` · ${t('savEgg')}`:''}</b><span>{mon.moves.filter(Boolean).map(key=>tr.move(preview.battle.moves[key!]?.name??key!.replace(/_/g,' '))).join(' · ')}</span><details><summary>{t('savStats')}</summary><p>{['PS','Atk','Def','SpA','SpD','Spe'].map((label,n)=>`${label}: ${mon.stats[n]} · IV ${mon.ivs[n]} · EV ${mon.evs[n]}`).join(' / ')}</p></details></li>)}</ul>
     <details><summary>{t('savBoxes',{n:s.boxes.length})}</summary><ul className="sav-box-list">{s.boxes.map((mon,i)=><li key={i}>{t('savBox',{n:mon.box!})} · {mon.name} · {t('levelShort',{n:mon.level})}{mon.egg?` · ${t('savEgg')}`:''}</li>)}</ul></details>
     <details><summary>{t('savKeys')}</summary><ul>{s.keyItems.map(item=><li key={item.id}>{tr.name(item.name)} × {item.quantity}</li>)}</ul></details>
-    <p>{t('savProven',{n:saveProgress({...s,flags:new Set(s.flags)},preview.catalog,world.markers).length})}</p><p>{t('savEvidence')}</p>
+    <p>{t('savProven',{n:new Set(detected.map(m=>m.uid)).size})}</p>
+    <details><summary>{t('savDetected')}</summary><ul className="sav-box-list">{detected.map(m=><li key={m.id}>{tr.category(m.category)} · {tr.name(m.name)} · {tr.place(m.location)}</li>)}</ul></details>
+    <p>{t('savEvidence')}</p>
     {compatible.length<s.party.length+s.boxes.length&&<p>{t('savIncompatible',{n:s.party.length+s.boxes.length-compatible.length})}</p>}
     <label><input type="checkbox" checked={merge} onChange={e=>setMerge(e.target.checked)}/>{t('savMerge')}</label><small>{t('savReplaceNote')}</small>
     <label><input type="checkbox" checked={team} disabled={!supportedParty} onChange={e=>setTeam(e.target.checked)}/>{t('savTeam')}</label>

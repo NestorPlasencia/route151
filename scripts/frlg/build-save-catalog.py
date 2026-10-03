@@ -6,6 +6,7 @@ No contiene partidas ni requiere una ROM.
 import json
 import re
 from pathlib import Path
+from save_progress import build_checks
 
 ROOT = Path('data/frlg/pokefirered')
 OUT = Path('public/frlg/data/save-catalog.json')
@@ -59,8 +60,11 @@ def main():
             progress.append({'id': f"{goal['map']}:story:{goal['step']}", 'flag': flags[story_flags[goal['step']]]})
     if len(species) != 386 or len(natures) != 25 or len(moves) != 354:
         raise ValueError('Incomplete save catalog')
-    OUT.write_text(json.dumps({'version': 1, 'source': f'https://github.com/pret/pokefirered/tree/{COMMIT}', 'species': species, 'moves': moves, 'items': items, 'natures': natures, 'characters': characters, 'badges': badges, 'progress': progress}, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
-    print(f'SAV: {len(species)} especies, {len(moves)} movimientos, {len(items)} objetos -> {OUT}')
+    markers = json.loads(Path('public/frlg/data/markers.json').read_text(encoding='utf-8'))
+    markers += [dict(id=f"{g['map']}:story:{g['step']}", map=g['map'], category='Story', name=g['step']) for g in goals if g.get('step')]
+    checks = build_checks(ROOT, markers)
+    OUT.write_text(json.dumps({'version': 1, 'source': f'https://github.com/pret/pokefirered/tree/{COMMIT}', 'species': species, 'moves': moves, 'items': items, 'natures': natures, 'characters': characters, 'badges': badges, 'progress': progress, 'checks': checks}, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+    print(f'SAV: {len(species)} especies, {len(moves)} movimientos, {len(items)} objetos, {len(checks)} entradas verificables -> {OUT}')
 
 
 if __name__ == '__main__':

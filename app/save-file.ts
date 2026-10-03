@@ -1,9 +1,10 @@
 // Lector de SRAM/flash de FRLG. Solo interpreta bytes; nunca modifica el SAV.
 import type {TeamMon} from './battle';
 
-export type SaveCatalog={version:number;source:string;species:Record<number,{n:number;name:string;base:number[];growth:string;abilities:string[]}>;moves:Record<number,string>;items:Record<number,{key:string;name:string}>;natures:Record<number,string>;characters:Record<number,string>;badges:{name:string;flag:number}[];progress:{name?:string;id?:string;flag:number}[]};
+export type SaveCondition={flag:number;set?:boolean}|{var:number;eq?:number;gte?:number};
+export type SaveCatalog={version:number;source:string;species:Record<number,{n:number;name:string;base:number[];growth:string;abilities:string[]}>;moves:Record<number,string>;items:Record<number,{key:string;name:string}>;natures:Record<number,string>;characters:Record<number,string>;badges:{name:string;flag:number}[];progress:{name?:string;id?:string;flag:number}[];checks?:{id:string;any:SaveCondition[][];sources:string[]}[]};
 export type SavedPokemon={id:string;n:number;name:string;nickname:string;level:number;nature:string;ability:string;moves:(string|null)[];ivs:number[];evs:number[];stats:number[];hp:number|null;egg:boolean;shiny:boolean;heldItem:number;box:number|null};
-export type GameSave={trainer:string;trainerId:number;playTime:string;counter:number;recovered:boolean;party:SavedPokemon[];boxes:SavedPokemon[];owned:number[];seen:number[];badges:string[];flags:Set<number>;keyItems:{id:number;name:string;key:string;quantity:number}[];location:{group:number;map:number;x:number;y:number}};
+export type GameSave={trainer:string;trainerId:number;playTime:string;counter:number;recovered:boolean;party:SavedPokemon[];boxes:SavedPokemon[];owned:number[];seen:number[];badges:string[];flags:Set<number>;vars?:number[];keyItems:{id:number;name:string;key:string;quantity:number}[];location:{group:number;map:number;x:number;y:number}};
 export type SaveErrorCode='size'|'integrity'|'format'|'pokemon'|'language';
 export class SaveFileError extends Error {constructor(public code:SaveErrorCode){super(`SAV: ${code}`)}}
 const fail=(code:SaveErrorCode):never=>{throw new SaveFileError(code)};
@@ -89,6 +90,6 @@ export function parseGameSave(input:ArrayBuffer|Uint8Array,catalog:SaveCatalog):
   if(start===0x3B8||item.key.startsWith('ITEM_HM'))keyItems.push({id,...item,quantity});
  }
  const unused=first?bytes.subarray(0xE000,0x1C000):bytes.subarray(0,0xE000);
- return {trainer:text(info.subarray(0,8),catalog.characters),trainerId:iv.getUint32(10,true),playTime:`${iv.getUint16(14,true)}:${String(info[16]).padStart(2,'0')}`,counter:chosen.counter,recovered:(!first||!second)&&unused.some(b=>b!==0&&b!==0xFF),party,boxes,owned:bits(info.subarray(0x28,0x5C),386),seen:bits(info.subarray(0x5C,0x90),386),badges:catalog.badges.filter(b=>flags.has(b.flag)).map(b=>b.name),flags,keyItems,location:{x:wv.getInt16(0,true),y:wv.getInt16(2,true),group:world[4],map:world[5]}};
+ return {trainer:text(info.subarray(0,8),catalog.characters),trainerId:iv.getUint32(10,true),playTime:`${iv.getUint16(14,true)}:${String(info[16]).padStart(2,'0')}`,counter:chosen.counter,recovered:(!first||!second)&&unused.some(b=>b!==0&&b!==0xFF),party,boxes,owned:bits(info.subarray(0x28,0x5C),386),seen:bits(info.subarray(0x5C,0x90),386),badges:catalog.badges.filter(b=>flags.has(b.flag)).map(b=>b.name),flags,vars:Array.from({length:256},(_,i)=>wv.getUint16(0x1000+i*2,true)),keyItems,location:{x:wv.getInt16(0,true),y:wv.getInt16(2,true),group:world[4],map:world[5]}};
 }
 export function savedTeam(mon:SavedPokemon,bench=false):TeamMon{return {id:mon.id,n:mon.n,level:mon.level,nature:mon.nature,ability:mon.ability,moves:mon.moves,stats:mon.stats,out:mon.hp===0,bench,guess:[],nickname:mon.nickname,speciesName:mon.name,ivs:mon.ivs,evs:mon.evs}}

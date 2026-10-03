@@ -63,5 +63,6 @@ await test('boxed clones get separate ids and all backup fields survive a round 
 });
 await test('backup validation rejects incompatible snapshot versions and malformed records',()=>{
  const next=prepareSaveImport(initial(),game,games,record,catalog,world,battle,options);
- for(const change of [r=>r.version=99,r=>r.snapshot.party[0].n=999,r=>r.fingerprint='bad',r=>r.snapshot.party[0].evs.fill(255),r=>r.snapshot.party[0].hp=999,r=>r.snapshot.owned.push(r.snapshot.owned[0])]){const broken=structuredClone(next),r=JSON.parse(broken.data['ruta151-firered-sav']);change(r);broken.data['ruta151-firered-sav']=JSON.stringify(r);assert.throws(()=>parseBackup(broken,games))}
+ for(const change of [r=>r.version=99,r=>r.snapshot.party[0].n=999,r=>r.fingerprint='bad',r=>r.snapshot.party[0].evs.fill(255),r=>r.snapshot.party[0].hp=999,r=>r.snapshot.owned.push(r.snapshot.owned[0]),r=>r.snapshot.vars.pop(),r=>r.snapshot.vars[0]=-1]){const broken=structuredClone(next),r=JSON.parse(broken.data['ruta151-firered-sav']);change(r);broken.data['ruta151-firered-sav']=JSON.stringify(r);assert.throws(()=>parseBackup(broken,games))}
+ const legacy=structuredClone(next),r=JSON.parse(legacy.data['ruta151-firered-sav']);delete r.snapshot.vars;legacy.data['ruta151-firered-sav']=JSON.stringify(r);assert.ok(parseBackup(legacy,games));
 });

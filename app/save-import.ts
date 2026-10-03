@@ -5,10 +5,16 @@ import {savedTeam,type GameSave,type SaveCatalog} from './save-file';
 import {validSaveRecord,type SaveRecord} from './save-record';
 export const PREVIOUS_SAVE='route151-sav-previous';
 type Store=Pick<Storage,'length'|'key'|'getItem'|'setItem'|'removeItem'>;
-export function saveProgress(save:GameSave,catalog:SaveCatalog,markers:World['markers']){
+export function saveEvidence(save:GameSave,catalog:SaveCatalog,markers:World['markers']){
  const proven=[...catalog.badges,...catalog.progress].filter(entry=>save.flags.has(entry.flag));
- return [...new Set(markers.filter(m=>proven.some(p=>('id' in p&&p.id===m.id)||('name' in p&&p.name===m.name))).map(m=>m.uid))];
+ const ids=new Set((catalog.checks??[]).filter(rule=>rule.any.some(group=>group.length>0&&group.every(c=>{
+  if('flag' in c)return save.flags.has(c.flag)===(c.set!==false);
+  const value=save.vars?.[c.var-0x4000];
+  return value!==undefined&&(c.eq===undefined||value===c.eq)&&(c.gte===undefined||value>=c.gte);
+ }))).map(rule=>rule.id));
+ return markers.filter(m=>ids.has(m.id)||proven.some(p=>('id' in p&&p.id===m.id)||('name' in p&&p.name===m.name)));
 }
+export function saveProgress(save:GameSave,catalog:SaveCatalog,markers:World['markers']){return [...new Set(saveEvidence(save,catalog,markers).map(m=>m.uid))]}
 export function supportedPokemon(save:GameSave,battle:Battle){return [...save.party,...save.boxes].filter(m=>!m.egg&&!!battle.species[m.n]&&m.moves.every(move=>!move||!!battle.moves[move]))}
 export function prepareSaveImport(storage:Store,game:Game,games:readonly Game[],record:SaveRecord,catalog:SaveCatalog,world:World,battle:Battle,options:{team:boolean;boxes:boolean;merge:boolean}):Backup{
  if(game.gen!==3||record.game!==game.id||!validSaveRecord(record))throw new Error('Invalid save import');

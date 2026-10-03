@@ -19,6 +19,8 @@ PATHS = [
     '/charmap.txt',
     '/include/constants/flags.h',
     '/include/constants/pokedex.h',
+    '/include/constants/opponents.h',
+    '/include/constants/vars.h',
     '/data/maps/',
     '/data/layouts/',
     '/data/tilesets/',

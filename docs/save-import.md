@@ -18,11 +18,37 @@ se desactiva la actualización del equipo.
 
 Las especies obtenidas se registran en la Pokédex desde una fuente independiente:
 no se completan todas sus localizaciones, regalos o elecciones de la checklist.
-Los hitos comprobados se limitan a medallas, seis MO, cañas, bicicleta, ticket,
-té, Poké Flauta, Campeón y siete pasos de historia respaldados por flags. Los
-objetos clave del inventario también sirven para calcular rutas disponibles,
-sin inventar el lugar donde se recogieron. Entrenadores generales, objetos
-sueltos y el resto de la historia siguen requiriendo marcas manuales.
+Además de medallas, MO y objetos clave, el catálogo relaciona 886 entradas con
+flags o variables persistentes: las 461 entradas de combate, incluidos líderes
+y escenas del rival, 168 objetos del suelo, 183 objetos ocultos, 44 regalos de objetos,
+11 regalos de Pokémon, 12 intercambios y siete pasos de historia adicionales.
+La vista previa incluye una lista de los entrenadores, objetos y eventos detectados.
+Cada regla conserva referencias a los scripts o constantes que justifican la asociación en
+`save-catalog.json`; se genera desde los mapas del mismo commit de pret.
+
+El inicial se determina mediante `VAR_STARTER_MON` y la marca de haberlo recibido.
+Los fósiles de Mt. Moon necesitan la marca específica de la elección; que ambos
+objetos hayan desaparecido no basta. El regalo del Dojo requiere la marca de
+recepción y una sola bola retirada. Si las dos alternativas tienen señales
+contradictorias, no se completa ninguna automáticamente. Un rival se reconoce
+por las variantes de su encuentro concreto, no por cualquier combate con él.
+
+Los regalos y los intercambios usan sus marcas propias. Los objetos del suelo
+con flags de ocultación utilizadas por otras escenas se excluyen de la detección
+genérica. Tener un objeto en la mochila no prueba de qué lugar vino; sus nombres
+sí sirven para calcular rutas disponibles. Las flags de objetos ocultos renovables
+reflejan el estado actual y pueden volver a cero cuando reaparecen.
+El Paquete de Oak se reconoce por la escena de la tienda o por la entrega de la
+Pokédex, incluso si ya se devolvió y no aparece en la mochila.
+
+Las marcas de entrenador expresan que el juego considera resuelto el combate.
+Al vencer a un líder, el juego también marca entrenadores de su gimnasio, aunque
+no se hayan combatido directamente. No son un historial de victorias ni cuentan
+revancha. Algunas escenas del rival inicial pueden terminar también al perder.
+Capturas por ubicación, legendarios y pasos de recorrer rutas siguen siendo
+manuales cuando no hay una prueba específica; no se deducen de la Pokédex completa.
+Los guardados importados con versiones anteriores siguen siendo compatibles;
+para aplicar las reglas nuevas, vuelve a importar el SAV con la app actualizada.
 
 El importador verifica los 14 sectores de cada copia, sus identificadores,
 firmas, checksums y contadores; reconoce la rotación de sectores y el desborde
@@ -56,12 +82,19 @@ no para representar una partida recién empezada.
 
 | Archivo | SHA-256 | Datos comprobados |
 | --- | --- | --- |
-| Pokemon Fire Red.sav | 44ce64a4fefa9d9b2661a09d34055bf77249fcd9524f04be8f317688e999cd8b | RoC, 34:34, equipo 6, cajas 414, medallas 8, obtenidas 386 |
-| Pokemon Leaf Green.sav | d6a0aac28fea111d96e4a7d0a3c1d8c82bbcddb8e6a622784df92aca0aa9a753 | RoC, 8:27, equipo 6, cajas 414, medallas 8, obtenidas 386 |
+| Pokemon Fire Red.sav | 44ce64a4fefa9d9b2661a09d34055bf77249fcd9524f04be8f317688e999cd8b | RoC, 34:34, equipo 6, cajas 414, medallas 8, obtenidas 386, checklist 655 |
+| Pokemon Leaf Green.sav | d6a0aac28fea111d96e4a7d0a3c1d8c82bbcddb8e6a622784df92aca0aa9a753 | RoC, 8:27, equipo 6, cajas 414, medallas 8, obtenidas 386, checklist 285 |
 
 Se guardan en `outputs/sav`, ignorado por Git y excluido del sitio. Para incluirlos
 en las pruebas locales de Node, establece `ROUTE151_SAV_SAMPLES=outputs/sav`.
 CI usa fixtures sintéticos y no necesita descargar partidas de terceros.
+
+Los dos archivos tienen una Pokédex completa, pero no los mismos eventos de
+progreso. En FireRed se detectan 413 combates, 134 objetos del suelo, 44 ocultos,
+36 regalos de objetos, seis regalos de Pokémon, nueve intercambios y 13 pasos
+de historia. En LeafGreen son 186, seis, 44, 23, cuatro, nueve y 13, respectivamente.
+Camper Liam se reconoce en ambos; Eevee está recibido solo en FireRed. Esta
+diferencia evita completar toda la checklist por tener una colección completa.
 
 Referencias de formato y regeneración
 ------------------------------------
@@ -74,3 +107,6 @@ Ejecuta `python scripts/frlg/sync-decomp.py` y `npm run sav:catalog` para regene
 - [SaveBlock1 y SaveBlock2](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/include/global.h)
 - [Datos y cifrado de Pokémon](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/src/pokemon.c)
 - [Flags de eventos](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/include/constants/flags.h)
+- [Identificadores de entrenadores](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/include/constants/opponents.h)
+- [Variables de progreso](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/include/constants/vars.h)
+- [Lectura y escritura de marcas de combate](https://github.com/pret/pokefirered/blob/c75f352304d529f6ba92d4f74b9cf8b5c3810788/src/battle_setup.c)
