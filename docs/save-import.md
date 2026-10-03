@@ -88,7 +88,8 @@ distintos y válidos, actualiza la lista y la Pokédex sin recargar la página, 
 opcionalmente el equipo. Los miembros anteriores se conservan como suplentes.
 Un equipo incompatible se conserva en el registro, sin reemplazar el equipo
 actual. «Sincronizar ahora» permite reintentar una escritura fallida y
-«Descargar SAV» exporta la partida del juego. Los estados rápidos no sustituyen
+«Descargar SAV» exporta la partida del juego y muestra un enlace para repetir la
+descarga si el navegador la bloquea. Los estados rápidos no sustituyen
 el guardado normal. Guarda dentro de Pokémon antes de cerrar el emulador.
 
 Cada sesión conserva una única copia del progreso anterior para «Deshacer la

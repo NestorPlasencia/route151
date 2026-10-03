@@ -13,6 +13,8 @@ export function EmulatorPanel({game,world,tr,onClose}:{game:Game;world:World;tr:
  const [rom,setRom]=useState<File|null>(null),[sav,setSav]=useState<File|null>(null),[team,setTeam]=useState(true),[auto,setAuto]=useState(true);
  const [run,setRun]=useState<Run|null>(null),[busy,setBusy]=useState(false),[started,setStarted]=useState(false),[closing,setClosing]=useState(false);
  const [note,setNote]=useState(''),[error,setError]=useState('');
+ const [exportUrl,setExportUrl]=useState('');
+ useEffect(()=>()=>{if(exportUrl)URL.revokeObjectURL(exportUrl)},[exportUrl]);
  const autoRef=useRef(auto);useEffect(()=>{autoRef.current=auto},[auto]);
  useEffect(()=>()=>{generation.current++},[]);
  const start=async()=>{
@@ -40,7 +42,8 @@ export function EmulatorPanel({game,world,tr,onClose}:{game:Game;world:World;tr:
   loading();
   const download=(bytes:Uint8Array)=>{
    const url=URL.createObjectURL(new Blob([new Uint8Array(bytes).buffer],{type:'application/octet-stream'}));
-   const link=document.createElement('a');link.href=url;link.download=`${game.short}.sav`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+   setExportUrl(url);setError('');setNote(t('emuExportReady'));
+   const link=document.createElement('a');link.href=url;link.download=`${game.short}.sav`;document.body.append(link);link.click();link.remove();
   };
   const changed=(event:MessageEvent)=>{
    if(event.origin!==location.origin||event.source!==frame.current?.contentWindow||event.data?.route151Emulator!==true)return;
@@ -58,7 +61,10 @@ export function EmulatorPanel({game,world,tr,onClose}:{game:Game;world:World;tr:
      setError('');setNote(t('emuSynced',{n:result.added,time:new Date().toLocaleTimeString(run.lang,{hour:'2-digit',minute:'2-digit',second:'2-digit'})})+(!result.teamUpdated&&team?` ${t('emuTeamUnavailable')}`:''));
     }).catch(e=>{if(!disposed){if(e instanceof SaveFileError&&!run.save)setNote(t('emuAwaitSave'));else setError(e instanceof SaveFileError?t(`sav_${e.code}`):t('emuSyncFailed'))}});
    }
-   if(data.type==='export'&&data.bytes instanceof Uint8Array&&data.bytes.length===0x20000)download(data.bytes);
+   if(data.type==='export'){
+    if(data.bytes instanceof Uint8Array&&data.bytes.length===0x20000)download(data.bytes);
+    else setError(t('sav_size'));
+   }
    if(data.type==='captureError'||data.type==='error')setError(t('emuFailed'));
    if(data.type==='exit'||data.type==='stopped')void pending.finally(()=>{if(!disposed){setClosing(false);setRun(null);setStarted(false);onClose()}});
   };
@@ -85,6 +91,7 @@ export function EmulatorPanel({game,world,tr,onClose}:{game:Game;world:World;tr:
   </>}
   <p className="emulator-note">{t('emuSaveNote')}</p>
   {note&&<output aria-live="polite">{note}</output>}{error&&<p role="alert">{error}</p>}
+  {exportUrl&&<a href={exportUrl} download={`${game.short}.sav`}>{t('emuSaveFile')}</a>}
   <small><a href="https://github.com/EmulatorJS/EmulatorJS/tree/v4.2.3" target="_blank" rel="noreferrer">EmulatorJS 4.2.3</a> · <a href="https://mgba.io" target="_blank" rel="noreferrer">mGBA</a> · <a href="/emulator/LICENSE-EmulatorJS.txt" target="_blank" rel="noreferrer">GPL-3.0</a></small>
  </section>;
 }

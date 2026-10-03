@@ -20,6 +20,8 @@ const TEXT = {
  emuAuto: ['Automatic sync', 'Sincronización automática'],
  emuSync: ['Sync now', 'Sincronizar ahora'],
  emuDownload: ['Download SAV', 'Descargar SAV'],
+ emuSaveFile: ['Save SAV file', 'Guardar archivo SAV'],
+ emuExportReady: ['SAV ready. If the download did not start, use Save SAV file.', 'SAV preparado. Si no empezó la descarga, pulsa Guardar archivo SAV.'],
  emuSaveNote: ['Progress updates within a few seconds after using Save in Pokémon. Quick save states do not save the game. Save before closing. Previous manual checks are kept; undo is available in Credits → Import save.', 'El progreso se actualiza unos segundos después de usar Guardar dentro de Pokémon. Los estados rápidos no guardan la partida del juego. Guarda antes de cerrar. Se conservan las marcas manuales; puedes deshacer desde Créditos → Importar partida.'],
  emuControls: ['Click the game to use the keyboard. Arrows: move · Z/X: A/B · Enter: Start · V: Select. Controls and gamepad can be configured in its menu.', 'Pulsa el juego para usar el teclado. Flechas: mover · Z/X: A/B · Enter: Start · V: Select. Puedes configurar los controles y el mando en su menú.'],
  emuFailed: ['The emulator could not load or read its save. Close it and try again.', 'No se pudo cargar el emulador o leer su guardado. Ciérralo y vuelve a intentarlo.'],
