@@ -52,7 +52,9 @@ export const obstacleMove=(name:string)=>Object.entries(FIELD_MOVES).find(([,f])
 // gates.json (el gimnasio de Verde pide las otras 7 medallas); los de las MO
 // salen de los mapas en hm-gates.json (los objetos de la Ruta 2 tras un arbol
 // de Corte). El primero sin cumplir que afecte al marcador, o null.
-export type Gate={id:string;zones?:string[];maps?:string[];markers?:string[];needs:string[];why:{en:string;es:string}};
+// `never`: lo que pide no se consigue jugando (el Ticket Misterioso de un evento):
+// lo de detras sale con su candado y no cuenta en ningun total.
+export type Gate={id:string;zones?:string[];maps?:string[];markers?:string[];needs:string[];never?:boolean;why:{en:string;es:string}};
 // Elige uno (gates.json, `choices`): el inicial de FRLG, Hitmonlee o Hitmonchan,
 // un fosil y el Pokemon que sale de el. Cada opcion son los marcadores que van
 // juntos; al marcar uno, los de las otras opciones quedan fuera.

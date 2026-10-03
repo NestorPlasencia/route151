@@ -239,7 +239,8 @@ def check(game):
             for mid in g.get('markers', []):
                 if mid not in by_id:
                     err(f"bloqueo {g['id']}: marcador inexistente {mid}")
-            for n in g['needs']:
+            # Un bloqueo `never` pide a proposito algo que no se consigue jugando.
+            for n in g['needs'] if not g.get('never') else []:
                 if n not in marker_names:
                     err(f"bloqueo {g['id']}: pide {n}, que no es ningun marcador")
             for z in g.get('zones', []):

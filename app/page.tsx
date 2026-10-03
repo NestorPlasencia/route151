@@ -233,7 +233,9 @@ export default function Home(){
  };
  // Saltado y sin hacer (si luego lo marcas, cuenta como hecho).
  const skipSet=useMemo(()=>new Set(skipped.filter(u=>!done.includes(u))),[skipped,done]);
- const settled=useCallback((m:Marker)=>done.includes(m.uid)||taken.has(m.id)||skipSet.has(m.uid),[done,taken,skipSet]);
+ // Lo que no se consigue jugando (tras un bloqueo `never`): fuera de los totales.
+ const never=useMemo(()=>{const gates=(world?.gates??[]).filter(g=>g.never);return new Set((world?.markers??[]).filter(m=>!done.includes(m.uid)&&unmetGate(m,gates,new Set())).map(m=>m.uid))},[world,done]);
+ const settled=useCallback((m:Marker)=>done.includes(m.uid)||taken.has(m.id)||skipSet.has(m.uid)||never.has(m.uid),[done,taken,skipSet,never]);
  // El siguiente objetivo, el mismo que en la checklist: sale arriba del mapa.
  const nextGoal=useMemo(()=>world?nextGoalOf(world.markers.filter(m=>world.checklist.markers[m.id]),world.goals,settled):null,[world,settled]);
  // Puertas del mapa a las que aun no llegas: grises, con candado.
@@ -598,7 +600,7 @@ export default function Home(){
  const doneKey=game.storage.done;
  const setMany=useCallback((uids:number[],on:boolean)=>setDone(old=>{const n=on?[...new Set([...old,...uids])]:old.filter(x=>!uids.includes(x));try{localStorage.setItem(doneKey,JSON.stringify(n))}catch{}return n}),[doneKey]);
  const tracked=useMemo(()=>new Set((world?.markers??[]).filter(m=>!game.untracked.includes(m.category)).map(m=>m.uid)),[world,game]);
- const completed=done.filter(uid=>tracked.has(uid)).length,trackedLeft=tracked.size-[...skipSet].filter(uid=>tracked.has(uid)).length;
+ const completed=done.filter(uid=>tracked.has(uid)).length,trackedLeft=tracked.size-[...skipSet,...never].filter(uid=>tracked.has(uid)).length;
  const pct=trackedLeft?Math.round(completed/trackedLeft*100):0;
  // Ir al mapa desde las listas: el mapa sigue montado y coloca la camara al verse.
  const showOnMap=(m:Marker)=>{setTab('mapa');reveal(m,false)};
