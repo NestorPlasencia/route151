@@ -6,6 +6,7 @@ export type Lang = (typeof LANGS)[number];
 export const LANG_NAMES: Record<Lang, string> = {en: 'EN', es: 'ES'};
 
 const TEXT = {
+ mapCluster: ['Zoom in: {markers} markers and {doors} entrances', 'Acercar: {markers} marcadores y {doors} entradas'],
  offlineTitle: ['Offline game', 'Juego sin conexión'],
  offlineDownload: ['Download this game for offline use', 'Descargar este juego para usarlo sin conexión'],
  offlineReady: ['Available offline', 'Disponible sin conexión'],
@@ -531,8 +532,8 @@ const NOTES: Record<string, [string, string]> = {
 };
 
 // Lugares de Kanto con su nombre oficial en espanol (PokeAPI no los trae). Los de
-// las Islas Sete se quedan en ingles salvo el numero de la isla.
-const PLACES: Record<string, string> = {
+// las Islas Sete tienen tambien entradas completas para evitar traducciones parciales.
+export const PLACES: Record<string, string> = {
  'Pallet Town': 'Pueblo Paleta', 'Viridian City': 'Ciudad Verde', 'Pewter City': 'Ciudad Plateada',
  'Cerulean City': 'Ciudad Celeste', 'Vermilion City': 'Ciudad Carmín', 'Lavender Town': 'Pueblo Lavanda',
  'Celadon City': 'Ciudad Azulona', 'Saffron City': 'Ciudad Azafrán', 'Fuchsia City': 'Ciudad Fucsia',
@@ -543,9 +544,23 @@ const PLACES: Record<string, string> = {
  'Seafoam Islands': 'Islas Espuma', 'Victory Road': 'Calle Victoria', 'Silph Co.': 'Silph S.A.',
  'Rocket Hideout': 'Guarida Rocket', 'Team Rocket Hideout': 'Guarida Rocket',
  'Rocket Warehouse': 'Almacén Rocket', 'Underground Path': 'Túnel Subterráneo', 'Underground Path North–South': 'Túnel Subterráneo Norte–Sur', 'Underground Path East–West': 'Túnel Subterráneo Este–Oeste',
- 'Sevii Islands': 'Islas Sete', 'One Island': 'Isla Uno', 'Two Island': 'Isla Dos',
- 'Three Island': 'Isla Tres', 'Four Island': 'Isla Cuatro', 'Five Island': 'Isla Cinco',
- 'Six Island': 'Isla Seis', 'Seven Island': 'Isla Siete', 'Kanto': 'Kanto',
+ // Catalogo completo de zonas usadas por Yellow y FRLG. Referencias de los
+ // nombres de Sete: guiasnintendo.com, guia de Rojo Fuego/Verde Hoja.
+ "Bill's House": 'Casa de Bill', 'S.S. Anne': 'S. S. Anne',
+ 'Kindle Road': 'Camino Candente', 'Mt. Ember': 'Monte Ascuas', 'Ember Spa': 'Balneario Ascuas',
+ 'Treasure Beach': 'Playa Tesoro', 'Cape Brink': 'Cabo Extremo', 'Three Isle Port': 'Puerto Isla Tera',
+ 'Three Isle Path': 'Vía Isla Tera', 'Bond Bridge': 'Puente Unión', 'Berry Forest': 'Bosque Baya',
+ 'Icefall Cave': 'Cueva Glaciada', 'Five Isle Meadow': 'Prado Isla Inta', 'Memorial Pillar': 'Pilar Recuerdo',
+ 'Water Labyrinth': 'Aquarinto', 'Resort Gorgeous': 'Lugar de Recreo', 'Lost Cave': 'Cueva Perdida',
+ 'Water Path': 'Vía Acuática', 'Green Path': 'Vía Verde', 'Ruin Valley': 'Valle Ruinas',
+ 'Outcast Island': 'Isla Aislante', 'Altering Cave': 'Cueva Cambiante', 'Pattern Bush': 'Bosquejo',
+ 'Trainer Tower': 'Torre Desafío', 'Canyon Entrance': 'Entrada al Cañón', 'Sevault Canyon': 'Cañón Sétano',
+ 'Tanoby Ruins': 'Ruinas Sete', 'Monean Chamber': 'Cámara Anémuna', 'Liptoo Chamber': 'Cámara Tulipdos',
+ 'Weepth Chamber': 'Cámara Trisante', 'Dilford Chamber': 'Cámara Quarciso', 'Scufib Chamber': 'Cámara Hibinca',
+ 'Rixy Chamber': 'Cámara Seiris', 'Viapois Chamber': 'Cámara Pasiete', 'Navel Rock': 'Roca Ombligo',
+ 'Sevii Islands': 'Islas Sete', 'One Island': 'Isla Prima', 'Two Island': 'Isla Secunda',
+ 'Three Island': 'Isla Tera', 'Four Island': 'Isla Quarta', 'Five Island': 'Isla Inta',
+ 'Six Island': 'Isla Exta', 'Seven Island': 'Isla Sétima', 'Kanto': 'Kanto',
 };
 // Partes del nombre de un interior ("Celadon City Department Store 2F").
 const PARTS: [string, string][] = [
@@ -595,6 +610,7 @@ const CLASS_ORDER = Object.keys(CLASSES).sort((a, b) => b.length - a.length);
 // Palabras sueltas de un nombre de lugar, en una sola pasada y solo palabras
 // enteras: si no, 'Lab' volvia a entrar en 'Laboratorio' y 'Labyrinth'.
 const PART_MAP = new Map(PARTS);
+const PLACE_RE = new RegExp(`(?<!\\w)(?:${Object.keys(PLACES).sort((a,b)=>b.length-a.length).map(p=>p.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')})(?!\\w)`, 'g');
 const PART_RE = new RegExp(`\\b(${[...PART_MAP.keys()].sort((x, y) => y.length - x.length).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'g');
 const parts = (rest: string) => rest.replace(PART_RE, w => PART_MAP.get(w) ?? w);
 
@@ -655,10 +671,9 @@ export function translator(lang: Lang, names: Names = null) {
   place: (p: string) => {
    if (lang !== 'es' || !p) return p;
    if (PLACES[p]) return PLACES[p];
-   const route = p.match(/^Route (\d+)(.*)$/);
-   if (route) return `Ruta ${route[1]}${parts(route[2])}`;
-   const zone = Object.keys(PLACES).filter(k => p.startsWith(k + ' ')).sort((a, b) => b.length - a.length)[0];
-   return zone ? PLACES[zone] + parts(p.slice(zone.length)) : parts(' ' + p).trimStart();
+   // Tambien hay zonas dentro de otro nombre: Route 2 Viridian Forest Entrance.
+   // Se traducen primero completas, antes de traducir palabras de interiores.
+   return parts(p.replace(PLACE_RE,zone=>PLACES[zone]).replace(/\bRoute (\d+)\b/g,'Ruta $1'));
   },
   evo: (m: string) => lang === 'es' ? m.replace(/^level (\d+)$/, 'nivel $1').replace(/^[\w\s]+$/, w => pick(EVO, w, lang)) : m,
  };

@@ -59,7 +59,7 @@ export default function Home(){
  const [mapVisited,setMapVisited]=useState(false);
  useEffect(()=>{if(tab==='mapa')setMapVisited(true)},[tab]);
  const clearMap=useCallback(()=>{setSelected(null);setStack(null)},[]);
- const {popup,popupBox,el,map,layer,overlay,shownArea,leaflet,mapReady,mapFailure,setMapAttempt}=useGameMap(mapVisited,clearMap);
+ const {popup,popupBox,el,map,layer,overlay,shownArea,leaflet,mapReady,mapZoom,mapFailure,setMapAttempt}=useGameMap(mapVisited,clearMap);
  const [encounterZone,setEncounterZone]=useState<EncounterZone|null>(null);
  // Lo que decides saltar (no te interesa o ya no se puede): no cuenta en el total
  // ni se vuelve a avisar. No es hecho: no abre nada y se puede deshacer.
@@ -409,9 +409,9 @@ export default function Home(){
  const nav=useRef({enter,exitTo});
  useEffect(()=>{nav.current={enter,exitTo}});
  useEffect(()=>{
-  const L=leaflet.current,g=layer.current;if(!L||!g||!world||!area)return;
-  drawMap({L,g,world,area,areaById,items:trip?.draw??[],nextGoal,stacks,done,skipSet,pending,isRegion,finished,doorLocked,placeAt,arrival,tr,onPick:items=>{if(items.length>1){setSelected(null);setStack(items)}else{setStack(null);setSelected(items[0])}},onDoor:(w,toRegion)=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})});
- },[stacks,done,skipSet,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place,trip,doorLocked,nextGoal,layer,leaflet,tr]);
+  const L=leaflet.current,g=layer.current,m=map.current;if(!L||!g||!m||!world||!area)return;
+  drawMap({L,g,m,world,area,areaById,items:trip?.draw??[],nextGoal,stacks,done,skipSet,pending,isRegion,finished,doorLocked,placeAt,arrival,tr,onPick:items=>{if(items.length>1){setSelected(null);setStack(items)}else{setStack(null);setSelected(items[0])}},onDoor:(w,toRegion)=>toRegion?nav.current.exitTo(w.to,w.toAt):nav.current.enter(w.to,{at:w.at,toAt:w.toAt})});
+ },[stacks,done,skipSet,pending,mapReady,world,area,areaById,arrival,isRegion,placeAt,finished,t,place,trip,doorLocked,nextGoal,layer,leaflet,tr,map,mapZoom]);
 
  useLayoutEffect(()=>{
   const m=map.current,p=popup.current;if(!m||!p)return;
@@ -523,7 +523,7 @@ export default function Home(){
  const battleNotice=<LoadNotice message={t('loadBattleFailed')} onRetry={retryBattle} tr={tr}/>;
  const extraFailure=world&&(navFailure===navUrl&&!navWorld?{message:t('loadRoutesFailed'),retry:()=>setNavAttempt(n=>n+1)}
   :lang==='es'&&namesFailure&&!names?{message:t('loadNamesFailed'),retry:()=>setNamesAttempt(n=>n+1)}
-  :tab==='team'&&moveTextFailure===moveTextSrc&&!moveText?{message:t('loadMoveTextFailed'),retry:()=>setMoveTextAttempt(n=>n+1)}
+  :tab==='team'&&!!moveTextSrc&&moveTextFailure===moveTextSrc&&!moveText?{message:t('loadMoveTextFailed'),retry:()=>setMoveTextAttempt(n=>n+1)}
   :battleFailed&&needsBattle&&(tab==='checklist'||tab==='mapa')?{message:t('loadBattleFailed'),retry:retryBattle}:null);
  const areaName=(id?:string)=>id?place(areaById.get(id)?.label??'—'):'—';
  // Ficha de un marcador: el lugar junto a la categoria si es corto.

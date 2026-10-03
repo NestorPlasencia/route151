@@ -198,7 +198,7 @@ def check(game):
                 if not os.path.exists(PUBLIC + sprite):
                     err(f"sprite inexistente {sprite} ({p['name']} en {z['name']})")
             elif sprite:
-                warn(f"sprite externo (no va sin conexion): {p['name']}")
+                warn(f"sprite externo (requiere descargar el juego): {p['name']}")
 
     # Combate.
     b = d['battle']
