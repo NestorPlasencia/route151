@@ -33,7 +33,7 @@ addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==parent||!event.data?.route151Emulator)return;
  const data=event.data;
  if(data.type==='boot'&&!session){
-  session=data.session;
+  session=data.session;live=data.live!==false;
   if(!(data.rom instanceof File))return tell('error');
   data.rom.slice(0xA0,0xB0).arrayBuffer().then(b=>{romId=new Uint8Array(b)},()=>tell('ramUnavailable'));
   window.EJS_player='#game';window.EJS_core='mgba';
@@ -71,6 +71,9 @@ addEventListener('message',event=>{
   if(data.type==='stop'){readRam();capture(true);started=false;clearInterval(interval);window.EJS_emulator?.pause();tell('stopped')}
  }
 });
-addEventListener('error',()=>tell('error'));
-addEventListener('unhandledrejection',()=>tell('error'));
+// Solo un fallo antes de arrancar impide jugar. Pedir que la pantalla siga encendida
+// puede rechazarse (batería baja, permisos) sin afectar al juego.
+const fatal=()=>{if(!started)tell('error')};
+addEventListener('error',fatal);
+addEventListener('unhandledrejection',e=>{if(e.reason?.name!=='NotAllowedError')fatal()});
 parent.postMessage({route151Emulator:true,type:'ready'},location.origin);

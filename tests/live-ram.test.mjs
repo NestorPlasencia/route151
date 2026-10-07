@@ -43,6 +43,7 @@ await test('live snapshots write only when progress changes, not when the clock 
  assert.ok(await sync.syncLive(live.read(r.iwram,r.ewram)));const after=writes;
  r.ewram[r.at.info+17]=40;assert.equal(await sync.syncLive(live.read(r.iwram,r.ewram)),null);assert.equal(writes,after);
  r.flag(catalog.badges[0].flag);const result=await sync.syncLive(live.read(r.iwram,r.ewram));
- assert.deepEqual(result.newMarkers,[11]);assert.deepEqual(JSON.parse(map.get('ruta151-firered')),[11]);
- assert.equal(JSON.parse(map.get('ruta151-firered-team')).length,1);
+ assert.deepEqual(result.newMarkers,[11]);assert.equal(result.profile,'p000004d2');
+ assert.deepEqual(JSON.parse(map.get('ruta151-firered~p000004d2')),[11]);assert.equal(map.get('ruta151-firered'),'[]');
+ assert.equal(JSON.parse(map.get('ruta151-firered~p000004d2-team')).length,1);
 });

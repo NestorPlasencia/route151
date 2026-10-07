@@ -7,6 +7,19 @@ a un servidor. No requiere una ROM. Los estados rápidos de un emulador tienen
 otro formato. El juego elegido en la aplicación determina dónde se aplica:
 un SAV no identifica de forma fiable FireRed frente a LeafGreen.
 
+**Cada partida tiene su propia lista.** Lo que viene del juego real (este
+importador o el emulador) nunca se mezcla con la lista marcada a mano: va a una
+lista aparte por entrenador, identificada por su ID (`profileIdFor`, p. ej.
+`p0c9a77f2`). Sus claves repiten las del juego con otro prefijo:
+`ruta151-firered~p0c9a77f2`, `…-dex`, `…-team`, `…-sav`, `…-skip`. La lista manual
+(`ruta151-firered`) no cambia. Arriba, un selector alterna entre «Mi lista» y
+«🎮 nombre del entrenador»; la elección se guarda en `ruta151-profile-firered`.
+Al importar o empezar a registrar una partida, la web muestra su lista; si
+después se elige «Mi lista» mientras se juega, el emulador sigue escribiendo en
+la partida sin cambiar la vista. Reiniciar desde Créditos borra solo la lista
+visible, y «Deshacer» restaura solo la lista que se importó. Las copias de
+seguridad incluyen todas las partidas y validan sus claves con las mismas reglas.
+
 La vista previa enseña entrenador, tiempo, equipo, cajas, Pokédex, medallas,
 objetos clave, MO y el número de entradas verificadas. Puedes conservar las
 marcas anteriores o reemplazar el progreso de ese juego. Actualizar el equipo
@@ -75,14 +88,26 @@ Jugar dentro de Route 151
 ------------------------
 
 El botón de mando «Jugar y registrar» abre EmulatorJS 4.2.3 con el core mGBA,
-junto a la checklist. Elige una ROM `.gba` original de FireRed o LeafGreen en
-inglés o español, correspondiente al juego seleccionado, y opcionalmente un
+junto a la checklist. Elige una ROM `.gba` original de FireRed o LeafGreen,
+correspondiente al juego seleccionado, y opcionalmente un
 SAV de 128 KiB. No se incluyen ROMs, BIOS ni partidas comerciales. La cabecera
 se comprueba antes de arrancar; no garantiza que una ROM con modificaciones
 sea compatible. Sin SAV elegido se usa el guardado del navegador para esa ROM,
 si existe. Su identidad usa SHA-256 de la ROM, no solo el nombre del archivo.
 
-Pulsa «Cargar emulador» y después «Iniciar juego». Mientras juegas, el adaptador
+La ROM elegida se recuerda en este navegador (IndexedDB, nunca sale del
+dispositivo): la siguiente vez basta con «Seguir jugando». «Usar otro archivo»
+permite elegir otra. Las ROMs FRLG de otros idiomas (francés, alemán, italiano,
+japonés) se pueden jugar, pero sin registro automático: sus textos y su RAM no
+están comprobados.
+
+En el teléfono el juego ocupa la pantalla con los controles táctiles de
+EmulatorJS. «Mi lista» pliega el juego sin cerrarlo y muestra la lista, la
+Pokédex y el equipo; «Volver al juego» lo recupera. El iframe puede mantener
+la pantalla encendida (`screen-wake-lock`); si el navegador lo rechaza, se
+sigue jugando sin aviso de error.
+
+Pulsa «Empezar» y después «Iniciar juego». Mientras juegas, el adaptador
 lee **la RAM de la partida cada segundo**, sin esperar a que guardes: al recoger
 un objeto, vencer a un entrenador, capturar un Pokémon o recibir una medalla se
 marca en la lista en un segundo, y aparece «¡Nuevo!» con lo conseguido.

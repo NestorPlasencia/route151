@@ -10,6 +10,7 @@ import type {T} from './i18n';
 import {loadJson} from './load-json';
 import {parseGameSave,SaveFileError,type SaveCatalog} from './save-file';
 import type {SaveRecord} from './save-record';
+import {profileGame,profileIdFor} from './profiles';
 import {PREVIOUS_SAVE,applySaveImport,prepareSaveImport,saveEvidence,supportedPokemon,undoSaveImport} from './save-import';
 type Preview={record:SaveRecord;catalog:SaveCatalog;battle:Battle};
 export function SaveImportDialog({game,world,tr,onClose}:{game:Game;world:World;tr:T;onClose:()=>void}){
@@ -33,7 +34,8 @@ export function SaveImportDialog({game,world,tr,onClose}:{game:Game;world:World;
   finally{if(id===request.current.version)setBusy(false)}
  };
  const failed=(error:unknown)=>{const pending=error instanceof BackupImportError&&!error.restored;setRecoveryPending(pending);setNote(pending?t('backupRecoveryNeeded'):t('savApplyFailed'));setRecoveryRev(n=>n+1)};
- const apply=()=>{if(!preview)return;try{const next=prepareSaveImport(localStorage,game,GAMES,preview.record,preview.catalog,world,preview.battle,{team,boxes,merge});applySaveImport(localStorage,next,game.id);reload()}catch(error){failed(error)}};
+ // La partida va a su propia lista; la lista manual no cambia.
+ const apply=()=>{if(!preview)return;try{const target=profileGame(game,profileIdFor(preview.record.snapshot)),next=prepareSaveImport(localStorage,target,GAMES,preview.record,preview.catalog,world,preview.battle,{team,boxes,merge});applySaveImport(localStorage,next,target);reload()}catch(error){failed(error)}};
  const undo=()=>{try{undoSaveImport(localStorage,GAMES);reload()}catch(error){failed(error)}};
  const s=preview?.record.snapshot,compatible=preview&&s?supportedPokemon({...s,flags:new Set(s.flags)},preview.battle):[],supportedParty=s?.party.filter(m=>!m.egg).every(m=>compatible.includes(m))??false;
  const detected=preview&&s?saveEvidence({...s,flags:new Set(s.flags)},preview.catalog,world.markers):[];
@@ -55,6 +57,7 @@ export function SaveImportDialog({game,world,tr,onClose}:{game:Game;world:World;
     <p>{t('savProven',{n:new Set(detected.map(m=>m.uid)).size})}</p>
     <details><summary>{t('savDetected')}</summary><ul className="sav-box-list">{detected.map(m=><li key={m.id}>{tr.category(m.category)} · {tr.name(m.name)} · {tr.place(m.location)}</li>)}</ul></details>
     <p>{t('savEvidence')}</p>
+    <p><b>{t('savSeparate',{name:s.trainer})}</b></p>
     {compatible.length<s.party.length+s.boxes.length&&<p>{t('savIncompatible',{n:s.party.length+s.boxes.length-compatible.length})}</p>}
     <label><input type="checkbox" checked={merge} onChange={e=>setMerge(e.target.checked)}/>{t('savMerge')}</label><small>{t('savReplaceNote')}</small>
     <label><input type="checkbox" checked={team} disabled={!supportedParty} onChange={e=>setTeam(e.target.checked)}/>{t('savTeam')}</label>

@@ -6,6 +6,7 @@ import {drawMap} from './map-drawing';
 import {ArrowLeft,BookOpen,Check,RefreshCw,ChevronDown,DoorOpen,Footprints,Gamepad,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,SkipForward,Sparkles,Swords,Undo2} from 'lucide-react';
 import {FIELD_MOVES,Figure,checkOrder,choicesTaken,groupsOf,haveNames,missingTool,obstacleMove,unmetGate,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang} from './i18n';
+import {activeProfile,activeProfileKey,listProfiles,profileGame,validProfileId,type Profile} from './profiles';
 import {ChecklistView,PokedexView} from './lists';
 import {GameHome} from './home';
 import {BattleAdvice,effortText,trainerOpponents,type Opponent} from './team';
@@ -49,8 +50,23 @@ const MOVE_KEY:Record<string,'moveSurf'|'moveCut'|'moveStrength'|'moveSmash'|'mo
 
 export default function Home(){
  const [gameId,setGameId]=useState(GAMES[0].id),[lang,setLang]=useState<Lang>('en');
- const game=GAMES.find(g=>g.id===gameId)??GAMES[0],groups=groupsOf(game.id);
- const {world,worldFailure,loadAttempt,setLoadAttempt}=useGameWorld(game);
+ const baseGame=GAMES.find(g=>g.id===gameId)??GAMES[0],groups=groupsOf(baseGame.id);
+ // Lista activa: la manual o la de una partida real (emulador o SAV), con claves propias.
+ const [profiles,setProfiles]=useState<Profile[]>([]),[profileId,setProfileId]=useState<string|null>(null);
+ const game=useMemo(()=>profileGame(baseGame,profileId),[baseGame,profileId]);
+ useEffect(()=>{
+  const load=(pick?:string)=>{try{
+   const list=listProfiles(localStorage,baseGame);setProfiles(list);
+   if(pick&&list.some(p=>p.id===pick)){localStorage.setItem(activeProfileKey(baseGame),pick);setProfileId(pick)}
+   else if(pick===undefined)setProfileId(activeProfile(localStorage,baseGame));
+  }catch{setProfiles([]);setProfileId(null)}};
+  const changed=(event:Event)=>{const detail=(event as CustomEvent<{game:string;id:string}>).detail;if(detail?.game===baseGame.id)load(detail.id)};
+  const progress=(event:Event)=>{if((event as CustomEvent<string>).detail===baseGame.id)load('')};
+  load();addEventListener('route151-profile',changed);addEventListener('route151-progress-changed',progress);
+  return()=>{removeEventListener('route151-profile',changed);removeEventListener('route151-progress-changed',progress)};
+ },[baseGame]);
+ const pickProfile=(id:string)=>{const next=validProfileId(id)?id:null;setProfileId(next);try{if(next)localStorage.setItem(activeProfileKey(baseGame),next);else localStorage.removeItem(activeProfileKey(baseGame))}catch{}};
+ const {world,worldFailure,loadAttempt,setLoadAttempt}=useGameWorld(baseGame);
  const {value:names,failure:namesFailure,setAttempt:setNamesAttempt}=useNames(lang);
  const tr=useMemo(()=>translator(lang,names),[lang,names]),{t,category,method,place,name}=tr,{detail:tDetail}=tr,layerName=tr.layer;
  const [tab,setTab]=useState<'mapa'|'checklist'|'pokedex'|'team'>('checklist'),[dexView,setDexView]=useState<'dex'|'ranking'|'learn'>('dex'),[view,setView]=useState<View>({area:''});
@@ -77,8 +93,8 @@ export default function Home(){
  // Cada juego carga sus datos y su progreso, y empieza en su primera region.
  useEffect(()=>{
   setSelected(null);setStack(null);setEncounterZone(null);setLocations(false);saved.current=null;setArrival(null);
-  setActive(groupsOf(game.id).map(g=>g[0]).filter(n=>!game.hidden.includes(n)));
- },[game,loadAttempt]);
+  setActive(groupsOf(baseGame.id).map(g=>g[0]).filter(n=>!baseGame.hidden.includes(n)));
+ },[baseGame,loadAttempt]);
  useEffect(()=>{if(world)setView({area:world.areas.find(a=>a.kind==='region')?.id??world.areas[0].id})},[world]);
  const pickGame=(id:string)=>{setGameId(id);setLast(id);try{localStorage.setItem(GAME_KEY,id)}catch{}};
  // Desde el inicio se entra siempre al mapa del juego elegido.
@@ -207,7 +223,7 @@ export default function Home(){
  const [tour,setTour]=useState(false);
  useEffect(()=>{if(home||!world)return;try{if(!localStorage.getItem(TOUR_KEY))setTour(true)}catch{}},[home,world]);
  const closeTour=()=>{setTour(false);try{localStorage.setItem(TOUR_KEY,'seen')}catch{}};
- useEffect(()=>setUnlock(null),[game]);
+ useEffect(()=>setUnlock(null),[baseGame]);
  // Sin marcar ni bloqueado: lo que de verdad queda por hacer.
  const pending=useCallback((m:Marker)=>!done.includes(m.uid)&&!skipSet.has(m.uid)&&!unavailable(m),[done,skipSet,unavailable]);
  const left=useMemo(()=>{
@@ -307,7 +323,7 @@ export default function Home(){
  // sabe donde estas en tu partida: por defecto, la ultima zona de la historia
  // donde marcaste algo; se cambia en el panel o con "Estoy aqui".
  const [routeTo,setRouteTo]=useState<Marker|null>(null);
- useEffect(()=>setRouteTo(null),[game]);
+ useEffect(()=>setRouteTo(null),[baseGame]);
  const lastZone=useMemo(()=>{
   if(!world)return '';
   const zones=new Set(world.markers.filter(m=>done.includes(m.uid)).map(m=>world.checklist.markers[m.id]?.zone));
@@ -569,9 +585,10 @@ export default function Home(){
  return <main className={playing?'with-emulator':undefined}><header><button className="brand" disabled={playing} onClick={()=>setHome(true)} aria-label={t('home')} title={t('home')}><i><MapIcon/></i><b>ROUTE 151<small>{t('companion',{game:game.title})}</small></b></button>
  <label className="game-select"><span className="sr-only">{t('game')}</span><select disabled={playing} value={game.id} onChange={e=>pickGame(e.target.value)} aria-label={t('game')}>{GAMES.map(g=><option key={g.id} value={g.id}>{g.short}</option>)}</select><ChevronDown/></label>
  <label className="game-select lang-select"><span className="sr-only">{t('language')}</span><select value={lang} onChange={e=>pickLang(e.target.value as Lang)} aria-label={t('language')}>{LANGS.map(l=><option key={l} value={l}>{LANG_NAMES[l]}</option>)}</select><ChevronDown/></label>
+ {profiles.length>0&&<label className="game-select profile-select"><span className="sr-only">{t('profileLabel')}</span><select value={profileId??''} onChange={e=>pickProfile(e.target.value)} aria-label={t('profileLabel')}><option value="">{t('profileManual')}</option>{profiles.map(p=><option key={p.id} value={p.id}>{t('profileSave',{name:p.trainer||'?'})}</option>)}</select><ChevronDown/></label>}
  {tab==='mapa'&&<div className="map-controls"><button className="location-button" onClick={()=>setLocations(!locations)} aria-expanded={locations}>{here?<DoorOpen/>:<MapPin/>}<span>{here?place(here.label):area?<>{place(area.label)}<small>{t('allAreas')}</small></>:t('loading')}</span><ChevronDown/></button><button className={`layers-button ${active.length<groups.length?'filtered':''}`} onClick={()=>setLayersOpen(v=>!v)} aria-pressed={layersOpen} aria-label={t('mapLayers')}><Layers/></button></div>}
  <nav>{tabs.map(([k,t])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}>{t}</button>)}</nav><div className="counter"><span>{t('completed',{n:completed})}</span><i><em style={{width:`${pct}%`}}/></i><b>{pct}%</b></div>{game.gen===3&&<button className="about-button" disabled={!world||playing} onClick={()=>setPlaying(true)} aria-label={t('emuTitle')} title={t('emuTitle')}><Gamepad/></button>}<button className={`about-button refresh-button ${refreshing?'spin':''}`} disabled={playing} onClick={()=>{setRefreshing(true);void refreshApp()}} aria-label={t('refreshApp')} title={t('refreshApp')}><RefreshCw/></button><button className="about-button" disabled={playing} onClick={()=>setAbout(true)} aria-label={t('credits')}><Info/></button></header>
- {playing&&world&&<EmulatorPanel key={game.id} game={game} world={world} tr={tr} onClose={()=>setPlaying(false)}/>}
+ {playing&&world&&<EmulatorPanel key={baseGame.id} game={baseGame} world={world} tr={tr} onClose={()=>setPlaying(false)}/>}
  <div className="companion-content">
  <div className={`app ${layersOpen?'layers-open':''}`} hidden={tab!=='mapa'}><aside><h3>{t('layers')}</h3>{groups.map(([name,Icon,color])=><button key={name} onClick={()=>toggleGroup(name)} className={active.includes(name)?'enabled':''}><i style={{'--color':color} as React.CSSProperties}>{active.includes(name)&&<Check/>}</i><Icon/><span>{layerName(name)}</span><b>{counts[name]??0}</b></button>)}<div className="source"><Sparkles/><p><b>{t('separateTitle')}</b>{t('separateText',{regions:regions.map(r=>r.label).join(' + ')})}</p></div></aside>
  <div className="map-stage"><div ref={el} className="leaflet-map"/>
@@ -630,7 +647,7 @@ export default function Home(){
  </div>
  {tour&&!home&&<Tour onClose={closeTour} tr={tr}/>}
  {about&&<AboutDialog game={game} tr={tr} onClose={()=>setAbout(false)} onTour={()=>{setAbout(false);setTour(true)}} onReset={resetGame} onImport={()=>{setAbout(false);setSaveImportOpen(true)}}/>}
- {saveImportOpen&&world&&<SaveImportDialog game={game} world={world} tr={tr} onClose={()=>setSaveImportOpen(false)}/>}
+ {saveImportOpen&&world&&<SaveImportDialog game={baseGame} world={world} tr={tr} onClose={()=>setSaveImportOpen(false)}/>}
  <nav className="tabbar">{tabs.map(([k,t,Icon])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}><Icon/>{t}</button>)}</nav>
  {home&&<GameHome current={game.id} last={last} lang={lang} onLang={pickLang} onPick={choose} tr={tr}/>}
  </main>

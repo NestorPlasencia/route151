@@ -1,5 +1,6 @@
 import type { Game } from './games';
 import {validSaveRecord} from './save-record';
+import {validProfileId,withProfiles} from './profiles';
 
 const PREFIX = 'ruta151-';
 export const BACKUP_STAMP = 'ruta151-backup-date';
@@ -92,6 +93,8 @@ export function parseBackup(
   games: readonly BackupGame[],
 ): Backup {
   if (!envelope(value)) throw new Error('Invalid backup version or envelope');
+  // Las listas de cada partida usan las mismas reglas que la lista de su juego.
+  const all = withProfiles(games, Object.keys(value.data));
   for (const [key, entry] of Object.entries(value.data)) {
     let valid = false;
     if (key === 'ruta151-lang') valid = ['en', 'es'].includes(entry);
@@ -100,8 +103,10 @@ export function parseBackup(
     else if (key === 'ruta151-unavailable')
       valid = ['hide', 'show'].includes(entry);
     else if (key === 'ruta151-tour') valid = entry === 'seen';
+    else if (key.startsWith('ruta151-profile-'))
+      valid = games.some((game) => key === `ruta151-profile-${game.id}`) && validProfileId(entry);
     else {
-      for (const game of games) {
+      for (const game of all) {
         const maxSpecies = game.gen === 1 ? 151 : 386;
         if (key === game.storage.done || key === `${game.storage.done}-skip`)
           valid = numbers(JSON.parse(entry), 0, 0x7fffffff);

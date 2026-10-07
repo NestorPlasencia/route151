@@ -29,7 +29,7 @@ await test('preview is read-only and imported species never mark all wild/gift l
 });
 await test('apply imports real team and backs up the previous state; undo preserves changes to other games',()=>{
  const store=initial(),before=collectBackup(store).data,next=prepareSaveImport(store,game,games,record,catalog,world,battle,options);
- applySaveImport(store,next,game.id);const team=JSON.parse(store.getItem('ruta151-firered-team'));
+ applySaveImport(store,next,game);const team=JSON.parse(store.getItem('ruta151-firered-team'));
  assert.equal(team[0].n,25);assert.equal(team[0].bench,false);assert.equal(team[1].id,'manual');assert.equal(team[1].bench,true);assert.deepEqual(team[0].ivs,[31,30,29,28,27,26]);assert.equal(team[0].guess.length,0);
  assert.deepEqual(ivsOf(battle,team[0]),team[0].ivs);assert.deepEqual(statsOf(battle.species[25].base,50,[null,null],team[0].ivs,team[0].evs),team[0].stats);
  assert.ok(store.getItem(PREVIOUS_SAVE));assert.ok(parseBackup(collectBackup(store),games));
@@ -39,11 +39,11 @@ await test('apply imports real team and backs up the previous state; undo preser
 await test('failed writes recover previous progress and do not lose the older undo copy',()=>{
  const store=initial();store.setItem(PREVIOUS_SAVE,'old undo');const before=collectBackup(store).data;
  const next=prepareSaveImport(store,game,games,record,catalog,world,battle,options);store.fail='ruta151-firered-sav';
- assert.throws(()=>applySaveImport(store,next,game.id));assert.deepEqual(collectBackup(store).data,before);assert.equal(store.getItem(PREVIOUS_SAVE),'old undo');
+ assert.throws(()=>applySaveImport(store,next,game));assert.deepEqual(collectBackup(store).data,before);assert.equal(store.getItem(PREVIOUS_SAVE),'old undo');
 });
 await test('cannot import if the previous-state copy cannot be written',()=>{
  const store=initial(),before=collectBackup(store).data,next=prepareSaveImport(store,game,games,record,catalog,world,battle,options);store.fail=PREVIOUS_SAVE;
- assert.throws(()=>applySaveImport(store,next,game.id));assert.deepEqual(collectBackup(store).data,before);
+ assert.throws(()=>applySaveImport(store,next,game));assert.deepEqual(collectBackup(store).data,before);
 });
 await test('replace affects only the selected game and removes old route origin and skips',()=>{
  const store=initial();store.setItem('ruta151-firered-last','Pallet Town');const next=prepareSaveImport(store,game,games,record,catalog,world,battle,{...options,merge:false});

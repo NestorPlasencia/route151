@@ -3,6 +3,7 @@ import type {Game,World} from './games';
 import {collectBackup,importBackup,parseBackup,type Backup} from './backup-store';
 import {savedTeam,type GameSave,type SaveCatalog} from './save-file';
 import {validSaveRecord,type SaveRecord} from './save-record';
+import {activeProfileKey,profileOf} from './profiles';
 export const PREVIOUS_SAVE='route151-sav-previous';
 type Store=Pick<Storage,'length'|'key'|'getItem'|'setItem'|'removeItem'>;
 export function saveEvidence(save:GameSave,catalog:SaveCatalog,markers:World['markers']){
@@ -36,19 +37,25 @@ export function prepareSaveImport(storage:Store,game:Game,games:readonly Game[],
  }
  data[`${doneKey}-sav`]=JSON.stringify(record);
  data['ruta151-game']=game.id;
+ // Al importar en una partida, se muestra su lista.
+ const profile=profileOf(doneKey);if(profile)data[activeProfileKey(game)]=profile.id;
  return parseBackup({...previous,date:new Date().toISOString(),data},games);
 }
-export function applySaveImport(storage:Store,next:Backup,gameId:string){
+// `game` puede ser la lista de una partida: deshacer restaura solo sus claves.
+export function applySaveImport(storage:Store,next:Backup,game:Pick<Game,'id'|'storage'>){
  const oldUndo=storage.getItem(PREVIOUS_SAVE),previous=collectBackup(storage);
- storage.setItem(PREVIOUS_SAVE,JSON.stringify({game:gameId,backup:previous})); // Antes de modificar el progreso.
+ storage.setItem(PREVIOUS_SAVE,JSON.stringify({game:game.id,prefix:game.storage.done,backup:previous})); // Antes de modificar el progreso.
  try{importBackup(storage,next)}catch(error){try{if(oldUndo===null)storage.removeItem(PREVIOUS_SAVE);else storage.setItem(PREVIOUS_SAVE,oldUndo)}catch{/* Conservar el error y el diario de recuperacion. */}throw error}
 }
 export function undoSaveImport(storage:Store,games:readonly Game[]){
  const previous=storage.getItem(PREVIOUS_SAVE);if(!previous)throw new Error('No previous save');
- const value=JSON.parse(previous) as {game:string;backup:Backup},game=games.find(g=>g.id===value.game);if(!game)throw new Error('Invalid previous game');
+ const value=JSON.parse(previous) as {game:string;prefix?:string;backup:Backup},game=games.find(g=>g.id===value.game);if(!game)throw new Error('Invalid previous game');
+ const base=value.prefix??game.storage.done;
+ if(base!==game.storage.done&&!base.startsWith(`${game.storage.done}~`))throw new Error('Invalid previous list');
  const old=parseBackup(value.backup,games),current=collectBackup(storage),data={...current.data};
- for(const key of Object.keys(data))if(key===game.storage.done||key.startsWith(`${game.storage.done}-`))delete data[key];
- for(const [key,entry] of Object.entries(old.data))if(key===game.storage.done||key.startsWith(`${game.storage.done}-`))data[key]=entry;
+ const owned=(key:string)=>key===base||key.startsWith(`${base}-`);
+ for(const key of Object.keys(data))if(owned(key))delete data[key];
+ for(const [key,entry] of Object.entries(old.data))if(owned(key))data[key]=entry;
  data['ruta151-game']=game.id;
  importBackup(storage,parseBackup({...current,data},games));storage.removeItem(PREVIOUS_SAVE);
 }
