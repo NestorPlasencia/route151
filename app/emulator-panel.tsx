@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {Download,Gamepad,ListChecks,Play,RefreshCw,X} from 'lucide-react';
+import {Download,Gamepad,ListChecks,Play,RefreshCw,Save,X} from 'lucide-react';
 import {GAMES,battleUrl,type Game,type World} from './games';
 import type {Battle} from './battle';
 import type {T} from './i18n';
@@ -10,6 +10,7 @@ import {identifyRom,LiveSaveSync,RomError,saveFingerprint} from './emulator-sync
 import {LiveRam} from './live-ram';
 import {rememberRom,savedRom} from './rom-store';
 type Run={id:string;rom:File;name:string;save:Uint8Array|null;sync:LiveSaveSync;ram:LiveRam;lang:string;tracked:boolean};
+type Check={ok:boolean;text:string};
 type Synced=Awaited<ReturnType<LiveSaveSync['sync']>>;
 export function EmulatorPanel({game,world,tr,onClose}:{game:Game;world:World;tr:T;onClose:()=>void}){
  const {t}=tr,frame=useRef<HTMLIFrameElement>(null),generation=useRef(0);
@@ -24,6 +25,36 @@ export function EmulatorPanel({game,world,tr,onClose}:{game:Game;world:World;tr:
  useEffect(()=>{if(!found.length)return;const id=setTimeout(()=>setFound([]),8000);return()=>clearTimeout(id)},[found]);
  const autoRef=useRef(auto);useEffect(()=>{autoRef.current=auto},[auto]);
  useEffect(()=>()=>{generation.current++},[]);
+ // Cada archivo se comprueba al elegirlo, para saber antes de empezar si sirve.
+ const [romCheck,setRomCheck]=useState<Check|null>(null),[savCheck,setSavCheck]=useState<Check|null>(null),picked=useRef({rom:0,sav:0});
+ const pickRom=async(file:File|null)=>{
+  const id=++picked.current.rom;setRom(file);setRomCheck(null);if(!file)return;
+  let check:Check;
+  try{
+   if(file.size<0xC0||file.size>32*1024*1024)throw new RomError('rom');
+   const info=identifyRom(new Uint8Array(await file.slice(0,0xC0).arrayBuffer()));
+   if(info.game!==game.id)throw new RomError('romGame');
+   check={ok:true,text:t('emuRomOk',{game:game.short})+(info.tracked?'':` ${t('emuUntracked')}`)};
+  }catch(e){check={ok:false,text:e instanceof RomError?t(`emu_${e.code}`):t('emuFailed')}}
+  if(id===picked.current.rom)setRomCheck(check);
+ };
+ const pickSav=async(file:File|null)=>{
+  const id=++picked.current.sav;setSav(file);setSavCheck(null);if(!file)return;
+  let check:Check;
+  try{
+   if(file.size!==0x20000)throw new SaveFileError('size');
+   const [bytes,catalog]=await Promise.all([file.arrayBuffer(),loadJson<SaveCatalog>(`${game.data}/save-catalog.json`)]),save=parseGameSave(bytes,catalog);
+   check={ok:true,text:t('emuSavOk',{name:save.trainer||'?',time:save.playTime})};
+  }catch(e){check={ok:false,text:e instanceof SaveFileError?t(`sav_${e.code}`):t('savReadFailed')}}
+  if(id===picked.current.sav)setSavCheck(check);
+ };
+ const picker=(label:string,accept:string,file:File|null,check:Check|null,onPick:(file:File|null)=>void,icon:React.ReactNode)=>
+  <label className={`emulator-pick ${check?(check.ok?'ok':'bad'):''}`}>
+   <input type="file" accept={accept} disabled={busy} onChange={e=>onPick(e.target.files?.[0]??null)}/>{icon}
+   <span><b>{file?file.name:label}</b>{file&&<small>{check?`${check.ok?'✓':'✗'} ${check.text}`:t('emuChecking')}</small>}</span>
+   {file&&<em>{t('emuChange')}</em>}
+  </label>;
+ const how=<div className="emulator-how"><b>{t('emuHowTitle')}</b><ol><li>{t('emuHow1')}</li><li>{t('emuHow2')}</li><li>{t('emuHow3')}</li></ol><small>{t('emuHowList')}</small></div>;
  const start=async(rom:File|null)=>{
   if(!rom)return;
   const request=++generation.current;setBusy(true);setError('');
@@ -61,7 +92,7 @@ export function EmulatorPanel({game,world,tr,onClose}:{game:Game;world:World;tr:
    if(result.teamUpdated)dispatchEvent(new CustomEvent('route151-team-changed',{detail:result.teamKey}));
    const names=result.newMarkers.map(uid=>world.markers.find(m=>m.uid===uid)?.name).filter((name):name is string=>!!name);
    if(names.length)setFound(names.slice(0,5));
-   setError('');setNote(t('emuSynced',{n:result.added,time:new Date().toLocaleTimeString(run.lang,{hour:'2-digit',minute:'2-digit',second:'2-digit'})})+(!result.teamUpdated&&team?` ${t('emuTeamUnavailable')}`:''));
+   setError('');setNote(t('emuSynced',{n:result.added,time:new Date().toLocaleTimeString(run.lang,{hour:'2-digit',minute:'2-digit',second:'2-digit'})})+(!result.teamUpdated&&team&&result.record.snapshot.party.length>0?` ${t('emuTeamUnavailable')}`:''));
   };
   const changed=(event:MessageEvent)=>{
    if(event.origin!==location.origin||event.source!==frame.current?.contentWindow||event.data?.route151Emulator!==true)return;
@@ -102,14 +133,17 @@ export function EmulatorPanel({game,world,tr,onClose}:{game:Game;world:World;tr:
   {!run?<div className="emulator-setup">
    {stored&&!choosing?<>
     <button className="emulator-start emulator-continue" onClick={()=>void start(stored)} disabled={busy}><Play/>{busy?t('emuLoading'):t('emuContinue')}</button>
+    <small className="emulator-stored">{t('emuStored',{name:stored.name})}</small>
     <button className="emulator-link" onClick={()=>setChoosing(true)} disabled={busy}>{t('emuOtherRom')}</button>
    </>:<>
-    <p>{t('emuIntro')}</p>
-    <label>{t('emuRom')}<input type="file" accept=".gba" disabled={busy} onChange={e=>setRom(e.target.files?.[0]??null)}/></label>
-    <label>{t('emuSav')}<input type="file" accept=".sav,.srm" disabled={busy} onChange={e=>setSav(e.target.files?.[0]??null)}/></label>
-    <button className="emulator-start" onClick={()=>void start(rom)} disabled={!rom||busy}>{busy?t('emuLoading'):t('emuStart')}</button>
+    <section className="emulator-step"><h3>{t('emuStep1')}</h3><p>{t('emuStep1Hint')}</p>
+     {picker(t('emuPickRom'),'.gba',rom,romCheck,file=>void pickRom(file),<Gamepad/>)}</section>
+    <section className="emulator-step"><h3>{t('emuStep2')}</h3><p>{t('emuStep2Hint')}</p>
+     {picker(t('emuPickSav'),'.sav,.srm',sav,savCheck,file=>void pickSav(file),<Save/>)}</section>
+    <button className="emulator-start" onClick={()=>void start(rom)} disabled={!romCheck?.ok||savCheck?.ok===false||(!!sav&&!savCheck)||busy}><Play/>{busy?t('emuLoading'):t('emuStart')}</button>
    </>}
    <label className="emulator-check"><input type="checkbox" checked={team} disabled={busy} onChange={e=>setTeam(e.target.checked)}/>{t('emuTeam')}</label>
+   {how}
   </div>:<>
    <iframe ref={frame} src="/emulator/index.html" title={t('emuTitle')} allow="autoplay; gamepad; fullscreen; screen-wake-lock" allowFullScreen className="emulator-screen"/>
    <div className="emulator-actions">{tracked&&<label className="emulator-check"><input type="checkbox" checked={auto} onChange={e=>{autoRef.current=e.target.checked;setAuto(e.target.checked);send('live',{on:e.target.checked})}}/>{t('emuAuto')}</label>}
@@ -119,7 +153,7 @@ export function EmulatorPanel({game,world,tr,onClose}:{game:Game;world:World;tr:
   </>}
   {run&&started&&tracked&&live!==null&&<p className={`emulator-live ${live?'on':''}`}>{t(live?'emuLiveOn':'emuLiveOff')}</p>}
   {found.length>0&&<p className="emulator-found" aria-live="polite">{t('emuFound',{names:found.join(' · ')})}</p>}
-  <p className="emulator-note">{t('emuSaveNote')}</p>
+  {run&&<p className="emulator-note">{t('emuSaveNote')}</p>}
   {note&&<output aria-live="polite">{note}</output>}{error&&<p role="alert">{error}</p>}
   {exportUrl&&<a href={exportUrl} download={`${game.short}.sav`}>{t('emuSaveFile')}</a>}
   <small><a href="https://github.com/EmulatorJS/EmulatorJS/tree/v4.2.3" target="_blank" rel="noreferrer">EmulatorJS 4.2.3</a> · <a href="https://mgba.io" target="_blank" rel="noreferrer">mGBA</a> · <a href="/emulator/LICENSE-EmulatorJS.txt" target="_blank" rel="noreferrer">GPL-3.0</a></small>

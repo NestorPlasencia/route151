@@ -49,12 +49,12 @@ def main():
     characters[0xB4] = "'"
     flags = constants('include/constants/flags.h')
     flags.update({f'FLAG_BADGE{i:02}_GET': 0x81F + i for i in range(1, 9)})
-    flags.update({'FLAG_SYS_POKEMON_GET': 0x828, 'FLAG_SYS_POKEDEX_GET': 0x829, 'FLAG_SYS_GAME_CLEAR': 0x82C, 'FLAG_SYS_B_DASH': 0x82F, 'FLAG_SYS_NATIONAL_DEX': 0x840, 'FLAG_SYS_CAN_LINK_WITH_RS': 0x844})
+    flags.update({'FLAG_SYS_POKEMON_GET': 0x828, 'FLAG_SYS_POKEDEX_GET': 0x829, 'FLAG_SYS_GAME_CLEAR': 0x82C, 'FLAG_SYS_B_DASH': 0x82F, 'FLAG_SYS_NATIONAL_DEX': 0x840, 'FLAG_SYS_CAN_LINK_WITH_RS': 0x844, 'FLAG_WORLD_MAP_PALLET_TOWN': 0x890})
     badges = [{'name': 'Leader ' + name, 'flag': flags[f'FLAG_BADGE{i:02}_GET']} for i, name in enumerate(['Brock', 'Misty', 'Lt. Surge', 'Erika', 'Koga', 'Sabrina', 'Blaine', 'Giovanni'], 1)]
     progress = [{'name': 'HM' + f'{i:02}', 'flag': flags[f'FLAG_GOT_HM{i:02}']} for i in range(1, 7)]
     progress += [{'name': name, 'flag': flags[flag]} for name, flag in [('Old Rod', 'FLAG_GOT_OLD_ROD'), ('Good Rod', 'FLAG_GOT_GOOD_ROD'), ('Super Rod', 'FLAG_GOT_SUPER_ROD'), ('Bicycle', 'FLAG_GOT_BICYCLE'), ('Bike Voucher', 'FLAG_GOT_BIKE_VOUCHER'), ('S.S. Ticket', 'FLAG_GOT_SS_TICKET'), ('Tea', 'FLAG_GOT_TEA'), ('Poké Flute', 'FLAG_GOT_POKE_FLUTE'), ('Champion', 'FLAG_SYS_GAME_CLEAR')]]
     goals = json.loads(Path('public/frlg/data/goals.json').read_text(encoding='utf-8'))['goals']
-    story_flags = {'leave-house': 'FLAG_SYS_POKEMON_GET', 'oak-stops': 'FLAG_SYS_POKEMON_GET', 'deliver-parcel': 'FLAG_SYS_POKEDEX_GET', 'running-shoes': 'FLAG_SYS_B_DASH', 'rescue-fuji': 'FLAG_RESCUED_MR_FUJI', 'national-dex': 'FLAG_SYS_NATIONAL_DEX', 'sapphire-celio': 'FLAG_SYS_CAN_LINK_WITH_RS'}
+    story_flags = {'deliver-parcel': 'FLAG_SYS_POKEDEX_GET', 'running-shoes': 'FLAG_SYS_B_DASH', 'rescue-fuji': 'FLAG_RESCUED_MR_FUJI', 'national-dex': 'FLAG_SYS_NATIONAL_DEX', 'sapphire-celio': 'FLAG_SYS_CAN_LINK_WITH_RS'}
     for goal in goals:
         if goal.get('step') in story_flags:
             progress.append({'id': f"{goal['map']}:story:{goal['step']}", 'flag': flags[story_flags[goal['step']]]})
@@ -63,6 +63,20 @@ def main():
     markers = json.loads(Path('public/frlg/data/markers.json').read_text(encoding='utf-8'))
     markers += [dict(id=f"{g['map']}:story:{g['step']}", map=g['map'], category='Story', name=g['step']) for g in goals if g.get('step')]
     checks = build_checks(ROOT, markers)
+    # Pasos que el juego marca antes del inicial, para verlos en vivo desde el primer
+    # momento. Tener el inicial también los prueba (partidas antiguas o sin esa marca).
+    vars_ = constants('include/constants/vars.h')
+    starter = [{'flag': flags['FLAG_SYS_POKEMON_GET']}]
+    early = {
+        # PalletTown/scripts.inc: setworldmapflag FLAG_WORLD_MAP_PALLET_TOWN al entrar al pueblo.
+        'leave-house': ([{'flag': flags['FLAG_WORLD_MAP_PALLET_TOWN']}], 'PalletTown/scripts.inc'),
+        # PalletTown/scripts.inc: setvar VAR_MAP_SCENE_PALLET_TOWN_OAK, 1 cuando Oak te detiene.
+        'oak-stops': ([{'var': vars_['VAR_MAP_SCENE_PALLET_TOWN_OAK'], 'gte': 1}], 'PalletTown/scripts.inc'),
+    }
+    for goal in goals:
+        if goal.get('step') in early:
+            condition, source = early[goal['step']]
+            checks.append({'id': f"{goal['map']}:story:{goal['step']}", 'any': [condition, starter], 'sources': [source, 'include/constants/flags.h']})
     OUT.write_text(json.dumps({'version': 1, 'source': f'https://github.com/pret/pokefirered/tree/{COMMIT}', 'species': species, 'moves': moves, 'items': items, 'natures': natures, 'characters': characters, 'badges': badges, 'progress': progress, 'checks': checks}, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     print(f'SAV: {len(species)} especies, {len(moves)} movimientos, {len(items)} objetos, {len(checks)} entradas verificables -> {OUT}')
 

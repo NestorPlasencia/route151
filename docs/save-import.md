@@ -31,10 +31,13 @@ se desactiva la actualización del equipo.
 
 Las especies obtenidas se registran en la Pokédex desde una fuente independiente:
 no se completan todas sus localizaciones, regalos o elecciones de la checklist.
-Además de medallas, MO y objetos clave, el catálogo relaciona 886 entradas con
+Además de medallas, MO y objetos clave, el catálogo relaciona 888 entradas con
 flags o variables persistentes: las 461 entradas de combate, incluidos líderes
 y escenas del rival, 168 objetos del suelo, 183 objetos ocultos, 44 regalos de objetos,
-11 regalos de Pokémon, 12 intercambios y siete pasos de historia adicionales.
+11 regalos de Pokémon, 12 intercambios y nueve pasos de historia adicionales.
+«Sal de tu casa» se prueba con `FLAG_WORLD_MAP_PALLET_TOWN` (el juego lo activa al
+entrar en Pueblo Paleta) y «Oak te detiene» con `VAR_MAP_SCENE_PALLET_TOWN_OAK` ≥ 1;
+tener el inicial también los prueba. Así se marcan en vivo antes del inicial.
 La vista previa incluye una lista de los entrenadores, objetos y eventos detectados.
 Cada regla conserva referencias a los scripts o constantes que justifican la asociación en
 `save-catalog.json`; se genera desde los mapas del mismo commit de pret.

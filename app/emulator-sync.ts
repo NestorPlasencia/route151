@@ -47,7 +47,7 @@ export class LiveSaveSync {
    // Cada partida (ID de entrenador) escribe en su propia lista; la manual no se toca.
    const profile=profileIdFor(save),game=profileGame(this.game,profile);
    const record:SaveRecord={version:1,game:this.game.id,filename:`${this.game.short}.sav`,importedAt:new Date().toISOString(),fingerprint,snapshot:{...save,flags:[...save.flags]}};
-   const teamUpdated=this.team&&save.party.filter(m=>!m.egg).every(m=>supportedPokemon(save,this.battle).includes(m));
+   const teamUpdated=this.team&&save.party.length>0&&save.party.filter(m=>!m.egg).every(m=>supportedPokemon(save,this.battle).includes(m));
    const before=new Set(JSON.parse(this.storage.getItem(game.storage.done)??'[]') as number[]);
    const next=prepareSaveImport(this.storage,game,this.games,record,this.catalog,this.world,this.battle,{team:teamUpdated,boxes:false,merge:true});
    // La copia para deshacer pertenece a toda la sesión, no al último intervalo.

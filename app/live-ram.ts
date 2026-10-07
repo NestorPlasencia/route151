@@ -42,11 +42,13 @@ export class LiveRam{
   const world=ewram.slice(at.world,at.world+WORLD),info=ewram.subarray(at.info,at.info+INFO),pc=ewram.subarray(at.pc,at.pc+PC);
   let count=layout.partyCount===null?0:ewram[layout.partyCount];
   if(layout.partyCount===null)while(count<6&&validMon(ewram,layout.party+count*MON))count++;
-  if(count<1||count>6)return null; // Sin equipo aún (intro o pantalla de título): nada que registrar.
+  if(count>6)return null;
   world[PARTY_COUNT]=count;world.fill(0,PARTY,PARTY+6*MON);world.set(ewram.subarray(layout.party,layout.party+count*MON),PARTY);
   try{
    const save=parseSaveBlocks(info,world,pc,this.catalog);
-   return save.trainer&&save.party.length===count?save:null;
+   // Antes del inicial ya hay avance (salir de casa, Oak te detiene). Sin nombre ni ID de
+   // entrenador todavía es la intro o la pantalla de título: nada que registrar.
+   return save.trainer&&save.trainerId!==0&&save.party.length===count?save:null;
   }catch{return null} // Un fotograma a medias o un menú intermedio: se reintenta en la siguiente lectura.
  }
  // Otras revisiones o idiomas: punteros seguidos a bloques válidos y un equipo cuyo

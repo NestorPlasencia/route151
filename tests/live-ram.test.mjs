@@ -24,8 +24,9 @@ await test('reads the live party, Pokédex, items and flags before the game is s
  assert.equal(save.boxes.length,1);assert.ok(save.keyItems.some(i=>i.id===262));
  const live=new LiveRam(catalog);r.flag(0x821);assert.ok(live.read(r.iwram,r.ewram).flags.has(0x821));
 });
-await test('an empty party, a broken pointer or a corrupt Pokémon is ignored instead of syncing',()=>{
- const empty=ram({members:[]});assert.equal(new LiveRam(catalog).read(empty.iwram,empty.ewram),null);
+await test('a new game is read before the starter, but not without a trainer ID or with a broken pointer or Pokémon',()=>{
+ const empty=ram({members:[]}),fresh=new LiveRam(catalog).read(empty.iwram,empty.ewram);assert.deepEqual(fresh.party,[]);assert.equal(fresh.trainerId,1234);
+ empty.ewram.fill(0,0x26000+10,0x26000+14);assert.equal(new LiveRam(catalog).read(empty.iwram,empty.ewram),null);
  const broken=ram();new DataView(broken.iwram.buffer).setUint32(0x500C,0x08000000,true);broken.ewram.fill(0,0x24284,0x24284+100);
  assert.equal(new LiveRam(catalog).read(broken.iwram,broken.ewram),null);
  const corrupt=ram();corrupt.ewram[0x24284+40]^=0xFF;assert.equal(new LiveRam(catalog).read(corrupt.iwram,corrupt.ewram),null);
@@ -46,4 +47,13 @@ await test('live snapshots write only when progress changes, not when the clock 
  assert.deepEqual(result.newMarkers,[11]);assert.equal(result.profile,'p000004d2');
  assert.deepEqual(JSON.parse(map.get('ruta151-firered~p000004d2')),[11]);assert.equal(map.get('ruta151-firered'),'[]');
  assert.equal(JSON.parse(map.get('ruta151-firered~p000004d2-team')).length,1);
+});
+await test('leaving the house and Oak stopping you are marked live before getting the starter',async()=>{
+ const map=new Map();const store={get length(){return map.size},key:i=>[...map.keys()][i]??null,getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)};
+ const world={markers:[{id:'MAP_PALLET_TOWN:story:leave-house',uid:1},{id:'MAP_PALLET_TOWN:story:oak-stops',uid:2}]},r=ram({members:[]}),live=new LiveRam(catalog);
+ r.flag(catalog.badges[0].flag,false);const sync=new LiveSaveSync(store,game,games,catalog,world,battle,true);
+ assert.deepEqual((await sync.syncLive(live.read(r.iwram,r.ewram))).newMarkers,[]);
+ r.flag(0x890);assert.deepEqual((await sync.syncLive(live.read(r.iwram,r.ewram))).newMarkers,[1]);
+ new DataView(r.ewram.buffer).setUint16(r.at.world+0x1000+0x50*2,1,true);assert.deepEqual((await sync.syncLive(live.read(r.iwram,r.ewram))).newMarkers,[2]);
+ assert.equal(map.get('ruta151-firered~p000004d2-team'),undefined); // Sin equipo no se toca el equipo.
 });
