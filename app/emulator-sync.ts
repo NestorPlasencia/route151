@@ -2,7 +2,8 @@ import type {Battle} from './battle';
 import {importBackup} from './backup-store';
 import type {Game,World} from './games';
 import {applySaveImport,prepareSaveImport,saveProgress,supportedPokemon} from './save-import';
-import {parseGameSave,type SaveCatalog} from './save-file';
+import {parseGameSave,type GameSave,type SaveCatalog} from './save-file';
+import {progressKey} from './live-ram';
 import type {SaveRecord} from './save-record';
 
 export class RomError extends Error {constructor(public code:'rom'|'romGame'|'romLanguage'){super(code)}}
@@ -31,9 +32,16 @@ export class LiveSaveSync {
  sync(input:Uint8Array){
   // Copiar antes de encolar: el core puede reutilizar su buffer mientras esperamos.
   const bytes=new Uint8Array(input);
+  return this.enqueue(()=>parseGameSave(bytes,this.catalog));
+ }
+ // Lectura de RAM: el progreso aparece al momento, aunque aún no se haya guardado en el juego.
+ syncLive(save:GameSave){return this.enqueue(()=>save)}
+ private enqueue(read:()=>GameSave){
   const job=this.tail.then(async()=>{
    if(this.stopped)return null;
-   const save=parseGameSave(bytes,this.catalog),fingerprint=await saveFingerprint(bytes);
+   const save=read(),progress=saveProgress(save,this.catalog,this.world.markers);
+   // La huella ignora tiempo y posición: solo se escribe cuando cambia el avance.
+   const fingerprint=await saveFingerprint(new TextEncoder().encode(progressKey(save,progress)));
    if(this.stopped||fingerprint===this.fingerprint)return null;
    const record:SaveRecord={version:1,game:this.game.id,filename:`${this.game.short}.sav`,importedAt:new Date().toISOString(),fingerprint,snapshot:{...save,flags:[...save.flags]}};
    const teamUpdated=this.team&&save.party.filter(m=>!m.egg).every(m=>supportedPokemon(save,this.battle).includes(m));
@@ -42,7 +50,8 @@ export class LiveSaveSync {
    // La copia para deshacer pertenece a toda la sesión, no al último intervalo.
    if(this.first)applySaveImport(this.storage,next,this.game.id);else importBackup(this.storage,next);
    this.first=false;this.fingerprint=fingerprint;
-   return {record,teamUpdated,added:saveProgress(save,this.catalog,this.world.markers).filter(uid=>!before.has(uid)).length};
+   const added=progress.filter(uid=>!before.has(uid));
+   return {record,teamUpdated,added:added.length,newMarkers:added};
   });
   this.tail=job.catch(()=>{}); // Un error no impide reintentar el mismo guardado.
   return job;

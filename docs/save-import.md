@@ -68,8 +68,8 @@ normal de Route 151. No modifica el archivo SAV original.
 Compatibilidad comprobada: los dos guardados ingleses de RoC's PC y fixtures
 sintéticos con nombres españoles. Falta comprobar una partida real española.
 Yellow, modificaciones del formato por ROM hacks y registros de Pokémon con
-codificación japonesa quedan fuera de esta primera versión. No hay conexión
-en vivo a la RAM ni vigilancia automática de archivos de un emulador externo.
+codificación japonesa quedan fuera de esta primera versión. La lectura en vivo
+solo funciona con el emulador integrado; no se vigilan archivos de un emulador externo.
 
 Jugar dentro de Route 151
 ------------------------
@@ -82,15 +82,34 @@ se comprueba antes de arrancar; no garantiza que una ROM con modificaciones
 sea compatible. Sin SAV elegido se usa el guardado del navegador para esa ROM,
 si existe. Su identidad usa SHA-256 de la ROM, no solo el nombre del archivo.
 
-Pulsa «Cargar emulador» y después «Iniciar juego». Al usar **Guardar dentro de
-Pokémon**, el adaptador comprueba el SAV cada tres segundos. Solo importa bytes
-distintos y válidos, actualiza la lista y la Pokédex sin recargar la página, y
-opcionalmente el equipo. Los miembros anteriores se conservan como suplentes.
-Un equipo incompatible se conserva en el registro, sin reemplazar el equipo
-actual. «Sincronizar ahora» permite reintentar una escritura fallida y
-«Descargar SAV» exporta la partida del juego y muestra un enlace para repetir la
-descarga si el navegador la bloquea. Los estados rápidos no sustituyen
-el guardado normal. Guarda dentro de Pokémon antes de cerrar el emulador.
+Pulsa «Cargar emulador» y después «Iniciar juego». Mientras juegas, el adaptador
+lee **la RAM de la partida cada segundo**, sin esperar a que guardes: al recoger
+un objeto, vencer a un entrenador, capturar un Pokémon o recibir una medalla se
+marca en la lista en un segundo, y aparece «¡Nuevo!» con lo conseguido.
+
+La RAM se obtiene de un estado de mGBA (`GBASerializedState`, 0x61000 bytes):
+EmulatorJS lo devuelve dentro de un contenedor `RASTATE`, y el adaptador lo
+localiza por el título y el código de la ROM en 0x10. Copia la IWRAM (0x19000) y la
+EWRAM (0x21000) a la página; leer el estado tarda menos de un milisegundo.
+`app/live-ram.ts` sigue `gSaveBlock1Ptr`, `gSaveBlock2Ptr` y `gPokemonStoragePtr`
+(0x03005008, iguales en FireRed y LeafGreen rev0 y rev1 según los símbolos de pret)
+y usa el equipo vivo de `gPlayerParty` (0x02024284), porque SaveBlock1 solo lo
+copia al guardar. Con esos bloques llama al mismo lector y a las mismas reglas del
+SAV. Si las direcciones no encajan (otra edición), busca punteros consecutivos a
+bloques válidos y un equipo cuyo primer Pokémon pertenezca al entrenador.
+Antes de tener equipo (intro o pantalla de título) no se registra nada. Un
+fotograma con datos incompletos se ignora y se reintenta en el siguiente.
+
+Solo se escribe cuando cambia el avance (marcas, Pokédex, medallas, objetos
+clave, equipo o cajas), no el reloj ni la posición. Si no se puede leer la RAM, se
+avisa y se sigue usando el SAV: el adaptador lo comprueba cada tres segundos.
+El progreso en vivo que no se guarda en Pokémon se pierde en el juego, pero la
+marca de la lista se conserva. Los miembros anteriores del equipo se conservan
+como suplentes; un equipo incompatible se conserva en el registro, sin
+reemplazar el equipo actual. «Sincronizar ahora» lee la RAM y el SAV al momento,
+y «Descargar SAV» exporta la partida del juego y muestra un enlace para repetir
+la descarga si el navegador la bloquea. Los estados rápidos no sustituyen el
+guardado normal. Guarda dentro de Pokémon antes de cerrar el emulador.
 
 Cada sesión conserva una única copia del progreso anterior para «Deshacer la
 última importación» en Créditos. Las marcas manuales se conservan y cargar un
@@ -108,8 +127,10 @@ su `license.txt`, accesible desde el menú del emulador.
 La sincronización se prueba con sectores sintéticos, guardados públicos y el
 adaptador de EmulatorJS. En navegador se comprobó el arranque de FireRed (USA)
 con una ROM aportada por el usuario: el SAV de RoC registra 655 entradas y sus
-seis miembros del equipo. La integración no consulta memoria de una partida
-sin guardar. Falta comprobar la ejecución de una ROM española real.
+seis miembros del equipo. Con la misma ROM se comprobó la
+lectura en vivo: punteros reubicados por el juego, equipo de seis y un objeto
+oculto activado en la RAM marcado en la lista en 1,2 s sin guardar. Falta
+comprobar la ejecución de una ROM española real.
 
 Referencias: [EmulatorJS 4.2.3](https://github.com/EmulatorJS/EmulatorJS/tree/v4.2.3)
 y [API de archivos de guardado](https://github.com/EmulatorJS/EmulatorJS/blob/v4.2.3/data/src/GameManager.js).

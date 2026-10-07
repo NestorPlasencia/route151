@@ -76,8 +76,13 @@ export function parseGameSave(input:ArrayBuffer|Uint8Array,catalog:SaveCatalog):
  const first=slot(bytes,0),second=slot(bytes,0xE000);
  if(!first&&!second)return fail('integrity');
  const chosen=first&&second?(((second.counter-first.counter)>>>0)<0x80000000?second:first):first??second!;
- const info=chosen.sections[0],world=concat(chosen.sections.slice(1,5)),pc=concat(chosen.sections.slice(5)),iv=bytesView(info),wv=bytesView(world);
- if(world.length!==0x3D68||pc.length!==0x83D0||world[0x34]>6||info[8]>1||info[16]>59||info[17]>59||pc[0]>13)return fail('format');
+ const unused=first?bytes.subarray(0xE000,0x1C000):bytes.subarray(0,0xE000);
+ return parseSaveBlocks(chosen.sections[0],concat(chosen.sections.slice(1,5)),concat(chosen.sections.slice(5)),catalog,chosen.counter,(!first||!second)&&unused.some(b=>b!==0&&b!==0xFF));
+}
+// Mismos bloques que el SAV (SaveBlock2, SaveBlock1, PokemonStorage), vengan del archivo o de la RAM.
+export function parseSaveBlocks(info:Uint8Array,world:Uint8Array,pc:Uint8Array,catalog:SaveCatalog,counter=0,recovered=false):GameSave{
+ const iv=bytesView(info),wv=bytesView(world);
+ if(info.length!==0xF24||world.length!==0x3D68||pc.length!==0x83D0||world[0x34]>6||info[8]>1||info[16]>59||info[17]>59||pc[0]>13)return fail('format');
  const party:SavedPokemon[]=[],boxes:SavedPokemon[]=[];
  for(let i=0;i<world[0x34];i++){const mon=pokemon(world.subarray(0x38+i*100,0x38+(i+1)*100),catalog,null);if(!mon)return fail('pokemon');party.push(mon)}
  for(let i=0;i<420;i++){const mon=pokemon(pc.subarray(4+i*80,4+(i+1)*80),catalog,Math.floor(i/30)+1);if(mon)boxes.push(mon)}
@@ -89,7 +94,6 @@ export function parseGameSave(input:ArrayBuffer|Uint8Array,catalog:SaveCatalog):
   if(!item||quantity<1||quantity>999)return fail('format');
   if(start===0x3B8||item.key.startsWith('ITEM_HM'))keyItems.push({id,...item,quantity});
  }
- const unused=first?bytes.subarray(0xE000,0x1C000):bytes.subarray(0,0xE000);
- return {trainer:text(info.subarray(0,8),catalog.characters),trainerId:iv.getUint32(10,true),playTime:`${iv.getUint16(14,true)}:${String(info[16]).padStart(2,'0')}`,counter:chosen.counter,recovered:(!first||!second)&&unused.some(b=>b!==0&&b!==0xFF),party,boxes,owned:bits(info.subarray(0x28,0x5C),386),seen:bits(info.subarray(0x5C,0x90),386),badges:catalog.badges.filter(b=>flags.has(b.flag)).map(b=>b.name),flags,vars:Array.from({length:256},(_,i)=>wv.getUint16(0x1000+i*2,true)),keyItems,location:{x:wv.getInt16(0,true),y:wv.getInt16(2,true),group:world[4],map:world[5]}};
+ return {trainer:text(info.subarray(0,8),catalog.characters),trainerId:iv.getUint32(10,true),playTime:`${iv.getUint16(14,true)}:${String(info[16]).padStart(2,'0')}`,counter,recovered,party,boxes,owned:bits(info.subarray(0x28,0x5C),386),seen:bits(info.subarray(0x5C,0x90),386),badges:catalog.badges.filter(b=>flags.has(b.flag)).map(b=>b.name),flags,vars:Array.from({length:256},(_,i)=>wv.getUint16(0x1000+i*2,true)),keyItems,location:{x:wv.getInt16(0,true),y:wv.getInt16(2,true),group:world[4],map:world[5]}};
 }
 export function savedTeam(mon:SavedPokemon,bench=false):TeamMon{return {id:mon.id,n:mon.n,level:mon.level,nature:mon.nature,ability:mon.ability,moves:mon.moves,stats:mon.stats,out:mon.hp===0,bench,guess:[],nickname:mon.nickname,speciesName:mon.name,ivs:mon.ivs,evs:mon.evs}}
