@@ -3,10 +3,13 @@ import {Fragment,useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} 
 import {createPortal} from 'react-dom';
 import {useGameMap} from './use-game-map';
 import {drawMap} from './map-drawing';
-import {ArrowLeft,BookOpen,Check,RefreshCw,ChevronDown,DoorOpen,Footprints,Gamepad,Info,Layers,ListChecks,Lock,Map as MapIcon,MapPin,SkipForward,Sparkles,Swords,Undo2} from 'lucide-react';
+import {ArrowLeft,BookOpen,Check,RefreshCw,ChevronDown,DoorOpen,Footprints,Gamepad,Info,Layers,ListChecks,LocateFixed,Lock,Map as MapIcon,MapPin,SkipForward,Sparkles,Swords,Undo2} from 'lucide-react';
+import type {Marker as LeafletMarker} from 'leaflet';
 import {FIELD_MOVES,Figure,checkOrder,choicesTaken,groupsOf,haveNames,missingTool,obstacleMove,unmetGate,type Encounter,type Marker} from './shared';
 import {LANGS,LANG_NAMES,LANG_KEY,savedLang,translator,type Lang} from './i18n';
 import {activeProfile,activeProfileKey,listProfiles,profileGame,validProfileId,type Profile} from './profiles';
+import {PLAYER_EVENT,playerSpot,type GameLocation,type MapPositions,type PlayerSpot} from './player-position';
+import {loadJson} from './load-json';
 import {ChecklistView,PokedexView} from './lists';
 import {GameHome} from './home';
 import {BattleAdvice,effortText,trainerOpponents,type Opponent} from './team';
@@ -271,6 +274,36 @@ export default function Home(){
  // Al salir de una region se guarda la vista para volver exactamente alli.
  const saved=useRef<{region:string;restore:NonNullable<View['restore']>}|null>(null);
  const saveRegion=()=>{const m=map.current;if(m&&area?.kind==='region'){const c=m.getCenter();saved.current={region:area.id,restore:{center:[c.lat,c.lng],zoom:m.getZoom()}}}};
+ // Seguir al jugador del emulador: la RAM dice mapa y casilla, y aquí se pasan al
+ // área y al punto de la app. Arrastrar el mapa deja de seguir; el botón lo reanuda.
+ const [player,setPlayer]=useState<PlayerSpot|null>(null),[follow,setFollow]=useState(true);
+ const positions=useRef<{game:string;table:Promise<MapPositions|null>}|null>(null);
+ useEffect(()=>{
+  setPlayer(null);
+  const moved=(event:Event)=>{
+   const detail=(event as CustomEvent<{game:string;location:GameLocation|null}>).detail;
+   if(detail?.game!==baseGame.id)return;
+   const spotAt=detail.location;if(!spotAt){setPlayer(null);return}
+   if(positions.current?.game!==baseGame.id)positions.current={game:baseGame.id,table:loadJson<MapPositions>(`${baseGame.data}/map-positions.json`).catch(()=>null)};
+   void positions.current.table.then(table=>{const spot=table&&playerSpot(table,spotAt);if(spot)setPlayer(spot)});
+  };
+  addEventListener(PLAYER_EVENT,moved);return()=>removeEventListener(PLAYER_EVENT,moved);
+ },[baseGame]);
+ useEffect(()=>{
+  if(!player||!follow||tab!=='mapa')return;
+  if(player.area!==view.area){saveRegion();setView({area:player.area,focus:player.at,zoom:areaById.get(player.area)?.kind==='region'?0:-99});return}
+  map.current?.panTo(ll(player.at),{animate:true});
+ // Solo al moverse el jugador o al volver a seguirlo, no en cada cambio de vista.
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[player,follow,tab]);
+ useEffect(()=>{const m=map.current;if(!m)return;const stop=()=>setFollow(false);m.on('dragstart',stop);return()=>{m.off('dragstart',stop)}},[mapReady,map]);
+ const playerMarker=useRef<LeafletMarker|null>(null);
+ useEffect(()=>{
+  const L=leaflet.current,m=map.current;if(!L||!m)return;
+  if(!player||player.area!==area?.id){playerMarker.current?.remove();playerMarker.current=null;return}
+  if(playerMarker.current)playerMarker.current.setLatLng(ll(player.at));
+  else playerMarker.current=L.marker(ll(player.at),{icon:L.divIcon({className:'pin-wrap',html:'<span class="player-pin"></span>',iconSize:[28,28],iconAnchor:[14,14]}),title:t('youAreHere'),interactive:false,zIndexOffset:2000}).addTo(m);
+ },[player,area,mapReady,leaflet,map,t]);
  // Cada salto entre mapas deja rastro: un aviso breve ("Entraste a Mt. Moon 1F
  // desde Route 4") y un anillo con flecha en el punto exacto de entrada o
  // salida, que se desvanece a los 6 s.
@@ -586,7 +619,7 @@ export default function Home(){
  <label className="game-select"><span className="sr-only">{t('game')}</span><select disabled={playing} value={game.id} onChange={e=>pickGame(e.target.value)} aria-label={t('game')}>{GAMES.map(g=><option key={g.id} value={g.id}>{g.short}</option>)}</select><ChevronDown/></label>
  <label className="game-select lang-select"><span className="sr-only">{t('language')}</span><select value={lang} onChange={e=>pickLang(e.target.value as Lang)} aria-label={t('language')}>{LANGS.map(l=><option key={l} value={l}>{LANG_NAMES[l]}</option>)}</select><ChevronDown/></label>
  {profiles.length>0&&<label className="game-select profile-select"><span className="sr-only">{t('profileLabel')}</span><select value={profileId??''} onChange={e=>pickProfile(e.target.value)} aria-label={t('profileLabel')}><option value="">{t('profileManual')}</option>{profiles.map(p=><option key={p.id} value={p.id}>{t('profileSave',{name:p.trainer||'?'})}</option>)}</select><ChevronDown/></label>}
- {tab==='mapa'&&<div className="map-controls"><button className="location-button" onClick={()=>setLocations(!locations)} aria-expanded={locations}>{here?<DoorOpen/>:<MapPin/>}<span>{here?place(here.label):area?<>{place(area.label)}<small>{t('allAreas')}</small></>:t('loading')}</span><ChevronDown/></button><button className={`layers-button ${active.length<groups.length?'filtered':''}`} onClick={()=>setLayersOpen(v=>!v)} aria-pressed={layersOpen} aria-label={t('mapLayers')}><Layers/></button></div>}
+ {tab==='mapa'&&<div className="map-controls"><button className="location-button" onClick={()=>setLocations(!locations)} aria-expanded={locations}>{here?<DoorOpen/>:<MapPin/>}<span>{here?place(here.label):area?<>{place(area.label)}<small>{t('allAreas')}</small></>:t('loading')}</span><ChevronDown/></button><button className={`layers-button ${active.length<groups.length?'filtered':''}`} onClick={()=>setLayersOpen(v=>!v)} aria-pressed={layersOpen} aria-label={t('mapLayers')}><Layers/></button>{player&&<button className={`layers-button follow-button ${follow?'on':''}`} onClick={()=>setFollow(f=>!f)} aria-pressed={follow} aria-label={t('followMe')} title={t('followMe')}><LocateFixed/></button>}</div>}
  <nav>{tabs.map(([k,t])=><button key={k} className={tab===k?'on':''} onClick={()=>setTab(k)} aria-current={tab===k?'page':undefined}>{t}</button>)}</nav><div className="counter"><span>{t('completed',{n:completed})}</span><i><em style={{width:`${pct}%`}}/></i><b>{pct}%</b></div>{game.gen===3&&<button className="about-button" disabled={!world||playing} onClick={()=>setPlaying(true)} aria-label={t('emuTitle')} title={t('emuTitle')}><Gamepad/></button>}<button className={`about-button refresh-button ${refreshing?'spin':''}`} disabled={playing} onClick={()=>{setRefreshing(true);void refreshApp()}} aria-label={t('refreshApp')} title={t('refreshApp')}><RefreshCw/></button><button className="about-button" disabled={playing} onClick={()=>setAbout(true)} aria-label={t('credits')}><Info/></button></header>
  {playing&&world&&<EmulatorPanel key={baseGame.id} game={baseGame} world={world} tr={tr} onClose={()=>setPlaying(false)}/>}
  <div className="companion-content">

@@ -38,6 +38,7 @@ declare module 'lucide-react' {
   export const ListChecks: Icon;
   export const Play: Icon;
   export const Save: Icon;
+  export const LocateFixed: Icon;
   export const Lock: Icon;
   export const Map: Icon;
   export const MapPin: Icon;

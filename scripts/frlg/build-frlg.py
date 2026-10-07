@@ -172,6 +172,19 @@ def build_regions():
     return out
 
 
+def placements(regions):
+    """Donde se ve cada mapa: MAP -> (area, x, y) en bloques. Los exteriores van en
+    su region; Azafran real se coloca sobre su copia; el resto es su propia area."""
+    where = {m: (rid, x, y) for rid, r in regions.items() for m, (x, y) in r['maps'].items()}
+    for alias, (target, dx, dy) in ALIAS.items():
+        rid, x, y = where[target]
+        where[alias] = (rid, x - dx, y - dy)
+    for mid in d.maps():
+        if mid not in where and not SKIP.match(mid):
+            where[mid] = (mid, 0, 0)
+    return where
+
+
 def render_region(region):
     """Terreno de todos los mapas y, despues, sus objetos: asi un sprite en el
     borde entre dos mapas no queda tapado por el vecino."""

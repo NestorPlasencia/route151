@@ -9,6 +9,7 @@ import {parseGameSave,SaveFileError,type SaveCatalog} from './save-file';
 import {identifyRom,LiveSaveSync,RomError,saveFingerprint} from './emulator-sync';
 import {LiveRam} from './live-ram';
 import {rememberRom,savedRom} from './rom-store';
+import {PLAYER_EVENT} from './player-position';
 type Run={id:string;rom:File;name:string;save:Uint8Array|null;sync:LiveSaveSync;ram:LiveRam;lang:string;tracked:boolean};
 type Check={ok:boolean;text:string};
 type Synced=Awaited<ReturnType<LiveSaveSync['sync']>>;
@@ -75,7 +76,7 @@ export function EmulatorPanel({game,world,tr,onClose}:{game:Game;world:World;tr:
  };
  useEffect(()=>{
   if(!run)return;
-  let disposed=false,booted=false,reading=false,shown='',pending:Promise<unknown>=Promise.resolve();
+  let disposed=false,booted=false,reading=false,shown='',place='',pending:Promise<unknown>=Promise.resolve();
   let bootTimer:ReturnType<typeof setTimeout>;
   const loading=()=>{clearTimeout(bootTimer);bootTimer=setTimeout(()=>{if(!disposed)setError(t('emuFailed'))},60000)};
   loading();
@@ -102,9 +103,13 @@ export function EmulatorPanel({game,world,tr,onClose}:{game:Game;world:World;tr:
    if(data.type==='readyToStart'){clearTimeout(bootTimer);setError('');setNote(t('emuReadyToStart'))}
    if(data.type==='starting'){loading();setNote(t('emuLoading'))}
    if(data.type==='started'){clearTimeout(bootTimer);setStarted(true);setError('');setNote(t(run.tracked?'emuAwaitSave':'emuUntracked'))}
-   if(data.type==='ram'&&run.tracked&&autoRef.current&&!reading&&data.iwram instanceof Uint8Array&&data.ewram instanceof Uint8Array){
+   if(data.type==='ram'&&run.tracked&&autoRef.current&&data.iwram instanceof Uint8Array&&data.ewram instanceof Uint8Array){
     const save=run.ram.read(data.iwram,data.ewram);if(!save)return;
     if(!disposed)setLive(true);
+    // La posición cambia a cada paso y no se guarda: solo se avisa al mapa si cambió.
+    const at=JSON.stringify(save.location);
+    if(at!==place){place=at;dispatchEvent(new CustomEvent(PLAYER_EVENT,{detail:{game:game.id,location:save.location}}))}
+    if(reading)return;
     reading=true;pending=run.sync.syncLive(save).then(report).catch(()=>{if(!disposed)setError(t('emuSyncFailed'))}).finally(()=>{reading=false});
    }
    if(data.type==='ramUnavailable')setLive(value=>value??false);
@@ -119,7 +124,7 @@ export function EmulatorPanel({game,world,tr,onClose}:{game:Game;world:World;tr:
    if(data.type==='exit'||data.type==='stopped')void pending.finally(()=>{if(!disposed){setClosing(false);setRun(null);setStarted(false);onClose()}});
   };
   addEventListener('message',changed);
-  return()=>{disposed=true;clearTimeout(bootTimer);run.sync.stop();removeEventListener('message',changed)};
+  return()=>{disposed=true;clearTimeout(bootTimer);run.sync.stop();removeEventListener('message',changed);dispatchEvent(new CustomEvent(PLAYER_EVENT,{detail:{game:game.id,location:null}}))};
  // Una sesión conserva su contexto al cambiar de pestaña o idioma.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[run]);

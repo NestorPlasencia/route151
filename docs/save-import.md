@@ -128,6 +128,15 @@ bloques válidos y un equipo cuyo primer Pokémon pertenezca al entrenador.
 Antes de tener equipo (intro o pantalla de título) no se registra nada. Un
 fotograma con datos incompletos se ignora y se reintenta en el siguiente.
 
+**El mapa sigue al jugador.** SaveBlock1 guarda el mapa actual (grupo y
+número) y la casilla, y el juego los actualiza a cada paso. El panel avisa al mapa
+cuando cambian, y `public/frlg/data/map-positions.json` los traduce al área de la
+app y a su punto. La tabla la genera `python scripts/frlg/build-map-positions.py`
+con las mismas reglas que dibujan las áreas (`placements` en `build-frlg.py`), así
+que el punto cae exactamente sobre los marcadores; una prueba lo comprueba con
+todos ellos. Un punto rojo marca la posición, el mapa cambia de área al entrar o
+salir de un interior, y arrastrar el mapa deja de seguir hasta pulsar 📍.
+
 Solo se escribe cuando cambia el avance (marcas, Pokédex, medallas, objetos
 clave, equipo o cajas), no el reloj ni la posición. Si no se puede leer la RAM, se
 avisa y se sigue usando el SAV: el adaptador lo comprueba cada tres segundos.

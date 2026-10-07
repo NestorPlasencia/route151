@@ -44,6 +44,8 @@ const TEXT = {
  emuLiveOff: ['Progress is marked when you save in the game.', 'El avance se marca al guardar en el juego.'],
  emuUntracked: ['This game language can be played, but progress is not marked.', 'Puedes jugar en este idioma, pero el avance no se marca.'],
  emuFound: ['New! {names}', '¡Nuevo! {names}'],
+ followMe: ['Follow me on the map', 'Seguirme en el mapa'],
+ youAreHere: ['You are here', 'Estás aquí'],
  emuControls: ['Keyboard: arrows move · Z = A · X = B · Enter = Start', 'Teclado: flechas para moverte · Z = A · X = B · Enter = Start'],
  emuFailed: ['The game could not start. Close it and try again.', 'El juego no pudo arrancar. Ciérralo y vuelve a intentarlo.'],
  emuSyncFailed: ['Could not mark your progress. Tap Check now to try again.', 'No se pudo marcar tu avance. Pulsa Revisar ahora para intentarlo otra vez.'],
