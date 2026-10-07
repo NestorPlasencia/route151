@@ -8,7 +8,7 @@ import type {Gen} from './rules';
 import type {Dex} from './lists';
 import {Help} from './learn';
 import {PROFILE_TARGET,profileMoveFit} from './battle';
-import {type Move,type Battle,type Guess,type TeamMon,STATS,statsOf,genes,damageVs,movePool,assumedMoves,categorySymbol,moveKind,EFFECT_SUMMARIES,effectStat,buildProfile,rulesOf,trainingValue,ivsOf,finalForms,trainingBand,adviseMoveReplacement} from './battle';
+import {type Move,type Battle,type Guess,type TeamMon,type StatParts,IV,STATS,statsOf,statParts,genes,damageVs,movePool,assumedMoves,categorySymbol,moveKind,EFFECT_SUMMARIES,effectStat,buildProfile,rulesOf,trainingValue,ivsOf,finalForms,trainingBand,adviseMoveReplacement} from './battle';
 export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex:Dex;battle:Battle|null;moveText:Record<string,{en:string;es:string}>|null;storageKey:string;suggestedLevel:number;tr:T}){
  const {t,lang,type:typeName,move:moveName,ability:abilityName,nature:natureName}=tr;
  // Lo que se muestra depende de las reglas del juego (rules.ts), no del juego:
@@ -144,10 +144,29 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
  // tu partida y que lo puso la app.
  const guessed=(mon:TeamMon,field:Guess)=>mon.guess?.includes(field)
   ?<i className="team-guess" title={t('assumedHelp')}>{t('assumed')}</i>:null;
+ // Barra apilada: base, genes, esfuerzo, nivel y naturaleza (+ verde; − rayado, lo que resta).
+ const partKeys:[keyof StatParts,string][]=[['base',t('partBase')],['genes',rules.genes.name],['effort',rules.effort==='ev'?'EV':'Stat Exp.'],['level',t('partLevel')],...(rules.natures?[['nature',t('partNature')] as [keyof StatParts,string]]:[])];
+ const statBar=(p:StatParts|null,value:number,widest:number)=>{
+  if(!p)return null;
+  const pct=(n:number)=>`${n/widest*100}%`,text=partKeys.filter(([key])=>key!=='nature'||p.nature!==0).map(([key,label])=>`${label} ${p[key]<0?'−':'+'}${Math.abs(p[key])}`).join(' · ');
+  return <><span className="sr-only">{text}</span><span className="stat-bar" aria-hidden="true" title={text}>
+   {partKeys.map(([key])=>{const n=key==='nature'?Math.max(0,p.nature):p[key];return n>0?<i key={key} className={`sb-${key}`} style={{width:pct(n)}}/>:null})}
+   {p.nature<0&&<i className="sb-lost" style={{left:pct(value),width:pct(-p.nature)}}/>}
+  </span></>;
+ };
  const card=(mon:TeamMon)=>{
   const s=battle.species[mon.n],info=species.get(mon.n),pool=movePool(battle,mon);
   const estimate=statsOf(s.base,mon.level,battle.natures[mon.nature]??[null,null],mon.ivs,mon.evs);
   const stats=mon.stats??estimate,own=!!mon.stats,profile=buildProfile(battle,mon);
+  // De dónde sale cada estadística. Si escribiste las cifras sin IVs, los genes se
+  // deducen de ellas (con EVs a 0, como la nota); si no encajan, no se dibuja barra.
+  const natureOf=battle.natures[mon.nature]??[null,null];
+  const parts=STATS.map((stat,i)=>{
+   const fit=own&&!mon.ivs?genes(s.base[i],mon.level,stats[i],stat,natureOf):null;
+   if(own&&!mon.ivs&&!fit)return null;
+   return statParts(s.base[i],mon.level,stat,stats[i],natureOf,mon.ivs?.[i]??(fit?(fit.min+fit.max)/2:IV),fit?0:mon.evs?.[i]??0);
+  });
+  const widest=Math.max(1,...parts.map((p,i)=>p?stats[i]+Math.max(0,-p.nature):0));
   const known=mon.moves.filter(Boolean).length;
   // La ficha nace plegada: anadir un Pokemon no deberia abrir un formulario.
   const shown=open.includes(mon.id),evolutions=evolutionsOf(mon.n);
@@ -203,7 +222,9 @@ export function TeamView({dex,battle,moveText,storageKey,suggestedLevel,tr}:{dex
     <dd><Num value={stats[i]} min={1} max={999} label={statLabel(stat)}
      onChange={n=>update(mon.id,{stats:stats.map((v,j)=>j===i||(single&&i===3&&j===4)?n:v)})}/></dd>
     <small>{t('baseStat',{n:s.base[i]})}{own&&' · '}{mon.ivs?`IV ${mon.ivs[i]} · EV ${mon.evs?.[i]??0}`:own&&(fit=>fit?ivLabel(fit):<span title={t('ivNoFitHelp')}>{t('ivNoFit')}</span>)(genes(s.base[i],mon.level,stats[i],stat,battle.natures[mon.nature]??[null,null]))}</small>
+    {statBar(parts[i],stats[i],widest)}
    </div>])}</dl>
+   {parts.some(Boolean)&&<p className="stat-legend">{partKeys.map(([key,label])=><span key={key}><i className={`sb-${key}`}/>{label}</span>)}</p>}
    <p className="team-note"><Help term="stats" gen={gen} tr={tr}/><Help term={dv?'dv':'iv'} gen={gen} tr={tr}/>{own&&!mon.ivs&&<span className="team-iv">{t(dv?'dvNote':'ivNote')} </span>}{own?<button className="team-reset" onClick={()=>update(mon.id,{stats:undefined})}>{t('useEstimate')}</button>:t('statsEditable')}</p>
    {value&&band&&<div className="training">
     <h4>{t('training')}<Help term="training" gen={gen} tr={tr}/></h4>

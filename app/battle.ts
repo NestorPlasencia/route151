@@ -20,7 +20,7 @@ export type Guess='level'|'nature'|'ability'|'moves';
 export type TeamMon={id:string;n:number;level:number;nature:string;ability:string;moves:(string|null)[];bench?:boolean;out?:boolean;stats?:number[];guess?:Guess[];nickname?:string;speciesName?:string;ivs?:number[];evs?:number[]};
 
 export const STATS=['hp','atk','def','spa','spd','spe'] as const;
-const IV=15;
+export const IV=15;
 // Gen 3: PS y las demas estadisticas con sus formulas, y la naturaleza al final.
 export function statsOf(base:number[],level:number,nature:[string|null,string|null]=[null,null],ivs:number[]=STATS.map(()=>IV),evs:number[]=STATS.map(()=>0)){
  return STATS.map((key,i)=>{
@@ -29,6 +29,20 @@ export function statsOf(base:number[],level:number,nature:[string|null,string|nu
   const mod=nature[0]===key?1.1:nature[1]===key?0.9:1;
   return Math.floor((raw+5)*mod);
  });
+}
+// Reparte una estadistica en lo que aporta cada parte de la formula: la base de la
+// especie, los genes (IV/DV), el esfuerzo (EV/Stat Exp.), el nivel (+nivel+10 en PS,
+// +5 en el resto) y la naturaleza (+10 % o -10 %). Las partes suman `value` antes de la
+// naturaleza; `nature` es lo que suma o resta despues. Enteros que cuadran con `value`.
+export type StatParts={base:number;genes:number;effort:number;level:number;nature:number};
+export function statParts(base:number,level:number,stat:typeof STATS[number],value:number,nature:[string|null,string|null],iv:number,ev:number):StatParts{
+ const hp=stat==='hp',mod=hp?1:nature[0]===stat?1.1:nature[1]===stat?0.9:1;
+ const raw=[2*base*level/100,iv*level/100,Math.floor(ev/4)*level/100,hp?level+10:5];
+ const total=raw.reduce((a,b)=>a+b,0),before=Math.round(value/mod),scaled=raw.map(x=>total>0?x*before/total:0);
+ // Redondeo por restos mayores: las partes enteras suman exactamente `before`.
+ const parts=scaled.map(Math.floor);let left=before-parts.reduce((a,b)=>a+b,0);
+ for(const i of scaled.map((x,i)=>i).sort((a,b)=>(scaled[b]-parts[b])-(scaled[a]-parts[a])))if(left-->0)parts[i]++;
+ return {base:parts[0],genes:parts[1],effort:parts[2],level:parts[3],nature:value-before};
 }
 // De una estadistica escrita se puede despejar IV + EV/4, no cada uno por
 // separado. Se prueban los 95 valores posibles y se devuelve el rango que
