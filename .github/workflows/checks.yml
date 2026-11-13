@@ -1,5 +1,7 @@
 name: Project checks
-on: [push, pull_request]
+# Solo a mano (pestana Actions -> Run workflow): las mismas comprobaciones se
+# corren en local antes de subir (lint, test, check:data y build).
+on: workflow_dispatch
 permissions:
   contents: read
 jobs:
