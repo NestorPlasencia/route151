@@ -59,7 +59,7 @@ const TEXT = {
  savImport: ['Import game save (.sav)', 'Importar partida (.sav)'],
  savTitle: ['Import into {game}', 'Importar en {game}'],
  savIntro: ['Read a 128 KB in-game save in this browser. Choose the matching game before importing. FireRed and LeafGreen saves cannot be distinguished reliably without the ROM.', 'Lee un guardado del juego de 128 KB en este navegador. Elige el juego correspondiente antes de importar. Los guardados de FireRed y LeafGreen no se distinguen de forma fiable sin la ROM.'],
- savUnsupported: ['Save imports are available for FireRed and LeafGreen. Yellow support comes separately.', 'La importación de partidas está disponible para FireRed y LeafGreen. Yellow requiere un lector separado.'],
+ savUnsupported: ['Save imports are available for FireRed and LeafGreen. Game Boy games come later.', 'La importación de partidas está disponible para FireRed y LeafGreen. Los juegos de Game Boy vendrán después.'],
  savChoose: ['Choose a .sav file', 'Elige un archivo .sav'],
  savReading: ['Reading and checking the save…', 'Leyendo y comprobando la partida…'],
  savTrainer: ['Trainer: {name} · time played: {time}', 'Entrenador: {name} · tiempo jugado: {time}'],
@@ -617,6 +617,12 @@ const NOTES: Record<string, [string, string]> = {
  'Your Pikachu refuses to evolve in Yellow and there is no other one: trade only.':
   ['Your Pikachu refuses to evolve in Yellow and there is no other one: trade only.',
    'Tu Pikachu se niega a evolucionar en Amarillo y no hay otro: solo por intercambio.'],
+ 'Your Pikachu refuses the Thunder Stone: trade a Raichu over from Red or Blue.':
+  ['Your Pikachu refuses the Thunder Stone: trade a Raichu over from Red or Blue.',
+   'Tu Pikachu no quiere la Piedra Trueno: trae un Raichu de Rojo o Azul.'],
+ 'Not found in Yellow: trade it over from Red or Blue.': ['Not found in Yellow: trade it over from Red or Blue.', 'No aparece en Amarillo: tráelo de Rojo o Azul.'],
+ 'Not found in Red: trade it over from Blue or Yellow.': ['Not found in Red: trade it over from Blue or Yellow.', 'No aparece en Rojo: tráelo de Azul o Amarillo.'],
+ 'Not found in Blue: trade it over from Red or Yellow.': ['Not found in Blue: trade it over from Red or Yellow.', 'No aparece en Azul: tráelo de Rojo o Amarillo.'],
 };
 
 // Lugares de Kanto con su nombre oficial en espanol (PokeAPI no los trae). Los de
@@ -632,7 +638,7 @@ export const PLACES: Record<string, string> = {
  'Seafoam Islands': 'Islas Espuma', 'Victory Road': 'Calle Victoria', 'Silph Co.': 'Silph S.A.',
  'Rocket Hideout': 'Guarida Rocket', 'Team Rocket Hideout': 'Guarida Rocket',
  'Rocket Warehouse': 'Almacén Rocket', 'Underground Path': 'Túnel Subterráneo', 'Underground Path North–South': 'Túnel Subterráneo Norte–Sur', 'Underground Path East–West': 'Túnel Subterráneo Este–Oeste',
- // Catalogo completo de zonas usadas por Yellow y FRLG. Referencias de los
+ // Catalogo completo de zonas usadas por Red, Blue, Yellow y FRLG. Referencias de los
  // nombres de Sete: guiasnintendo.com, guia de Rojo Fuego/Verde Hoja.
  "Bill's House": 'Casa de Bill', 'S.S. Anne': 'S. S. Anne',
  'Kindle Road': 'Camino Candente', 'Mt. Ember': 'Monte Ascuas', 'Ember Spa': 'Balneario Ascuas',

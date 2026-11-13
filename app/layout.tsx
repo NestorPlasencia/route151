@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Route 151 — Pokémon Companion',
-  description: 'Interactive map, checklist and Pokédex for Pokémon Yellow, FireRed and LeafGreen.',
+  description: 'Interactive map, checklist and Pokédex for Pokémon Red, Blue, Yellow, FireRed and LeafGreen.',
   applicationName: 'Route 151',
   icons: { icon: '/favicon.svg', apple: '/icons/apple-touch-icon.png' },
   appleWebApp: {

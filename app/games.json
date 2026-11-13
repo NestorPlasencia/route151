@@ -1,5 +1,27 @@
 [
   {
+    "id": "red",
+    "short": "Red",
+    "title": "Pokémon Red",
+    "storage": { "done": "ruta151-red", "dex": "ruta151-red-dex" },
+    "data": "/rb/data",
+    "version": "red",
+    "gen": 1,
+    "hidden": ["Obstacle"],
+    "untracked": ["Obstacle", "Shop"]
+  },
+  {
+    "id": "blue",
+    "short": "Blue",
+    "title": "Pokémon Blue",
+    "storage": { "done": "ruta151-blue", "dex": "ruta151-blue-dex" },
+    "data": "/rb/data",
+    "version": "blue",
+    "gen": 1,
+    "hidden": ["Obstacle"],
+    "untracked": ["Obstacle", "Shop"]
+  },
+  {
     "id": "yellow",
     "short": "Yellow",
     "title": "Pokémon Yellow",

@@ -63,14 +63,15 @@ export const iconOf=(m:{icon?:string|null})=>m.icon??undefined;
 export function Figure({m}:{m:{icon?:string|null;category:string;name?:string}}){const icon=iconOf(m);
  // Un paso de la historia no tiene sprite: una bandera.
  if(!icon&&m.category==='Story')return <span className="fig fig-story"><Flag/></span>;
- return icon?<img className={`fig ${icon.startsWith('frlg/npc/')||icon.startsWith('yellow/npc/')?'fig-trainer':''}`} src={`/icons/${icon}`} alt="" loading="lazy"/>:<span className="fig fig-none" style={{'--pin':colorOf(m.category)} as React.CSSProperties}/>}
+ return icon?<img className={`fig ${/^(?:frlg|yellow|rb)\/npc\//.test(icon)?'fig-trainer':''}`} src={`/icons/${icon}`} alt="" loading="lazy"/>:<span className="fig fig-none" style={{'--pin':colorOf(m.category)} as React.CSSProperties}/>}
 
 // Creditos: todo el contenido es de terceros y la app es un proyecto de fans.
 type Credit={what:string;who:string;href:string;note?:string};
-// Yellow sale entero de su decompilacion (mapas, datos y sprites); de PokeAPI
-// solo quedan los nombres en espanol, que el juego no trae.
-const yellowCredits=(tr:T):Credit[]=>[
- {what:tr.t('creditYellow'),who:'pret/pokeyellow',href:'https://github.com/pret/pokeyellow',note:tr.t('creditDecomp')},
+// Los juegos de Game Boy salen enteros de su decompilacion (mapas, datos y
+// sprites); de PokeAPI solo quedan los nombres en espanol, que el juego no trae.
+const GEN1_DECOMP:Record<string,string>={yellow:'pret/pokeyellow',red:'pret/pokered',blue:'pret/pokered'};
+const gen1Credits=(tr:T,repo:string):Credit[]=>[
+ {what:tr.t('creditYellow'),who:repo,href:`https://github.com/${repo}`,note:tr.t('creditDecomp')},
  {what:tr.t('creditNames'),who:'PokéAPI',href:'https://pokeapi.co'},
  {what:tr.t('creditClasses'),who:'Pokémon Wiki (es)',href:'https://pokemon.fandom.com/es/wiki/Lista_de_clases_de_entrenadores'},
 ];
@@ -80,7 +81,7 @@ const frlgCredits=(tr:T):Credit[]=>[
  {what:tr.t('creditClasses'),who:'Pokémon Wiki (es)',href:'https://pokemon.fandom.com/es/wiki/Lista_de_clases_de_entrenadores'},
 ];
 export function Credits({game,tr}:{game:string;tr:T}){return <div className="credits">
- <ul>{(game==='yellow'?yellowCredits(tr):frlgCredits(tr)).map(c=><li key={c.what}><span>{c.what}</span><a href={c.href} target="_blank" rel="noreferrer">{c.who}</a>{c.note&&<small>{c.note}</small>}</li>)}</ul>
+ <ul>{(GEN1_DECOMP[game]?gen1Credits(tr,GEN1_DECOMP[game]):frlgCredits(tr)).map(c=><li key={c.what}><span>{c.what}</span><a href={c.href} target="_blank" rel="noreferrer">{c.who}</a>{c.note&&<small>{c.note}</small>}</li>)}</ul>
  <p>{tr.t('disclaimer')}</p>
 </div>}
 

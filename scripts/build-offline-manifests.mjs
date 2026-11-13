@@ -27,7 +27,7 @@ export async function buildManifests(){
    const url=file.startsWith(publicRoot)?'/'+relative(publicRoot,file).replaceAll('\\','/'):'/_next/static/'+relative(join(root,'.next/static'),file).replaceAll('\\','/');
    // Las dos versiones comparten mapas, pero el catalogo de sprites externos
    // solo necesita los encuentros correspondientes a este juego.
-   if(/(?:encounters|pokedex)-(?:yellow|firered|leafgreen)\.json$/.test(url)&&!url.endsWith(`-${game.version}.json`))continue;
+   if(/(?:encounters|pokedex)-(?:red|blue|yellow|firered|leafgreen)\.json$/.test(url)&&!url.endsWith(`-${game.version}.json`))continue;
    const bytes=await readFile(file);hash.update(url).update(bytes);assets.add(url);
    if(file.endsWith('.json')){
     const walk=value=>{

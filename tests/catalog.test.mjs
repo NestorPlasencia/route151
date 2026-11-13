@@ -18,6 +18,8 @@ await test('the application uses the shared catalog and preserves existing progr
   assert.deepEqual(
     GAMES.map((game) => [game.id, game.storage.done, game.storage.dex]),
     [
+      ['red', 'ruta151-red', 'ruta151-red-dex'],
+      ['blue', 'ruta151-blue', 'ruta151-blue-dex'],
       ['yellow', 'ruta151-yellow', 'ruta151-yellow-dex'],
       ['firered', 'ruta151-firered', 'ruta151-firered-dex'],
       ['leafgreen', 'ruta151-leafgreen', 'ruta151-leafgreen-dex'],

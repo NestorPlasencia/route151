@@ -35,8 +35,8 @@ export type Game={
 export const METHODS:Record<string,string>={walk:'Grass','old-rod':'Old Rod','good-rod':'Good Rod','super-rod':'Super Rod',surf:'Surf'};
 
 // Un solo cargador: cada juego se genera desde su decompilacion (scripts/frlg,
-// scripts/yellow) con los mismos archivos. FireRed y LeafGreen comparten
-// mapas y marcadores; los exclusivos de cada version llevan `version`.
+// scripts/gen1) con los mismos archivos. FireRed y LeafGreen, como Red y Blue,
+// comparten mapas y marcadores; los exclusivos de cada version llevan `version`.
 // Numero estable para guardar el progreso: el mismo FNV-1a de 31 bits que
 // scripts/common/world.py (uid_of), para que un paso valga lo mismo en los dos.
 const uidOf=(text:string)=>{let h=2166136261;for(const b of new TextEncoder().encode(text)){h^=b;h=Math.imul(h,16777619)>>>0}return h&0x7fffffff};

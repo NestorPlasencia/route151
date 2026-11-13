@@ -1,0 +1,794 @@
+"""Genera los mapas y marcadores de un juego de la Gen 1 desde su decompilacion:
+Yellow (pret/pokeyellow) o Red y Blue (pret/pokered, los dos a la vez).
+
+Mismo formato que build-frlg.py, para que la app cargue todos los juegos igual:
+- regiones: Kanto con los exteriores unidos por sus conexiones;
+- interiores: cada mapa suelto, agrupado por zona (la del mapa de la region:
+  todas las plantas de Mt. Moon juntas);
+- marcadores: objetos, objetos ocultos, entrenadores (con su equipo), Pokemon
+  salvajes y fijos, regalos, intercambios, tiendas y rocas de Fuerza;
+- warps (puertas y escaleras), lugares, encuentros por zona y checklist.
+
+Todo en el color del juego (paleta de Super Game Boy de cada mapa) y con
+coordenadas exactas por casilla (16 px).
+
+Red y Blue comparten mapas y casi todo: cada version se lee aparte (sus ramas
+IF DEF(_RED) / IF DEF(_BLUE)) y lo que cambia (salvajes, premios del Casino)
+queda en marcadores con `version`, como en FireRed y LeafGreen.
+
+Uso:  python scripts/gen1/sync-decomp.py yellow && python scripts/gen1/build.py yellow
+      (o rb en vez de yellow)
+Salida: public/<juego>/areas/**.png, public/icons/<juego>/** y public/<juego>/data/
+        (areas, markers, encounters-<version> y checklist)
+"""
+import json, os, re, shutil, sys
+from collections import Counter
+
+import numpy as np
+from PIL import Image
+
+sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+import decomp as d
+from common.world import World, build_checklist, dump, places as place_list, slug, spot
+
+STEP = 16  # una casilla de movimiento: medio bloque
+# Probabilidad de cada una de las 10 casillas de un encuentro (data/wild/probabilities.asm).
+SLOTS = [51, 51, 39, 25, 25, 25, 13, 13, 11, 3]
+WATER_TILE = 0x14
+
+
+# Palabras que no siguen la regla de mayuscula inicial.
+WORDS = {'Tm': 'TM', 'Hm': 'HM', 'Pp': 'PP', 'Hp': 'HP', 'S.s.': 'S.S.', 'Mt.moon': 'Mt. Moon', 'Mt.': 'Mt.',
+         'Is.': 'Islands', 'Hq': 'HQ', 'Co.': 'Co.', 'Jr.trainer♂': 'Jr. Trainer♂', 'Jr.trainer♀': 'Jr. Trainer♀',
+         'Pokémaniac': 'Pokémaniac', 'Ss': 'S.S.'}
+# Nombres del juego que la app ya conoce escritos de otra forma (y los de FRLG).
+FIX = {'Rocket HQ': 'Rocket Hideout', 'S.s.anne': 'S.S. Anne', 'S.s.ticket': 'S.S. Ticket', 'Pokémon League': 'Pokémon League', 'S.S.anne': 'S.S. Anne', 'S.S.ticket': 'S.S. Ticket', 'Elixer': 'Elixir', 'Max Elixer': 'Max Elixir',
+       'Pokémon Tower': 'Pokémon Tower', 'Silph Co.': 'Silph Co.', 'Rocket Hq': 'Rocket Hideout',
+       'Pokédex': 'Pokédex', 'Parlyz Heal': 'Parlyz Heal', 'Exp.all': 'Exp. All', 'Seafoam Islands': 'Seafoam Islands',
+       'Diglett S Cave': "Diglett's Cave", 'Diglett’s Cave': "Diglett's Cave", 'Pokémon Mansion': 'Pokémon Mansion',
+       'Pokémon Lab': 'Pokémon Lab', 'Cerulean Cave': 'Cerulean Cave', 'Unknown Dungeon': 'Cerulean Cave',
+       'Sea Cottage': "Bill's House", 'Pokémon League': 'Pokémon League', 'Underground Path': 'Underground Path',
+       'Cinnabar Island': 'Cinnabar Island', 'Victory Road': 'Victory Road', 'Pokémon Fan Club': 'Pokémon Fan Club'}
+
+
+def title(s):
+    """'POKé BALL' -> 'Poké Ball'; 'MT.MOON' -> 'Mt. Moon'; 'TM36' -> 'TM36'."""
+    # Tabla de caracteres de Gen 1: '#' es POKé y <PKMN> es POKéMON.
+    s = s.replace('<PKMN>', 'POKéMON').replace('#', 'POKé')
+    words = [w[:1].upper() + w[1:].lower() for w in s.split(' ') if w]
+    words = [WORDS.get(w, re.sub(r'^(Tm|Hm)(\d+)$', lambda m: m.group(1).upper() + m.group(2), w)) for w in words]
+    # "Sea Route 19" es la Ruta 19 de siempre: se nombra como en FRLG.
+    text = re.sub(r'^Sea (Route \d+)$', r'\1', ' '.join(words))
+    return FIX.get(text, text)
+
+
+def asm(*parts):
+    return d.read(*parts)
+
+
+# --- Constantes y nombres -----------------------------------------------------------
+
+dex_numbers, species_names = d.dex_numbers, d.species_names
+
+
+def save_mon_images(icons, sprites):
+    """Figurita (sprite recortado) y sprite grande de las 151 especies, en el color
+    que les da el juego: public/icons/<juego>/pokemon y public/<juego>/sprites."""
+    os.makedirs(f'{icons}/pokemon', exist_ok=True)
+    os.makedirs(sprites, exist_ok=True)
+    for n in d.front_sprites():
+        d.mon_sprite(n, crop=True).save(f'{icons}/pokemon/p{n}.png', optimize=True)
+        d.mon_sprite(n).save(f'{sprites}/p{n}.png', optimize=True)
+
+
+def load_items():
+    """Constante -> nombre: objetos por su lista de nombres; MT y MO por su numero."""
+    text = asm('constants/item_constants.asm')
+    consts = re.findall(r'^\s*const (\w+)', text.split('DEF NUM_ITEMS')[0], re.M)
+    names = re.findall(r'li "([^"]*)"', asm('data/items/names.asm'))
+    out = {c: title(n) for c, n in zip(consts[1:], names)}
+    for i, move in enumerate(re.findall(r'add_hm (\w+)', text)):
+        out[f'HM_{move}'] = f'HM{i + 1:02d}'
+    for i, move in enumerate(re.findall(r'add_tm (\w+)', text)):
+        out[f'TM_{move}'] = f'TM{i + 1:02d}'
+    out['COIN'] = 'Coins'
+    return out
+
+
+def load_trainers(numbers, names):
+    """(clase, indice) -> equipo como texto; clase -> nombre ('Bug Catcher')."""
+    classes = re.findall(r'trainer_const (\w+)', asm('constants/trainer_constants.asm'))
+    labels = re.findall(r'li "([^"]*)"', asm('data/trainers/names.asm'))
+    class_name = {c: title(n) for c, n in zip(classes[1:], labels)}
+    class_name.update({'RIVAL1': 'Rival', 'RIVAL2': 'Rival', 'RIVAL3': 'Champion', 'ROCKET': 'Team Rocket Grunt'})
+    # Lideres y Alto Mando como en FRLG ("Leader Brock"): la app mira sus combates
+    # para saber por que nivel va la partida.
+    for c, name in (('BROCK', 'Brock'), ('MISTY', 'Misty'), ('LT_SURGE', 'Lt. Surge'), ('ERIKA', 'Erika'), ('KOGA', 'Koga'),
+                    ('SABRINA', 'Sabrina'), ('BLAINE', 'Blaine'), ('GIOVANNI', 'Giovanni')):
+        class_name[c] = f'Leader {name}'
+    for c, name in (('LORELEI', 'Lorelei'), ('BRUNO', 'Bruno'), ('AGATHA', 'Agatha'), ('LANCE', 'Lance')):
+        class_name[c] = f'Elite Four {name}'
+    text = asm('data/trainers/parties.asm')
+    order = re.findall(r'dw (\w+)Data', text.split('\n\n')[0] + text[:text.find('YoungsterData:')])
+    blocks = dict(re.findall(r'^(\w+)Data:\n(.*?)(?=^\w+Data:|\Z)', text, re.M | re.S))
+    parties = {}
+    for label, cls in zip(order, classes[1:]):
+        for i, line in enumerate(re.findall(r'^\s*db (.+?)\s*(?:;.*)?$', blocks.get(label, ''), re.M)):
+            vals = [v.strip() for v in line.split(',')]
+            if vals[-1] == '0':
+                vals = vals[:-1]
+            if vals[0] == '$FF':
+                mons = [(int(vals[k]), vals[k + 1]) for k in range(1, len(vals) - 1, 2)]
+            else:
+                mons = [(int(vals[0]), v) for v in vals[1:]]
+            parties[(cls, i + 1)] = ', '.join(f'{names[numbers[m]]} Lv{lv}' for lv, m in mons if m in numbers)
+    return class_name, parties
+
+
+def load_sprites():
+    """SPRITE_X -> PNG del personaje (frames de 16x16 en columna, el primero de frente)."""
+    consts = re.findall(r'const (SPRITE_\w+)', asm('constants/sprite_constants.asm').split('DEF FIRST_STILL_SPRITE')[0])
+    sheets = re.findall(r'overworld_sprite (\w+),', asm('data/sprites/sprites.asm'))
+    files = dict(re.findall(r'^(\w+)::\s*INCBIN "(gfx/sprites/[^"]+)\.2bpp"', asm('gfx/sprites.asm'), re.M))
+    out = {}
+    for const, sheet in zip(consts[1:], sheets):
+        if sheet in files:
+            out[const] = files[sheet] + '.png'
+    # Las figuras quietas (Poke Ball, roca, fosil...) van despues, con su propia hoja.
+    still = re.findall(r'const (SPRITE_\w+)', asm('constants/sprite_constants.asm').split('DEF FIRST_STILL_SPRITE')[1])
+    for const, sheet in zip(still, sheets[len(consts) - 1:]):
+        if sheet in files:
+            out[const] = files[sheet] + '.png'
+    return out
+
+
+def sprite_frame(png):
+    """Primer frame (de frente) como tonos 0-3, o None."""
+    if not png or not os.path.exists(d.path(png)):
+        return None
+    img = np.array(Image.open(d.path(png)).convert('L'))
+    return 3 - (img[:16, :16] // 85)
+
+
+def split_zone(zone, const):
+    """Los dos tuneles subterraneos se cruzan en momentos distintos (Ruta 5 a 6
+    hacia Carmin; Ruta 7 a 8 hacia Azulona): cada uno, su zona, como en FRLG."""
+    if zone == 'Underground Path':
+        return zone + (' East–West' if re.search(r'EAST|WEST', const) else ' North–South')
+    return zone
+
+
+def zone_names():
+    """Nombre de la zona de cada mapa exterior (por indice) y de cada grupo interior."""
+    names = {k: title(v) for k, v in re.findall(r'^(\w+Name):\s*db "([^"@]*)@?"', asm('data/maps/names.asm'), re.M)}
+    text = asm('data/maps/town_map_entries.asm')
+    outdoor = [names.get(n, n) for n in re.findall(r'outdoor_map\s+\d+,\s*\d+,\s*(\w+)', text)]
+    indoor = {g: names.get(n, n) for g, n in re.findall(r'indoor_map (\w+),\s*\d+,\s*\d+,\s*(\w+)', text)}
+    return outdoor, indoor
+
+
+def map_label(label, zone):
+    """'MtMoon1F' en 'Mt. Moon' -> 'Mt. Moon 1F'; 'RedsHouse1F' en 'Pallet Town' ->
+    "Pallet Town Red's House 1F"."""
+    label = label.replace('SSAnne', 'SSAnne ')
+    words = re.sub(r'(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Z][a-z])|(?<=[0-9]F)(?=[A-Z])', ' ', label).split()
+    words = ['Pokémon' if w == 'Pokemon' else 'S.S. Anne' if w == 'SSAnne' else w for w in words]
+    text = ' '.join(words)
+    for a, b in (('Reds ', "Red's "), ('Blues ', "Blue's "), ('Oaks ', "Oak's "), ('Bills ', "Bill's "), ('Mr Fujis ', "Mr. Fuji's "),
+                 ('Wardens ', "Warden's "), ('Loreleis ', "Lorelei's "), ('Brunos ', "Bruno's "), ('Agathas ', "Agatha's "),
+                 ('Lances ', "Lance's "), ('Champions ', "Champion's "), ('Melanies ', "Melanie's "), ('Mr Psychics ', "Mr. Psychic's "),
+                 ('Copycats ', "Copycat's "), ('Grandpas ', "Grandpa's "), ('Name Raters ', "Name Rater's "), ('Captains ', "Captain's "),
+                 ('Digletts ', "Diglett's "), ('Hall Of Fame', 'Hall of Fame'), ('North South', 'North–South'), ('West East', 'East–West'),
+                 ('Pokecenter', 'Pokémon Center'), ('Mt Moon', 'Mt. Moon'), ('Silph Co ', 'Silph Co. ')):
+        text = text.replace(a, b)
+    key = lambda s: slug(s).replace('-', '')
+    parts = text.split()
+    for i in range(len(parts), 0, -1):
+        if key(' '.join(parts[:i])) == key(zone):
+            rest = ' '.join(parts[i:])
+            return f'{zone} {rest}' if rest else zone
+    # Los que ya llevan el nombre de su pueblo o de su zona ('Cinnabar Lab',
+    # "Diglett's Cave Route 11") no lo repiten.
+    if key(parts[0]) == key(zone.split()[0]) or key(zone) in key(text):
+        return text
+    return f'{zone} {text}'
+
+
+# --- Mapas ----------------------------------------------------------------------------
+
+def place_kanto(maps):
+    """Exteriores colocados por sus conexiones desde Pueblo Paleta (en bloques)."""
+    out = {c: m for c, m in maps.items() if not m['indoor']}
+    pos, queue = {'PALLET_TOWN': (0, 0)}, ['PALLET_TOWN']
+    while queue:
+        c = queue.pop(0)
+        m, (x, y) = out[c], pos[c]
+        for direction, t, o in m['connections']:
+            if t not in out:
+                continue
+            tm = out[t]
+            p = {'north': (x + o, y - tm['height']), 'south': (x + o, y + m['height']),
+                 'west': (x - tm['width'], y + o), 'east': (x + m['width'], y + o)}[direction]
+            if t in pos:
+                assert pos[t] == p, f'conexion incoherente {c} -> {t}'
+            else:
+                pos[t] = p
+                queue.append(t)
+    x0, y0 = min(p[0] for p in pos.values()), min(p[1] for p in pos.values())
+    return {c: (x - x0, y - y0) for c, (x, y) in pos.items()}
+
+
+def parse_objects(label):
+    """Warps, carteles y objetos de un mapa (data/maps/objects)."""
+    path = d.path('data/maps/objects', f'{label}.asm')
+    text = d.read('data/maps/objects', f'{label}.asm') if os.path.exists(path) else ''
+    # Puertas que el propio juego marca como inaccesibles (en Azulona, Silph...):
+    # siguen en la lista, porque otras puertas llegan a ellas por su numero, pero
+    # con un destino que no existe, asi que no se dibujan.
+    text = '\n'.join(re.sub(r'(warp_event\s+\d+,\s*\d+,\s*)\w+', r'\1INACCESSIBLE', line) if 'warp_event' in line and 'inaccessible' in line else line
+                     for line in text.splitlines())
+    warps = [(int(x), int(y), dest, int(n)) for x, y, dest, n in re.findall(r'^[ 	]*warp_event[ 	]+(\d+),[ 	]*(\d+),[ 	]*(\w+),[ 	]*(\d+)', text, re.M)]
+    objects = []
+    for line in re.findall(r'^[ 	]*object_event[ 	]+(.+)$', text, re.M):
+        v = [s.strip() for s in line.split(';')[0].split(',')]
+        objects.append({'x': int(v[0]), 'y': int(v[1]), 'sprite': v[2], 'facing': v[4], 'text': v[5], 'args': v[6:]})
+    # Carteles y mostradores (los premios del Casino se piden en uno): sin sprite,
+    # pero con su texto, que sirve para saber quien da cada cosa.
+    for x, y, text_id in re.findall(r'^[ \t]*bg_event[ \t]+(\d+),[ \t]*(\d+),[ \t]*(\w+)', text, re.M):
+        objects.append({'x': int(x), 'y': int(y), 'sprite': 'SIGN', 'facing': 'NONE', 'text': text_id, 'args': []})
+    return warps, objects
+
+
+def draw_objects(img, objects, frames, palette):
+    """Pinta los personajes y objetos del mapa sobre su imagen (el blanco es transparente)."""
+    colors = np.array(palette, dtype=np.uint8)
+    arr = np.array(img)
+    for o in objects:
+        f = frames.get(o['sprite'])
+        if f is None:
+            continue
+        x, y = o['x'] * STEP, o['y'] * STEP - 4
+        h, w = f.shape
+        y0, x0 = max(0, y), max(0, x)
+        sub = f[y0 - y:h, x0 - x:w]
+        if not sub.size:
+            continue
+        region = arr[y0:y0 + sub.shape[0], x0:x0 + sub.shape[1]]
+        mask = sub[:region.shape[0], :region.shape[1]] > 0
+        region[mask] = colors[sub[:region.shape[0], :region.shape[1]][mask]]
+    return Image.fromarray(arr)
+
+
+def tile_grid(m):
+    """Tile de arriba a la izquierda de cada casilla de 16 px (para buscar hierba y agua)."""
+    tiles, blocks = d.tileset(m['tileset'])
+    grid = d.blocks_of(m)
+    out = np.zeros((m['height'] * 2, m['width'] * 2), dtype=np.int32)
+    for by in range(m['height']):
+        for bx in range(m['width']):
+            ids = blocks[grid[by, bx]] if grid[by, bx] < len(blocks) else [0] * 16
+            for sy in range(2):
+                for sx in range(2):
+                    out[by * 2 + sy, bx * 2 + sx] = ids[(sy * 2 + 1) * 4 + sx * 2]
+    return out
+
+
+def grass_tiles():
+    """Tileset -> tile de hierba alta (data/tilesets/tileset_headers.asm), si tiene."""
+    out = {}
+    names = list(d.tileset_files())
+    for name, grass in re.findall(r'tileset (\w+),\s*[-$\w]+,\s*[-$\w]+,\s*[-$\w]+,\s*([-$\w]+),', asm('data/tilesets/tileset_headers.asm')):
+        const = re.sub(r'(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Z])', '_', name).upper()
+        if grass.startswith('$'):
+            out[const] = int(grass[1:], 16)
+    return out
+
+
+def walkable_tiles():
+    """Tileset -> tiles por los que se camina (data/tilesets/collision_tile_ids.asm)."""
+    out, pending = {}, []
+    for label, tiles in re.findall(r'^(\w+)_Coll::(?:\s*coll_tiles ([^\n]*))?', asm('data/tilesets/collision_tile_ids.asm'), re.M):
+        pending.append(label)
+        if tiles:
+            ids = {int(t.strip()[1:], 16) for t in tiles.split(',') if t.strip().startswith('$')}
+            for name in pending:
+                out[re.sub(r'(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Z])', '_', name).upper()] = ids
+            pending = []
+    return out
+
+
+def wild_tables(consts):
+    """Constante del mapa -> {'Grass'|'Surf': {especie: (min, max, probabilidad)}}."""
+    pointers = re.findall(r'dw (\w+)', asm('data/wild/grass_water.asm'))
+    by_index = {m['index']: m['const'] for m in consts}
+    out = {}
+    for i, label in enumerate(pointers):
+        const = by_index.get(i)
+        path = next((f for f in os.listdir(d.path('data/wild/maps')) if asm('data/wild/maps', f).startswith(f'{label}:')), None)
+        if not const or not path:
+            continue
+        text = asm('data/wild/maps', path)
+        tables = {}
+        for kind, method in (('grass', 'Grass'), ('water', 'Surf')):
+            body = re.search(rf'def_{kind}_wildmons (\d+).*?\n(.*?)end_{kind}_wildmons', text, re.S)
+            if not body or body.group(1) == '0':
+                continue
+            t = {}
+            for slot, (lv, sp) in enumerate(re.findall(r'db\s+(\d+),\s*(\w+)', body.group(2))):
+                lo, hi, ch = t.get(sp, (99, 0, 0))
+                t[sp] = (min(lo, int(lv)), max(hi, int(lv)), ch + SLOTS[slot])
+            tables[method] = {sp: (lo, hi, round(ch * 100 / 256)) for sp, (lo, hi, ch) in t.items()}
+        if tables:
+            out[const] = tables
+    # Super Cana: de 2 a 4 especies por mapa, todas con la misma probabilidad.
+    for const, pairs in super_rod():
+        t = {}
+        for sp, lv in pairs:
+            lo, hi, ch = t.get(sp, (99, 0, 0))
+            t[sp] = (min(lo, int(lv)), max(hi, int(lv)), ch + round(100 / len(pairs)))
+        out.setdefault(const, {})['Super Rod'] = t
+        # Cana Vieja y Cana Buena valen en cualquier agua: se ponen donde se pesca.
+        out[const]['Old Rod'] = {'MAGIKARP': (5, 5, 100)}
+        out[const]['Good Rod'] = {'GOLDEEN': (10, 10, 50), 'POLIWAG': (10, 10, 50)}
+    return out
+
+
+def super_rod():
+    """[(mapa, [(especie, nivel)])] de la Super Cana. Yellow pone cuatro por mapa
+    en una linea; Red y Blue, un grupo por mapa (dbw MAPA, .GroupN) con 2 a 4."""
+    text = asm('data/wild/super_rod.asm')
+    if 'dbw ' not in text:
+        return [(const, re.findall(r'(\w+), (\d+)', body)) for const, body in re.findall(r'db (\w+), ((?:\w+, \d+,? ?)+)', text)]
+    groups = {g: [(sp, lv) for lv, sp in re.findall(r'db\s+(\d+),\s*(\w+)', body)]
+              for g, body in re.findall(r'^(\.Group\d+):\n\s*db \d+\n(.*?)(?=^\.Group|\Z)', text, re.M | re.S)}
+    return [(const, groups[g]) for const, g in re.findall(r'dbw (\w+),\s*(\.Group\d+)', text)]
+
+
+def mart_texts():
+    """Etiqueta de texto de un dependiente -> lo que vende."""
+    return {label: [s.strip() for s in items.split(',')] for label, items in re.findall(r'^(\w+)::\n\s*script_mart (.+)$', asm('data/items/marts.asm'), re.M)}
+
+
+def text_labels(label):
+    """TEXT_X del mapa -> etiqueta de su texto en el script (dw_const XText, TEXT_X)."""
+    out = {}
+    for name in os.listdir(d.path('scripts')):
+        if name.split('.')[0].split('_')[0] == label:
+            out.update({c: l for l, c in re.findall(r'dw_const (\w+),\s*(TEXT_\w+)', asm('scripts', name))})
+    return out
+
+
+def map_scripts(label):
+    return '\n'.join(asm('scripts', n) for n in sorted(os.listdir(d.path('scripts'))) if n.split('.')[0].split('_')[0] == label)
+
+
+def label_graph(script):
+    """Etiquetas globales del guion ('CeruleanCityRocketText:'): en que linea
+    empieza cada una y a que otras etiquetas salta o llama (jp, call, ld hl...)."""
+    lines = script.splitlines()
+    starts, owner = [], []
+    for i, line in enumerate(lines):
+        found = re.match(r'^([A-Za-z_]\w*)::?', line)
+        if found:
+            starts.append((i, found[1]))
+        owner.append(starts[-1][1] if starts else None)
+    names = {n for _, n in starts}
+    refs = {n: set() for n in names}
+    for i, line in enumerate(lines):
+        if owner[i]:
+            refs[owner[i]].update(t for t in re.findall(r'\b([A-Za-z_]\w*)\b', line.split(';')[0]) if t in names and t != owner[i])
+    return owner, refs
+
+
+def find_actor(script, offset, actors, texts, fallback):
+    """Casilla del personaje que da lo que hay en `offset` del guion.
+
+    Primero se sigue el guion: el texto de cada personaje (objeto o cartel) es
+    una etiqueta, y desde ella se llega, saltando por las que nombra, a la que
+    contiene el regalo. Si ninguno llega (lo da un guion del mapa tras un
+    combate, como la MT28 del Rocket de Celeste), se busca el personaje cuyo
+    texto comparte palabras con esa etiqueta ('RocketDefeated' -> ROCKET). Si
+    tampoco, el centro del mapa."""
+    owner, refs = label_graph(script)
+    line = script.count('\n', 0, offset)
+    target = owner[line] if line < len(owner) else None
+    if not target:
+        return fallback
+    best = None
+    for a in actors:
+        start = texts.get(a['text'])
+        if not start:
+            continue
+        seen, frontier, depth = {start}, [start], 0
+        while frontier and depth <= 8 and target not in seen:
+            frontier = [r for f in frontier for r in refs.get(f, ()) if r not in seen]
+            seen.update(frontier)
+            depth += 1
+        if target in seen and (best is None or depth < best[0]):
+            best = (depth, a)
+    if best:
+        return best[1]['x'], best[1]['y']
+    generic = {'Script', 'Text', 'Defeated', 'Battle', 'After', 'Before', 'End', 'Give', 'Got', 'Received', 'Default'}
+    words = {w.upper() for w in re.findall(r'[A-Z][a-z]+', target) if w not in generic}
+    scored = [(sum(w in a['text'].split('_') for w in words), a) for a in actors if a.get('text')]
+    scored = [s for s in scored if s[0]]
+    if scored:
+        a = max(scored, key=lambda s: s[0])[1]
+        return a['x'], a['y']
+    # En una tienda lo da el dependiente al entrar (el Paquete de Oak).
+    clerk = next((a for a in actors if a['sprite'] == 'SPRITE_CLERK'), None)
+    return (clerk['x'], clerk['y']) if clerk else fallback
+
+
+def scripted_battles(script):
+    """Combates que lanza un guion: [(clase, equipo)]. Tras poner el rival en
+    wCurOpponent, el equipo va en wTrainerNo: un numero fijo ('ld a, 2' o
+    'ld a, $1') o, con el rival, segun su Pokemon inicial. Un solo combate
+    para la checklist:
+    - Yellow, segun en que evoluciono su Eevee ('ld a, [wRivalStarter]' +
+      'add 4'): el de Jolteon (el 1);
+    - Red y Blue, segun el inicial que eligio ('cp STARTER2' + 'ld a, $1', o
+      una tabla '.StarterTable' de 'db STARTER2, 4'): el primero, cuando el
+      rival tiene a Squirtle (tu elegiste a Charmander)."""
+    out, lines = [], script.splitlines()
+    for i, line in enumerate(lines[:-1]):
+        opp = re.match(r'\s*ld a, OPP_(\w+)\s*$', line)
+        if not opp or 'wCurOpponent' not in lines[i + 1]:
+            continue
+        team, starter = None, False
+        for nxt in lines[i + 2:i + 9]:
+            if 'wTrainerNo' in nxt:
+                break
+            starter = starter or 'wRivalStarter' in nxt
+            value = re.match(r'\s*(ld a,|add) (\$[0-9A-Fa-f]+|\d+)\s*(?:;.*)?$', nxt)
+            table = re.match(r'\s*ld hl, (\.\w*StarterTable)\s*$', nxt)
+            if value:
+                team = int(value[2][1:], 16) if value[2].startswith('$') else int(value[2])
+                team += 1 if starter and value[1] == 'add' else 0
+                break
+            if table:
+                rows = re.search(rf'^{re.escape(table[1])}:\n(?:\s*;[^\n]*\n)*\s*db STARTER\d, (\d+)', '\n'.join(lines[i:]), re.M)
+                team = int(rows[1]) if rows else None
+                break
+        if team is not None:
+            out.append((opp[1], team))
+    return out
+
+
+# Regalos que el juego da tras elegir (no con un GivePokemon fijo): los iniciales
+# de Red y Blue (cada uno en su Poke Ball) y, en Yellow, Pikachu, que Oak entrega
+# con su propia rutina. Mapa -> [(especie, nivel, sprite de quien lo da)].
+CHOICE_GIFTS = {'FIGHTING_DOJO': [('HITMONLEE', 30, None), ('HITMONCHAN', 30, None)],
+                'CINNABAR_LAB_FOSSIL_ROOM': [('OMANYTE', 30, None), ('KABUTO', 30, None), ('AERODACTYL', 30, None)]}
+STARTERS = {'yellow': [('PIKACHU', 5, 'SPRITE_OAK')],
+            'rb': [('CHARMANDER', 5, None), ('SQUIRTLE', 5, None), ('BULBASAUR', 5, None)]}
+# Premios del Casino de Azulona (data/events/prizes.asm).
+PRIZE_ROOM = 'GAME_CORNER_PRIZE_ROOM'
+
+
+def main():
+    game = d.use()
+    out = d.OUT
+    OUT_IMG, OUT_DATA, OUT_SPRITES, ICONS = f'public/{out}/areas', f'public/{out}/data', f'public/{out}/sprites', f'public/icons/{out}'
+    # Sprite grande de cada especie (panel de encuentros): el del juego, en su color.
+    SPRITE = f'/{out}/sprites/p{{}}.png'
+    versions = game['versions']
+    maps, consts = d.maps(), d.map_consts()
+    numbers, names = dex_numbers(), species_names()
+    sprite_files = load_sprites()
+    frames = {s: sprite_frame(p) for s, p in sprite_files.items()}
+    outdoor_names, indoor_names = zone_names()
+    grass = grass_tiles()
+    walkable = walkable_tiles()
+
+    shutil.rmtree(OUT_IMG, ignore_errors=True)
+    shutil.rmtree(ICONS, ignore_errors=True)
+    shutil.rmtree(OUT_SPRITES, ignore_errors=True)
+    os.makedirs(OUT_IMG)
+    os.makedirs(OUT_DATA, exist_ok=True)
+    save_mon_images(ICONS, OUT_SPRITES)
+
+    def zone_of(const):
+        m = maps[const]
+        if not m['indoor']:
+            return outdoor_names[m['index']] if m['index'] < len(outdoor_names) else title(const.replace('_', ' '))
+        return split_zone(indoor_names.get(m.get('outside'), title((m.get('outside') or const).replace('_', ' '))), const)
+
+    objects_of = {c: parse_objects(m['label']) for c, m in maps.items()}
+
+    # Kanto: exteriores unidos, con sus personajes y objetos pintados.
+    kanto = place_kanto(maps)
+    w = max(x + maps[c]['width'] for c, (x, y) in kanto.items())
+    h = max(y + maps[c]['height'] for c, (x, y) in kanto.items())
+    region = Image.new('RGB', (w * d.BLOCK, h * d.BLOCK), (8, 8, 12))
+    for c, (x, y) in kanto.items():
+        img = draw_objects(d.render(maps[c]), objects_of[c][1], frames, d.palette_of(maps[c]))
+        region.paste(img, (x * d.BLOCK, y * d.BLOCK))
+    region.save(f'{OUT_IMG}/kanto.png', optimize=True)
+    areas = [{'id': 'kanto', 'kind': 'region', 'label': 'Kanto', 'image': f'/{out}/areas/kanto.png', 'width': region.width, 'height': region.height}]
+    where = {c: ('kanto', x * 2, y * 2) for c, (x, y) in kanto.items()}
+
+    # Interiores: uno por mapa, agrupados por zona. Los mapas sin salida desde el
+    # juego normal (sin usar, sala del cable) se saltan.
+    reachable = {dest for ws, _ in objects_of.values() for _, _, dest, _ in ws}
+    floor_of = {}
+    for c, m in maps.items():
+        if c in where or c not in reachable or c.startswith(('UNUSED', 'TRADE_CENTER', 'COLOSSEUM')):
+            continue
+        zone = zone_of(c)
+        label = map_label(m['label'], zone)
+        img = draw_objects(d.render(m), objects_of[c][1], frames, d.palette_of(m))
+        rel = f'{slug(zone)}/{slug(m["label"])}.png'
+        os.makedirs(os.path.dirname(f'{OUT_IMG}/{rel}'), exist_ok=True)
+        img.save(f'{OUT_IMG}/{rel}', optimize=True)
+        areas.append({'id': c, 'kind': 'interior', 'zone': zone, 'label': label, 'image': f'/{out}/areas/{rel}', 'width': img.width, 'height': img.height})
+        where[c] = (c, 0, 0)
+        floor_of[c] = label
+
+    def at(c, x, y):
+        area, ox, oy = where[c]
+        return area, [(ox + x) * STEP + STEP // 2, (oy + y) * STEP + STEP // 2]
+
+    def location(c):
+        return floor_of.get(c, zone_of(c))
+
+    # Lugares de Kanto: cada zona exterior, en el centro de sus mapas.
+    places = place_list([(zone_of(c), 'kanto', (x + maps[c]['width'] / 2) * d.BLOCK, (y + maps[c]['height'] / 2) * d.BLOCK)
+                         for c, (x, y) in kanto.items()])
+
+    # Marcadores, puertas y encuentros con las reglas comunes (common/world.py).
+    # El uid lleva el juego delante ('yellow:') para no chocar con el progreso de otros.
+    world = World(tile=STEP, uid_prefix=game['uid'])
+
+    # En Gen 1 los objetos no tienen icono: todos son la Poke Ball del mapa.
+    def item_icon(_const):
+        return sprite_icon('SPRITE_POKE_BALL')
+
+    def sprite_icon(sprite):
+        f = frames.get(sprite)
+        if f is None:
+            return None
+        rel = f'{out}/npc/{slug(sprite.removeprefix("SPRITE_"))}.png'
+        if not os.path.exists(f'public/icons/{rel}'):
+            os.makedirs(os.path.dirname(f'public/icons/{rel}'), exist_ok=True)
+            rgba = np.zeros((16, 16, 4), dtype=np.uint8)
+            shades = np.array([(255, 255, 255, 0), (170, 170, 170, 255), (85, 85, 85, 255), (16, 16, 16, 255)], dtype=np.uint8)
+            rgba[:] = shades[f]
+            Image.fromarray(rgba, 'RGBA').save(f'public/icons/{rel}', optimize=True)
+        return rel
+
+    def mon(sp):
+        return names[numbers[sp]]
+
+    def mon_icon(sp):
+        return f'{out}/pokemon/p{numbers[sp]}.png'
+
+    # Cada version se lee aparte (sus ramas IF DEF) y sus marcadores se guardan
+    # aqui; al final, los que salen igual en todas van una vez, sin version.
+    pending = {}
+    for version in versions:
+        d.use_version(version)
+        calls = pending[version] = []
+        first = version == versions[0]
+        items = load_items()
+        class_name, parties = load_trainers(numbers, names)
+        wild = wild_tables(consts)
+        marts = mart_texts()
+        trades = re.findall(r'npctrade (\w+),\s*(\w+),', asm('data/events/trades.asm'))
+        trade_ids = re.findall(r'const (TRADE_FOR_\w+)', asm('constants/script_constants.asm')) if os.path.exists(d.path('constants/script_constants.asm')) else []
+
+        def add(c, category, name, x, y, **kw):
+            area, px = at(c, x, y)
+            calls.append(dict(map_id=c, area=area, at=px, location=location(c), zone=zone_of(c), floor=floor_of.get(c),
+                              category=category, name=name, x=x, y=y, **kw))
+
+        for c, m in maps.items():
+            if c not in where:
+                continue
+            ws, objs = objects_of[c]
+            texts = text_labels(m['label'])
+            script = map_scripts(m['label'])
+            for o in objs:
+                x, y, args = o['x'], o['y'], o['args']
+                if args and args[0].startswith('OPP_'):
+                    cls, n = args[0].removeprefix('OPP_'), int(args[1]) if len(args) > 1 else 1
+                    # El rival del mapa lleva un equipo de relleno: el de verdad lo pone el guion.
+                    if cls.startswith('RIVAL') and any(k.startswith('RIVAL') for k, _ in scripted_battles(script)):
+                        continue
+                    # Giovanni solo es lider en su gimnasio; en el Escondite y en Silph es
+                    # el jefe del Team Rocket ("Boss Giovanni", como en FRLG).
+                    who = 'Boss Giovanni' if cls == 'GIOVANNI' and c != 'VIRIDIAN_GYM' else class_name.get(cls, title(cls.replace('_', ' ')))
+                    add(c, 'Battle', who, x, y, icon=sprite_icon(o['sprite']),
+                        detail=parties.get((cls, n)))
+                elif args and args[0] in numbers and len(args) > 1:
+                    sp, lv = args[0], int(args[1])
+                    add(c, 'Pokémon', mon(sp), x, y, key=f'static:{sp}', catch=sp, icon=mon_icon(sp),
+                        encounter={'min': lv, 'max': lv, 'chance': 100, 'methods': ['Static encounter'], 'sprite': SPRITE.format(numbers[sp])})
+                elif args and args[0] in items:
+                    add(c, 'Item In Map', items[args[0]], x, y, icon=item_icon(args[0]))
+                elif o['sprite'] == 'SPRITE_BOULDER':
+                    add(c, 'Obstacle', 'Strength boulder', x, y, icon=sprite_icon('SPRITE_BOULDER'))
+                else:
+                    label = texts.get(o['text'])
+                    if label in marts:
+                        sold = ', '.join(items[i] for i in marts[label] if i in items)
+                        add(c, 'Shop', 'Poké Mart', x, y, icon=sprite_icon(o['sprite']), detail=f'Sells {sold}')
+
+            # Regalos, intercambios y combates que da el script del mapa. Van sobre el
+            # personaje que los da si se sabe, o en el centro del mapa.
+            cx, cy = m['width'], m['height']
+            who = lambda offset: find_actor(script, offset, objs, texts, (cx, cy))
+            for g in re.finditer(r'lb bc, (\w+), (\d+)\n(?:[^\n]*\n){0,3}?\s*call GivePokemon', script):
+                sp, lv = g.groups()
+                if sp in numbers:
+                    add(c, 'In-Game Gift Pokémon', mon(sp), *who(g.start()), key=f'gift:{sp}', icon=mon_icon(sp), detail=f'Lv{lv}', once=True)
+            # Los que se eligen: sobre el objeto que los nombra (la Poke Ball de
+            # Hitmonlee o de Charmander), sobre quien lo da (Oak) o sobre quien
+            # llama a GivePokemon.
+            give = script.find('call GivePokemon')
+            for sp, lv, sprite in CHOICE_GIFTS.get(c, []) + (STARTERS[out] if c == 'OAKS_LAB' else []):
+                named = next((o for o in objs if sp in o['text'].split('_')), None) or next((o for o in objs if o['sprite'] == sprite), None)
+                px, py = (named['x'], named['y']) if named else who(give) if give >= 0 else (cx, cy)
+                add(c, 'In-Game Gift Pokémon', mon(sp), px, py, key=f'gift:{sp}', icon=mon_icon(sp), detail=f'Lv{lv}', once=True)
+            for g in re.finditer(r'lb bc, (\w+), (\d+)\n(?:[^\n]*\n){0,3}?\s*call GiveItem', script):
+                it, q = g.groups()
+                if it in items:
+                    # Objetos que se ven en el mapa (fosiles, Ambar Viejo, Mapa): sobre si mismos.
+                    named = next((o for o in objs if o['text'].endswith('_' + it) and o['sprite'] != 'SPRITE_POKE_BALL'), None)
+                    px, py = (named['x'], named['y']) if named else who(g.start())
+                    add(c, 'Item Gift', items[it] + (f' ×{q}' if int(q) > 1 else ''), px, py, key=f'gift:{it}', icon=item_icon(it))
+            # El primero es el 0: Red y Blue lo cargan con 'xor a ; TRADE_FOR_TERRY'.
+            for g in re.finditer(r'(?:ld a, |xor a ; )(TRADE_FOR_\w+)', script):
+                tid = g.group(1)
+                if tid in trade_ids and trade_ids.index(tid) < len(trades):
+                    give_mon, get = trades[trade_ids.index(tid)]
+                    add(c, 'In-Game Trade', mon(get), *who(g.start()), key=f'trade:{get}', icon=mon_icon(get), detail=f'Trade your {mon(give_mon)}', once=True)
+            # Pokemon fijos que lanza el guion (Snorlax): van sobre su sprite.
+            for sp, lv in re.findall(r'ld a, (\w+)\n\s*ld \[wCurOpponent\], a\n\s*ld a, (\d+)\n\s*ld \[wCurEnemyLevel\], a', script):
+                if sp in numbers:
+                    body = next((o for o in objs if o['sprite'] == f'SPRITE_{sp}'), None)
+                    px, py = (body['x'], body['y']) if body else (cx, cy)
+                    add(c, 'Pokémon', mon(sp), px, py, key=f'static:{sp}', catch=sp, icon=mon_icon(sp),
+                        encounter={'min': int(lv), 'max': int(lv), 'chance': 100, 'methods': ['Static encounter'], 'sprite': SPRITE.format(numbers[sp])})
+            for cls, n in scripted_battles(script):
+                # Sobre quien pelea: el rival, o Jessie y James (en Yellow son los
+                # Rocket de los guiones de Mt. Moon, la Torre, el Escondite y Silph).
+                duo = next((o for o in objs if o['sprite'] in ('SPRITE_JESSIE', 'SPRITE_JAMES')), None)
+                sprites = ('SPRITE_BLUE',) if cls.startswith('RIVAL') else ('SPRITE_JESSIE', 'SPRITE_JAMES', 'SPRITE_ROCKET')
+                rival = next((o for s_ in sprites for o in objs if o['sprite'] == s_), None)
+                px, py = (rival['x'], rival['y']) if rival else (cx, cy)
+                name = 'Jessie & James' if cls == 'ROCKET' and duo else class_name.get(cls, title(cls))
+                add(c, 'Battle', name, px, py, key=f'scene:{cls}:{n}', detail=parties.get((cls, int(n))),
+                    icon=sprite_icon(rival['sprite']) if rival else None, once=False)
+
+            # Objetos ocultos de este mapa.
+            hidden = re.search(rf'hidden_events_for {c}\n(.*?)db -1', asm('data/events/hidden_events.asm'), re.S)
+            for hx, hy, kind, what in re.findall(r'hidden_event\s+(\d+),\s*(\d+),\s*(HiddenItems|HiddenCoins),\s*([\w+]+)', hidden.group(1) if hidden else ''):
+                # Los que caen fuera del mapa no se pueden coger (la Pepita de la entrada
+                # de la Zona Safari: "; inaccessible" en el propio juego).
+                if not (int(hx) < m['width'] * 2 and int(hy) < m['height'] * 2):
+                    continue
+                if kind == 'HiddenCoins':
+                    n = int(what.split('+')[1]) if '+' in what else 10
+                    add(c, 'Hidden Item', f'Coins ×{n}', int(hx), int(hy), icon=item_icon('COIN_CASE'))
+                elif what in items:
+                    add(c, 'Hidden Item', items[what], int(hx), int(hy), icon=item_icon(what))
+
+            # Salvajes: un pin por especie y mapa, sobre la hierba o el agua.
+            tables = wild.get(c)
+            if tables:
+                grid = tile_grid(m)
+                center = (m['width'], m['height'])
+                # Sin hierba (cuevas, Central Electrica): en el suelo por el que se camina.
+                # Nunca sobre un personaje, un objeto o un cartel: se juntaria con el.
+                taken = {(o['x'], o['y']) for o in objs}
+                floor = spot(grid, walkable.get(m['tileset'], set()), center, taken)
+                land = spot(grid, grass[m['tileset']], floor, taken) if m['tileset'] in grass else floor
+                water = spot(grid, WATER_TILE, land, taken)
+                # "Cave" solo en cuevas de verdad (tileset de caverna), como FRLG con sus
+                # mapas subterraneos. El Bosque Verde y la Zona Safari son interiores en
+                # Gen 1 pero sus encuentros son en la hierba; la Torre, la Mansion y la
+                # Central Electrica cuentan como en FRLG.
+                cave = m['tileset'] == 'CAVERN'
+                for sp in sorted({s for t in tables.values() for s in t}):
+                    rows = [(method, t[sp]) for method, t in tables.items() if sp in t]
+                    methods = ['Cave' if method == 'Grass' and cave else method for method, _ in rows]
+                    x, y = land if rows[0][0] == 'Grass' else water
+                    add(c, 'Pokémon', mon(sp), x, y, key=f'wild:{sp}', catch=sp, icon=mon_icon(sp),
+                        encounter={'min': min(r[0] for _, r in rows), 'max': max(r[1] for _, r in rows), 'chance': max(r[2] for _, r in rows),
+                                   'methods': methods, 'sprite': SPRITE.format(numbers[sp])})
+                    for method, (lo, hi, ch) in rows:
+                        n = numbers[sp]
+                        world.encounter(version, zone_of(c), n, mon(sp), SPRITE.format(n), location(c), ch, lo, hi,
+                                        'Cave' if method == 'Grass' and cave else method)
+
+            # Puertas y escaleras (iguales en todas las versiones). LAST_MAP es "el
+            # exterior del que viniste": el mapa que tiene una puerta hacia este. Solo
+            # exteriores (el B1F del Mt. Moon tiene escaleras al 1F, pero la salida del
+            # 1F da a la Ruta 4), y mejor el que tiene en la puerta `n` una hacia aqui.
+            for wx, wy, dest, n in ws if first else ():
+                if dest == 'LAST_MAP':
+                    outs = [o for o, (ows, _) in objects_of.items() if o in where and o != c and not maps[o]['indoor'] and any(t == c for _, _, t, _ in ows)]
+                    dest = next((o for o in outs if 1 <= n <= len(objects_of[o][0]) and objects_of[o][0][n - 1][2] == c), outs[0] if outs else None)
+                if not dest or dest not in where:
+                    continue
+                targets = objects_of[dest][0]
+                if not 1 <= n <= len(targets):
+                    continue
+                src_area, src = at(c, wx, wy)
+                dst_area, dst = at(dest, targets[n - 1][0], targets[n - 1][1])
+                world.warp(src_area, src, dst_area, dst)
+
+        # Premios del Casino (se compran con fichas: cuentan como regalo).
+        # Cada mostrador tiene su lista (prizes.asm, en el mismo orden): los
+        # Pokemon de los dos primeros van sobre su mostrador.
+        prizes = asm('data/events/prizes.asm')
+        vendors = [o for o in objects_of.get(PRIZE_ROOM, ([], []))[1] if 'PRIZE_VENDOR' in o['text']]
+        lists = [re.findall(r'\b([A-Z_]+)\b', body) for body in re.split(r'^\w+:', prizes, flags=re.M)[1:]]
+        lists = [lst for lst in lists if any(x in numbers or x in items for x in lst)]
+        for i, lst in enumerate(lists):
+            spot_x, spot_y = (vendors[i]['x'], vendors[i]['y']) if i < len(vendors) else (maps[PRIZE_ROOM]['width'], maps[PRIZE_ROOM]['height'])
+            for sp in dict.fromkeys(lst):
+                if sp in numbers and PRIZE_ROOM in where:
+                    add(PRIZE_ROOM, 'In-Game Gift Pokémon', mon(sp), spot_x, spot_y, key=f'prize:{sp}',
+                        icon=mon_icon(sp), detail='Game Corner prize', once=True)
+
+    # Lo que sale igual en todas las versiones va una vez; lo demas, con la suya.
+    key = lambda kw: json.dumps(kw, sort_keys=True, ensure_ascii=False)
+    common = None
+    for version in versions:
+        counts = Counter(key(kw) for kw in pending[version])
+        common = counts if common is None else common & counts
+    for version in versions:
+        left = Counter(common)
+        for kw in pending[version]:
+            if left[key(kw)] > 0:
+                left[key(kw)] -= 1
+                if version == versions[0]:
+                    world.add(**kw)
+            else:
+                world.add(**kw, version=version)
+
+    world.check()
+    merged = world.merged_warps({a['id']: (a['width'], a['height']) for a in areas})
+    dump(f'{OUT_DATA}/areas.json', {'areas': areas, 'warps': merged, 'places': places})
+    # Cada MT/MO con el ataque que ensena (el orden de add_tm/add_hm).
+    consts = re.findall(r'^\s*const (\w+)', asm('constants/move_constants.asm').split('DEF NUM_ATTACKS')[0], re.M)[1:]
+    move_name = dict(zip(consts, (title(n) for n in re.findall(r'li "([^"]*)"', asm('data/moves/names.asm')))))
+    items_asm = asm('constants/item_constants.asm')
+    teach = {f'TM{i:02d}': move_name.get(m, title(m.replace('_', ' '))) for i, m in enumerate(re.findall(r'^\s*add_tm (\w+)', items_asm, re.M), 1)}
+    teach |= {f'HM{i:02d}': move_name.get(m, title(m.replace('_', ' '))) for i, m in enumerate(re.findall(r'^\s*add_hm (\w+)', items_asm, re.M), 1)}
+    for mk in world.markers:
+        if mk['name'] in teach:
+            mk['move'] = teach[mk['name']]
+    dump(f'{OUT_DATA}/markers.json', world.markers)
+    for version in versions:
+        dump(f'{OUT_DATA}/encounters-{version}.json', world.encounter_zones(version))
+    dump(f'{OUT_DATA}/checklist.json', build_checklist(world.markers, areas, PARTS, game['repo'],
+                                                       f'Area order follows the story of Pokémon {game["name"]}.'))
+    print(world.summary(areas, merged, places))
+
+
+# --- Checklist -------------------------------------------------------------------------
+
+PARTS = [
+    ('Pallet Town', ['Pallet Town']),
+    ('Route 1 → Viridian City', ['Route 1', 'Viridian City', 'Route 22', 'Route 2']),
+    ('Viridian Forest → Pewter City', ['Viridian Forest', 'Pewter City']),
+    ('Route 3 → Mt. Moon → Route 4', ['Route 3', 'Mt. Moon', 'Route 4']),
+    ('Cerulean City → Nugget Bridge', ['Cerulean City', 'Route 24', 'Route 25', "Bill's House"]),
+    ('Route 5 → Vermilion City', ['Route 5', 'Underground Path North–South', 'Route 6', 'Vermilion City', 'S.S. Anne']),
+    ("Route 11 → Diglett's Cave", ['Route 11', "Diglett's Cave"]),
+    ('Route 9 → Rock Tunnel', ['Route 9', 'Route 10', 'Rock Tunnel', 'Power Plant']),
+    ('Lavender Town → Celadon City', ['Lavender Town', 'Route 8', 'Underground Path East–West', 'Route 7', 'Celadon City', 'Rocket Hideout']),
+    ('Pokémon Tower', ['Pokémon Tower']),
+    ('Saffron City → Silph Co.', ['Saffron City', 'Silph Co.']),
+    ('Route 12 → Fuchsia City', ['Route 12', 'Route 13', 'Route 14', 'Route 15', 'Route 16', 'Route 17', 'Route 18',
+                                 'Fuchsia City', 'Safari Zone']),
+    ('Route 19 → Cinnabar Island', ['Route 19', 'Route 20', 'Seafoam Islands', 'Cinnabar Island', 'Pokémon Mansion', 'Route 21']),
+    ('Victory Road → Indigo Plateau', ['Route 23', 'Victory Road', 'Indigo Plateau', 'Pokémon League']),
+    ('Post-game', ['Cerulean Cave']),
+]
+if __name__ == '__main__':
+    main()

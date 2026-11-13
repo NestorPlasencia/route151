@@ -47,9 +47,9 @@ def spanish(entry):
 
 
 def wanted_items():
-    """Objetos que muestran los juegos: los de FRLG y los de Amarillo."""
+    """Objetos que muestran los juegos: los de FRLG, Amarillo, Rojo y Azul."""
     names = set()
-    for path in ('public/frlg/data/markers.json', 'public/yellow/data/markers.json'):
+    for path in ('public/frlg/data/markers.json', 'public/yellow/data/markers.json', 'public/rb/data/markers.json'):
         for m in json.load(io.open(path, encoding='utf-8')):
             if m['category'] in ('Item In Map', 'Hidden Item', 'Item Gift'):
                 names.add(re.sub(r' ×\d+$', '', m['name']))
@@ -136,7 +136,7 @@ def main():
     abilities = {battle['abilities'][k]: v for k, v in abilities.items()}
     # Los ataques de las MT/MO de los dos juegos (la app los pone junto a la MT),
     # aunque FRLG no los use: Viento Cortante es la MT02 de Amarillo.
-    taught = sorted({m['move'] for path in ('public/frlg/data/markers.json', 'public/yellow/data/markers.json')
+    taught = sorted({m['move'] for path in ('public/frlg/data/markers.json', 'public/yellow/data/markers.json', 'public/rb/data/markers.json')
                      for m in json.load(io.open(path, encoding='utf-8')) if m.get('move')} - set(moves))
     with ThreadPoolExecutor(8) as pool:
         for name, entry in zip(taught, pool.map(lambda n: fetch(f'{API}/move/{slug(n)}'), taught)):

@@ -14,7 +14,7 @@ await test('nearby screen pins and doors group together without losing any membe
  assert.equal(clusterPoints(entries,([x,y])=>({x:x*20,y:y*20}),42).length,3);
 });
 await test('every actual checklist zone has a full Spanish translation or a numbered route',async()=>{
- for(const prefix of ['yellow','frlg']){
+ for(const prefix of ['rb','yellow','frlg']){
   const checklist=JSON.parse(await readFile(new URL(`../public/${prefix}/data/checklist.json`,import.meta.url),'utf8'));
   for(const zone of checklist.zones)assert.ok(PLACES[zone.name]||/^Route \d+$/.test(zone.name),zone.name);
  }

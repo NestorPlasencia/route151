@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Route 151 — Pokémon Companion',
     short_name: 'Route 151',
-    description: 'Interactive map, checklist and Pokédex for Pokémon Yellow, FireRed and LeafGreen.',
+    description: 'Interactive map, checklist and Pokédex for Pokémon Red, Blue, Yellow, FireRed and LeafGreen.',
     start_url: '/',
     scope: '/',
     display: 'standalone',

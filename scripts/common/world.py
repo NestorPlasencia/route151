@@ -1,7 +1,7 @@
 """Nucleo comun de los generadores de mapas y marcadores (FRLG, Yellow...).
 
 Cada juego tiene un adaptador que sabe leer su decompilacion (scripts/frlg,
-scripts/yellow) y entrega lo que encuentra; aqui se hace, igual para todos:
+scripts/gen1) y entrega lo que encuentra; aqui se hace, igual para todos:
 
 - marcadores: su id y su uid (el progreso guardado), sin repetir regalos ni
   escenas, con zona, piso, detalle, encuentro y version;
